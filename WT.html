@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="de" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Der Freundliche Waldteufel - Ein interaktives Abenteuer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Forest -->
+    <!-- Application Structure Plan: Die SPA ist als interaktives Storybook konzipiert. Eine feste seitliche Navigation ermöglicht den direkten Zugriff auf die vier Kapitel der Geschichte, was eine nicht-lineare Erkundung fördert. Jedes Kapitel kombiniert den erzählenden Text mit einem einzigartigen interaktiven Element (Charakter-Map, Schild-Aktivierung, Rätsel-Lösung, Machtbalance-Diagramm), um die Kernbotschaft der jeweiligen Sektion zu visualisieren und den Benutzer aktiv einzubinden. Diese Struktur wurde gewählt, um das Engagement über das passive Lesen hinaus zu steigern und die Themen Freundschaft und Zusammenarbeit erlebbar zu machen. -->
+    <!-- Visualization & Content Choices: Teil 1 (Charaktere) -> Ziel: Organisieren -> HTML/JS Charakter-Map -> Interaktion: Hover für Details -> Justification: Stellt die Hauptfiguren und ihre Beziehungen visuell vor. Teil 2 (Bedrohung) -> Ziel: Veränderung zeigen -> HTML/JS Diagramm -> Interaktion: Klick aktiviert "Schutzschild" -> Justification: Macht den Akt des Zusammenhalts direkt erlebbar. Teil 3 (Rätsel) -> Ziel: Informieren -> HTML/JS Rätsel-Anzeige -> Interaktion: Klick enthüllt die Lösung -> Justification: Fokussiert auf die zentrale Botschaft der Geschichte. Teil 4 (Kampf) -> Ziel: Vergleichen -> Chart.js Balkendiagramm -> Interaktion: Klick visualisiert den Sieg durch Einheit -> Justification: Stellt den abstrakten Machtkampf klar und dynamisch dar. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #FDFBF8;
+            color: #4F4A45;
+        }
+        h1, h2, h3 {
+            font-family: 'Cormorant Garamond', serif;
+        }
+        .story-text p {
+            margin-bottom: 1rem;
+            line-height: 1.75;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+        }
+        .nav-link.active {
+            background-color: #8A9A5B;
+            color: #FDFBF8;
+            transform: translateX(10px);
+        }
+        .character-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .character-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #schutzschild.active {
+            box-shadow: 0 0 40px 15px rgba(138, 154, 91, 0.7);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <div class="flex min-h-screen">
+        <nav id="sidebar" class="w-64 bg-[#F5F1E9] p-8 hidden lg:flex flex-col fixed top-0 left-0 h-full">
+            <h2 class="text-2xl font-bold mb-8 text-[#6A635D]">Kapitel</h2>
+            <ul class="space-y-4">
+                <li><a href="#teil1" class="nav-link block p-3 rounded-lg font-semibold">Teil 1: Die Begegnung</a></li>
+                <li><a href="#teil2" class="nav-link block p-3 rounded-lg font-semibold">Teil 2: Die Bedrohung</a></li>
+                <li><a href="#teil3" class="nav-link block p-3 rounded-lg font-semibold">Teil 3: Das Kristall</a></li>
+                <li><a href="#teil4" class="nav-link block p-3 rounded-lg font-semibold">Teil 4: Der Zauberer</a></li>
+            </ul>
+        </nav>
+
+        <main class="flex-1 lg:ml-64">
+            <div class="max-w-4xl mx-auto p-6 sm:p-12">
+                
+                <header class="text-center mb-16">
+                    <h1 class="text-6xl font-bold text-[#8A9A5B]">Der Freundliche Waldteufel</h1>
+                    <p class="text-xl mt-2 text-gray-500">Ein interaktives Abenteuer von Zaminia</p>
+                </header>
+
+                <section id="teil1" class="mb-24 space-y-8">
+                    <h2 class="text-4xl font-bold border-b-2 border-[#D4C5A3] pb-2">Teil 1: Die magische Begegnung</h2>
+                    <div class="bg-white/50 p-8 rounded-lg shadow-sm story-text">
+                        <p>Der Nebel lag noch schwer über dem alten Wald, als die ersten Sonnenstrahlen durch das dichte Blätterdach brachen. Ein leises Rascheln ertönte hinter den Farnen. „Wer… wer ist da?“ flüsterte ein kleiner Hase, der sich zitternd versteckte.</p>
+                        <p>Plötzlich blitzte etwas Grünes zwischen den Bäumen auf. Kleine rote Hörner leuchteten im Morgenlicht, und ein langer, schimmernder Zauberschwanz schwang elegant hinter ihm her. „Keine Angst“, sagte eine tiefe, aber sanfte Stimme. „Ich bin der Waldteufel. Ich bin hier, um zu helfen.“</p>
+                        <p>„Ein… Teufel?“ stotterte der Hase. „Aber du siehst gar nicht böse aus!“</p>
+                        <p>„Nur mein Aussehen wirkt einschüchternd“, lachte der Teufel. „Mein Herz ist freundlich, und mein Zauberschwanz kann Wunder wirken.“</p>
+                        <p>Noch ehe der Hase antworten konnte, hörten sie ein verzweifeltes Quieken. Ein kleiner Vogel hing in einem alten Netz. Der Waldteufel befreite ihn sanft. Kurz darauf half er einem verletzten Fuchs, dessen Pfote eingeklemmt war. Die Tiere des Waldes, angeführt von der weisen Eule, erkannten schnell sein gutes Herz.</p>
+                         <p>Am Abend versammelten sich alle Tiere. Der Waldteufel schwang seinen Schwanz, und funkelnde Lichter tanzten zwischen den Bäumen. Gemeinsam feierten sie ihre neue Freundschaft.</p>
+                    </div>
+                    <div class="bg-white p-8 rounded-lg shadow">
+                        <h3 class="text-2xl font-bold text-center mb-6">Die Freunde des Waldes</h3>
+                         <p class="text-center text-gray-600 mb-8">Bewege die Maus über eine Figur, um mehr über sie zu erfahren. Dieses interaktive Element zeigt die Charaktere und ihre Rolle in der Gemeinschaft des Waldes.</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 text-center">
+                            <div class="character-card p-4 rounded-lg bg-[#F5F1E9]" data-info="Der freundliche Held der Geschichte. Trotz seines Namens hat er ein gutes Herz und hilft allen Tieren.">
+                                <div class="text-5xl">😈</div>
+                                <p class="font-bold mt-2">Waldteufel</p>
+                            </div>
+                            <div class="character-card p-4 rounded-lg bg-[#F5F1E9]" data-info="Anfangs ängstlich, aber mutig. Er ist einer der ersten Freunde des Waldteufels.">
+                                <div class="text-5xl">🐰</div>
+                                <p class="font-bold mt-2">Hase</p>
+                            </div>
+                            <div class="character-card p-4 rounded-lg bg-[#F5F1E9]" data-info="Wurde vom Waldteufel aus einem Netz gerettet und ist ihm ewig dankbar.">
+                               <div class="text-5xl">🐦</div>
+                                <p class="font-bold mt-2">Vogel</p>
+                            </div>
+                             <div class="character-card p-4 rounded-lg bg-[#F5F1E9]" data-info="Ihm wurde geholfen, als seine Pfote eingeklemmt war. Ein treuer Verbündeter.">
+                                <div class="text-5xl">🦊</div>
+                                <p class="font-bold mt-2">Fuchs</p>
+                            </div>
+                            <div class="character-card p-4 rounded-lg bg-[#F5F1E9]" data-info="Sie ist die weise Anführerin der Tiere und erkennt als Erste das gute Herz des Waldteufels.">
+                                <div class="text-5xl">🦉</div>
+                                <p class="font-bold mt-2">Eule</p>
+                            </div>
+                        </div>
+                        <div id="character-info" class="mt-6 p-4 bg-green-100 text-green-800 rounded-lg text-center min-h-[50px] flex items-center justify-center transition-opacity duration-300 opacity-0">
+                            Fahre mit der Maus über eine Figur.
+                        </div>
+                    </div>
+                </section>
+
+                <section id="teil2" class="mb-24 space-y-8">
+                    <h2 class="text-4xl font-bold border-b-2 border-[#D4C5A3] pb-2">Teil 2: Die Bedrohung des Waldes</h2>
+                    <div class="bg-white/50 p-8 rounded-lg shadow-sm story-text">
+                        <p>Eines Morgens waren die Tiere unruhig. Ein rumpelndes Geräusch störte den Frieden. Der Waldteufel spürte eine Gefahr: Ein Schwarm dunkler Schatten, die Nachtgeister, bewegte sich durch die Bäume.</p>
+                        <p>„Wir arbeiten zusammen“, sagte der Teufel. Er lenkte die Geister mit funkelnden Lichtern ab, während die anderen Tiere sich in Sicherheit brachten. Sie versammelten sich auf einer alten Lichtung. „Hier können wir uns verteidigen“, sagte der Teufel. Er schwang seinen Schwanz, und ein schützender Kreis aus grüner Energie bildete sich um sie herum. Die Nachtgeister prallten daran ab.</p>
+                        <p>Die Tiere kämpften gemeinsam: Die Vögel lenkten die Schatten ab, Fuchs und Hase führten sie in die Irre. Nach Stunden zogen sich die Nachtgeister zurück. Der Wald war wieder sicher, weil sie zusammengehalten hatten.</p>
+                    </div>
+                     <div class="bg-white p-8 rounded-lg shadow text-center">
+                        <h3 class="text-2xl font-bold mb-6">Der Schutzschild der Einheit</h3>
+                         <p class="text-center text-gray-600 mb-8">Klicke auf den Knopf, um den Schutzschild zu aktivieren und zu sehen, wie die Tiere gemeinsam die Gefahr abwehren. Diese Interaktion symbolisiert die Kraft der Zusammenarbeit.</p>
+                        <div id="schutzschild" class="relative w-64 h-64 md:w-80 md:h-80 mx-auto bg-[#E3EAD8] rounded-full flex items-center justify-center transition-all duration-500">
+                             <div class="absolute text-4xl" style="top: 10%; left: 45%;">🦉</div>
+                             <div class="absolute text-4xl" style="top: 40%; left: 15%;">🦊</div>
+                             <div class="absolute text-4xl" style="top: 40%; left: 75%;">🐰</div>
+                             <div class="absolute text-4xl" style="bottom: 15%; left: 30%;">😈</div>
+                             <div class="absolute text-4xl" style="bottom: 15%; left: 60%;">🐦</div>
+                            <span class="text-lg font-semibold text-[#6A635D]">Freunde</span>
+                        </div>
+                        <div class="absolute left-4 top-1/2 text-5xl animate-pulse">👻</div>
+                        <div class="absolute right-4 top-1/3 text-5xl animate-pulse">👻</div>
+                        <div class="absolute right-10 bottom-1/4 text-5xl animate-pulse">👻</div>
+                        <button id="activate-shield" class="mt-8 bg-[#8A9A5B] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#718040] transition">Schild aktivieren!</button>
+                    </div>
+                </section>
+                
+                <section id="teil3" class="mb-24 space-y-8">
+                    <h2 class="text-4xl font-bold border-b-2 border-[#D4C5A3] pb-2">Teil 3: Das Geheimnis des Kristalls</h2>
+                    <div class="bg-white/50 p-8 rounded-lg shadow-sm story-text">
+                        <p>Eines Nachts führte die Eule den Waldteufel zu einer verborgenen Höhle. Im Inneren fanden sie eine gewaltige Kammer mit einem riesigen, pulsierenden Kristall in der Mitte – das Herz des Waldes.</p>
+                        <p>Eine Inschrift erschien: „Nur wer das Rätsel der Einheit löst, darf den Wald bewahren.“ Eine flüsternde Stimme stellte das Rätsel: „Ich bin viele, doch auch eins. Ohne mich kein Leben, kein Sein. Ich fließe, doch habe keine Gestalt. Wer bin ich?“</p>
+                        <p>Der Waldteufel schloss die Augen und erkannte die Antwort: „Es ist das Leben selbst – die Verbindung aller Dinge.“ Der Kristall leuchtete hell auf, und eine Flamme aus reinem Licht verband sich mit seinem Zauberschwanz. Er war nun nicht nur der Beschützer, sondern der Hüter des Waldes.</p>
+                    </div>
+                     <div class="bg-white p-8 rounded-lg shadow text-center">
+                        <h3 class="text-2xl font-bold mb-6">Das Rätsel des Kristalls</h3>
+                        <p class="text-center text-gray-600 mb-8">Der Kristall birgt das größte Geheimnis des Waldes. Lies das Rätsel und klicke dann, um die tiefere Bedeutung zu enthüllen, die der Waldteufel entdeckt hat.</p>
+                        <div class="my-8 flex justify-center items-center">
+                            <div class="text-8xl animate-pulse">💎</div>
+                            <div class="ml-8 text-left italic text-gray-600 border-l-4 border-green-200 pl-4">
+                                <p>"Ich bin viele, doch auch eins."</p>
+                                <p>"Ohne mich kein Leben, kein Sein."</p>
+                                <p>"Ich fließe, doch habe keine Gestalt."</p>
+                                <p>"Wer bin ich?"</p>
+                            </div>
+                        </div>
+                        <button id="solve-riddle" class="bg-[#8A9A5B] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#718040] transition">Lösung anzeigen</button>
+                        <p id="riddle-solution" class="mt-6 text-2xl font-bold text-green-700 opacity-0 transition-opacity duration-1000"></p>
+                    </div>
+                </section>
+
+                <section id="teil4" class="mb-24 space-y-8">
+                    <h2 class="text-4xl font-bold border-b-2 border-[#D4C5A3] pb-2">Teil 4: Der dunkle Zauberer</h2>
+                    <div class="bg-white/50 p-8 rounded-lg shadow-sm story-text">
+                        <p>Doch der Frieden war nicht von Dauer. Aus der Ferne kam ein dunkler Zauberer, der die Kraft des Kristalls für sich wollte. Er griff die Lichtung mit schwarzen Flammen an.</p>
+                        <p>„Niemals!“, rief der Waldteufel und wehrte den Angriff mit einem Lichtschild ab. „Ihr müsst helfen!“, rief er seinen Freunden zu. Der Fuchs brachte den Zauberer ins Straucheln, der Hase lenkte ihn ab, und die Vögel nahmen ihm die Sicht.</p>
+                        <p>Auf den Rat der Eule hin nutzte der Waldteufel die volle Kraft des Kristalls. Der ganze Wald verband sich mit ihm. Ein Strahl reiner Energie traf den Zauberer und löste seinen Schatten auf. Sie hatten es geschafft – gemeinsam. Der Waldteufel wusste jedoch, dass er wachsam bleiben musste.</p>
+                    </div>
+                    <div class="bg-white p-8 rounded-lg shadow">
+                        <h3 class="text-2xl font-bold text-center mb-6">Machtbalance im Wald</h3>
+                        <p class="text-center text-gray-600 mb-8">Der Kampf gegen den Zauberer war eine Probe für die Freunde. Dieses Diagramm zeigt die anfängliche Machtbalance. Klicke auf den Knopf, um zu sehen, wie ihre vereinte Kraft das Gleichgewicht verändert und den Sieg bringt.</p>
+                        <div class="chart-container">
+                            <canvas id="powerChart"></canvas>
+                        </div>
+                        <div class="text-center mt-6">
+                            <button id="unite-forces" class="bg-[#8A9A5B] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#718040] transition">Kräfte vereinen!</button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('main section');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, { rootMargin: '-50% 0px -50% 0px', threshold: 0 });
+
+            sections.forEach(section => observer.observe(section));
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href');
+                    document.querySelector(targetId).scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+
+            const characterCards = document.querySelectorAll('.character-card');
+            const characterInfoBox = document.getElementById('character-info');
+            
+            characterCards.forEach(card => {
+                card.addEventListener('mouseenter', () => {
+                    characterInfoBox.textContent = card.dataset.info;
+                    characterInfoBox.classList.remove('opacity-0');
+                });
+            });
+
+            document.querySelector('#teil1 .bg-white').addEventListener('mouseleave', () => {
+                characterInfoBox.textContent = 'Fahre mit der Maus über eine Figur.';
+                characterInfoBox.classList.add('opacity-0');
+            });
+            
+            const activateShieldBtn = document.getElementById('activate-shield');
+            const schutzschild = document.getElementById('schutzschild');
+            activateShieldBtn.addEventListener('click', () => {
+                schutzschild.classList.toggle('active');
+                if (schutzschild.classList.contains('active')) {
+                    activateShieldBtn.textContent = 'Schild deaktivieren';
+                } else {
+                    activateShieldBtn.textContent = 'Schild aktivieren!';
+                }
+            });
+
+            const solveRiddleBtn = document.getElementById('solve-riddle');
+            const riddleSolution = document.getElementById('riddle-solution');
+            solveRiddleBtn.addEventListener('click', () => {
+                riddleSolution.textContent = '"Es ist das Leben selbst – die Verbindung aller Dinge."';
+                riddleSolution.classList.remove('opacity-0');
+                solveRiddleBtn.style.display = 'none';
+            });
+
+            const ctx = document.getElementById('powerChart').getContext('2d');
+            const initialData = {
+                labels: ['Freunde des Waldes', 'Dunkler Zauberer'],
+                datasets: [{
+                    label: 'Machtlevel',
+                    data: [65, 55],
+                    backgroundColor: ['#8A9A5B', '#4F4A45'],
+                    borderColor: ['#FDFBF8', '#FDFBF8'],
+                    borderWidth: 2
+                }]
+            };
+            const powerChart = new Chart(ctx, {
+                type: 'bar',
+                data: initialData,
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Anfängliches Gleichgewicht' }
+                    },
+                    scales: {
+                        x: { suggestedMax: 100, grid: { color: '#E3EAD8' } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            const uniteForcesBtn = document.getElementById('unite-forces');
+            uniteForcesBtn.addEventListener('click', () => {
+                powerChart.data.datasets[0].data = [100, 10];
+                powerChart.options.plugins.title.text = 'Sieg durch Einheit!';
+                powerChart.update();
+                uniteForcesBtn.textContent = 'Vereint!';
+                uniteForcesBtn.disabled = true;
+            });
+
+        });
+    </script>
+</body>
