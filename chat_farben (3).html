@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Farbpalette Extraktor — marker sampling korrigiert</title>
+<style>
+  :root{--bg:#071122;--panel:#0b1a27;--muted:#9fb0c6}
+  html,body{height:100%;margin:0;background:linear-gradient(#071122,#03121a);font-family:Inter,system-ui,Arial;color:#dceffb}
+  .app{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px;height:100vh;box-sizing:border-box}
+  .panel{background:rgba(255,255,255,0.03);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,0.5)}
+  h1{font-size:18px;margin:0}
+  p.small{margin:0;color:var(--muted);font-size:13px}
+  .controls{display:flex;gap:10px;align-items:center}
+  label.btn{background:#133148;padding:8px 10px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
+  #file{display:none}
+  .drop{margin-top:8px;border-radius:8px;border:2px dashed rgba(255,255,255,0.04);padding:14px;text-align:center;color:var(--muted)}
+  .palette{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .swatch{height:56px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;cursor:pointer;user-select:none}
+  .viewer{position:relative;overflow:hidden;border-radius:12px}
+  #imgCanvas{display:block; width:100%; height:100%; background:#021018}
+  #markerLayer{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none}
+  .marker{position:absolute;width:26px;height:26px;border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,0.6);border:2px solid rgba(255,255,255,0.9);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(0,0,0,0.7);cursor:grab;pointer-events:auto}
+  .hint{position:absolute;left:14px;top:14px;background:rgba(0,0,0,0.45);padding:6px 8px;border-radius:8px;font-size:13px}
+  .controls-row{display:flex;gap:8px;align-items:center}
+  .footer{margin-top:auto;color:var(--muted);font-size:12px}
+  @media (max-width:900px){.app{grid-template-columns:1fr;grid-auto-rows:auto}}
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel" id="leftPanel">
+      <h1>Farbpalette Extraktor</h1>
+      <p class="small">Lade ein Bild (Drag & Drop oder Auswahl). Die App extrahiert 5 prominente Farben (K-Means) und platziert bewegliche Marker. Marker zeigen die echte Pixel-Farbe.</p>
+
+      <div class="controls-row">
+        <label class="btn" for="file">Bild auswählen</label>
+        <input id="file" type="file" accept="image/*">
+        <button id="btnReset" class="btn" title="Ansicht zurücksetzen">Reset Ansicht</button>
+        <button id="btnReextract" class="btn" title="Farben neu berechnen">Neu extrahieren</button>
+      </div>
+
+      <div id="drop" class="drop">Oder hierher ziehen</div>
+
+      <strong>Palette (klick = Hex kopieren)</strong>
+      <div id="palette" class="palette" aria-live="polite"></div>
+
+      <div style="margin-top:8px;"><strong>Legende</strong>
+        <div id="legend" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
+
+      <div class="footer">Tipps: Mausrad = Zoom, Hintergrund ziehen = Pan, Klick auf Marker = Hex kopieren.</div>
+    </div>
+
+    <div class="viewer panel" id="viewer">
+      <div class="hint" id="hint">Kein Bild geladen</div>
+      <canvas id="imgCanvas"></canvas>
+      <div id="markerLayer"></div>
+    </div>
+  </div>
+
+<script>
+/* ---- Struktur ----
+ - Offscreen bufferCanvas enthält Bild in voller (nativer) Auflösung -> Sampling erfolgt dort (korrekte Farben)
+ - imgCanvas zeigt Bild transformiert (scale + offset)
+ - marker DOM-Elemente (div.marker) werden in #markerLayer positioniert (pixelgenau auf dem Bildschirm)
+ - Marker speichern relX/relY (0..1) bezogen auf Bild-Natural-Size
+ - Drag eines Markers aktualisiert rel-Koordinaten und sampled Farbe vom buffer
+ - Pan startet nur, wenn down NICHT auf Marker (marker stoppt Propagation)
+ - Zoom (Wheel) zentriert auf Mauszeiger
+*/
+
+const fileInput = document.getElementById('file');
+const drop = document.getElementById('drop');
+const imgCanvas = document.getElementById('imgCanvas');
+const ctx = imgCanvas.getContext('2d',{willReadFrequently:true});
+const viewer = document.getElementById('viewer');
+const markerLayer = document.getElementById('markerLayer');
+const paletteEl = document.getElementById('palette');
+const legendEl = document.getElementById('legend');
+const hint = document.getElementById('hint');
+const btnReset = document.getElementById('btnReset');
+const btnReextract = document.getElementById('btnReextract');
+
+let img = new Image();
+let bufferCanvas = document.createElement('canvas');
+let bufferCtx = bufferCanvas.getContext('2d');
+
+let naturalW = 0, naturalH = 0;
+let scale = 1, offsetX = 0, offsetY = 0; // transform for imgCanvas: ctx.setTransform(scale,0,0,scale,offsetX,offsetY)
+let markers = []; // {id, relX, relY, color:[r,g,b], el}
+const K = 5;
+const MIN_SCALE = 0.1, MAX_SCALE = 8;
+
+function setHint(txt, show=true){
+  hint.textContent = txt;
+  hint.style.display = show ? 'block' : 'none';
+}
+
+// --- File / Drag & Drop ---
+fileInput.addEventListener('change', e => { if(e.target.files && e.target.files[0]) loadFile(e.target.files[0]); });
+drop.addEventListener('click', ()=> fileInput.click());
+['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.style.borderColor='#60a5fa'; }));
+['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.style.borderColor=''; if(ev==='drop' && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); }));
+
+async function loadFile(file){
+  setHint('Lädt Bild...');
+  const url = URL.createObjectURL(file);
+  const imgLoaded = await loadImage(url);
+  URL.revokeObjectURL(url);
+  if(imgLoaded) {
+    prepareBuffer();
+    fitImageToViewer();
+    renderImage();
+    await extractColorsKMeans();
+    setHint('', false);
+  } else {
+    setHint('Fehler beim Laden', true);
+  }
+}
+
+function loadImage(src){
+  return new Promise((res)=>{
+    img = new Image();
+    img.onload = ()=> { naturalW = img.naturalWidth; naturalH = img.naturalHeight; res(true); };
+    img.onerror = ()=> res(false);
+    img.src = src;
+  });
+}
+
+// --- Offscreen buffer (native resolution) ---
+function prepareBuffer(){
+  bufferCanvas.width = naturalW;
+  bufferCanvas.height = naturalH;
+  bufferCtx.clearRect(0,0,bufferCanvas.width, bufferCanvas.height);
+  bufferCtx.drawImage(img, 0,0, naturalW, naturalH);
+}
+
+// --- Canvas size and fitting ---
+function resizeCanvasToViewer(){
+  const r = viewer.getBoundingClientRect();
+  imgCanvas.width = Math.max(100, Math.floor(r.width));
+  imgCanvas.height = Math.max(100, Math.floor(r.height));
+  markerLayer.style.width = imgCanvas.width + 'px';
+  markerLayer.style.height = imgCanvas.height + 'px';
+}
+
+function fitImageToViewer(){
+  resizeCanvasToViewer();
+  const vw = imgCanvas.width, vh = imgCanvas.height;
+  // initial scale to fit (allow upscaling)
+  scale = Math.min(Math.max(0.5, Math.min(vw / naturalW, vh / naturalH)), 4);
+  // center
+  offsetX = (vw - naturalW * scale) / 2;
+  offsetY = (vh - naturalH * scale) / 2;
+}
+
+// --- Draw image to visible canvas with current transform ---
+function renderImage(){
+  // ensure canvas size
+  resizeCanvasToViewer();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,imgCanvas.width,imgCanvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.setTransform(scale,0,0,scale,offsetX,offsetY);
+  ctx.drawImage(bufferCanvas, 0,0, naturalW, naturalH);
+  ctx.setTransform(1,0,0,1,0,0);
+  renderMarkers();
+}
+
+// --- Markers rendering (position DOM elements according to rel coords) ---
+function renderMarkers(){
+  markers.forEach(m=>{
+    const sx = m.relX * naturalW * scale + offsetX;
+    const sy = m.relY * naturalH * scale + offsetY;
+    m.el.style.left = Math.round(sx) + 'px';
+    m.el.style.top  = Math.round(sy) + 'px';
+  });
+}
+
+// --- Sampling color at image pixel (natural resolution) ---
+function sampleColorAtImagePixel(px, py){
+  px = Math.floor(px); py = Math.floor(py);
+  if(px < 0 || py < 0 || px >= naturalW || py >= naturalH) return [128,128,128];
+  try{
+    const d = bufferCtx.getImageData(px, py, 1, 1).data;
+    return [d[0], d[1], d[2]];
+  }catch(e){
+    // fallback (shouldn't happen for local blobs)
+    return [128,128,128];
+  }
+}
+function rgbToHex([r,g,b]){ return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('').toUpperCase(); }
+
+// --- Create marker DOM element and handlers ---
+let markerIdCounter = 0;
+function createMarker(relX, relY, colorArr){
+  const el = document.createElement('div');
+  el.className = 'marker';
+  el.draggable = false;
+  el.style.width = '28px'; el.style.height = '28px';
+  el.style.background = rgbToHex(colorArr);
+  el.textContent = ''; // could show index if desired
+  el.style.pointerEvents = 'auto';
+
+  const id = ++markerIdCounter;
+  const m = {id, relX, relY, color: colorArr.slice(), el};
+  markerLayer.appendChild(el);
+  markers.push(m);
+  renderMarkers();
+  updatePaletteUI();
+  attachMarkerPointerHandlers(m);
+  return m;
+}
+
+function attachMarkerPointerHandlers(marker){
+  // pointerdown: start dragging marker (stop propagation so pan doesn't start)
+  marker.el.addEventListener('pointerdown', (e)=>{
+    e.stopPropagation();
+    marker.el.setPointerCapture(e.pointerId);
+    marker._drag = {
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startRelX: marker.relX,
+      startRelY: marker.relY
+    };
+    // visual feedback
+    marker.el.style.cursor = 'grabbing';
+  });
+
+  marker.el.addEventListener('pointermove', (e)=>{
+    if(!marker._drag) return;
+    const dx = e.clientX - marker._drag.startClientX;
+    const dy = e.clientY - marker._drag.startClientY;
+    // convert screen delta to relative delta: dx / (naturalW * scale)
+    const dRelX = dx / (naturalW * scale);
+    const dRelY = dy / (naturalH * scale);
+    marker.relX = clamp01(marker._drag.startRelX + dRelX);
+    marker.relY = clamp01(marker._drag.startRelY + dRelY);
+    // sample color from buffer at natural pixel coords
+    const px = marker.relX * naturalW;
+    const py = marker.relY * naturalH;
+    marker.color = sampleColorAtImagePixel(px, py);
+    marker.el.style.background = rgbToHex(marker.color);
+    renderMarkers();
+    updatePaletteUI();
+  });
+
+  marker.el.addEventListener('pointerup', (e)=>{
+    if(marker._drag){
+      marker.el.releasePointerCapture(e.pointerId);
+      marker._drag = null;
+      marker.el.style.cursor = 'grab';
+    }
+  });
+
+  // click: copy hex to clipboard
+  marker.el.addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    const hex = rgbToHex(marker.color);
+    try{ await navigator.clipboard.writeText(hex); flashHint('Hex kopiert: '+hex); } catch(e){}
+  });
+}
+
+// --- Helpers ---
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+function flashHint(text, ms=900){ setHint(text,true); setTimeout(()=>setHint('', false), ms); }
+
+// --- Palette UI (left) ---
+function updatePaletteUI(){
+  paletteEl.innerHTML = '';
+  legendEl.innerHTML = '';
+  markers.forEach((m,i)=>{
+    const hex = rgbToHex(m.color);
+    const sw = document.createElement('div');
+    sw.className = 'swatch';
+    sw.style.background = hex;
+    sw.textContent = hex;
+    sw.title = 'Klick = kopieren';
+    sw.addEventListener('click', async ()=>{ await navigator.clipboard.writeText(hex).catch(()=>{}); flashHint('Hex kopiert: '+hex); });
+    paletteEl.appendChild(sw);
+
+    const leg = document.createElement('div');
+    leg.style.display = 'flex'; leg.style.alignItems='center'; leg.style.gap='8px';
+    let dot = document.createElement('div'); dot.style.width='18px'; dot.style.height='18px'; dot.style.borderRadius='6px';
+    dot.style.background = hex;
+    leg.appendChild(dot);
+    let lab = document.createElement('div'); lab.textContent = 'Farbe ' + (i+1);
+    leg.appendChild(lab);
+    legendEl.appendChild(leg);
+  });
+}
+
+// --- K-Means Farbextraktion (auf bufferCanvas nativer Größe) ---
+async function extractColorsKMeans(){
+  setHint('Farben extrahieren...');
+  // sample pixels (step adaptive to limit sample count)
+  const maxSamples = 12000;
+  const step = Math.max(1, Math.floor(Math.sqrt((naturalW*naturalH) / maxSamples)));
+  const samples = [];
+  for(let y=0; y<naturalH; y+=step){
+    for(let x=0; x<naturalW; x+=step){
+      const d = bufferCtx.getImageData(x, y, 1, 1).data;
+      samples.push({x, y, rgb: [d[0], d[1], d[2]]});
+    }
+  }
+  if(samples.length === 0) { setHint('Keine Pixel zum Sampeln'); return; }
+
+  const {centers, centroids} = kmeansOnSamples(samples, K, 16);
+
+  // clear existing markers
+  markers.forEach(m => m.el.remove());
+  markers = [];
+
+  // create markers at centroids (relative)
+  for(let i=0;i<K;i++){
+    const cx = clamp01(centroids[i].x / naturalW);
+    const cy = clamp01(centroids[i].y / naturalH);
+    const color = centers[i];
+    createMarker(cx, cy, color);
+  }
+  updatePaletteUI();
+  setHint('', false);
+}
+
+// K-means implementation (returns centers (rgb) and centroids (x,y))
+function kmeansOnSamples(samples, k=5, maxIter=12){
+  // initialize centers randomly
+  const centers = [];
+  const used = new Set();
+  for(let i=0;i<k;i++){
+    let idx;
+    do{ idx = Math.floor(Math.random()*samples.length); } while(used.has(idx));
+    used.add(idx);
+    centers.push(samples[idx].rgb.slice());
+  }
+  const assign = new Array(samples.length).fill(-1);
+  for(let iter=0; iter<maxIter; iter++){
+    let changed = false;
+    // assign
+    for(let i=0;i<samples.length;i++){
+      const rgb = samples[i].rgb;
+      let best = 0; let bestd = sqDist(rgb, centers[0]);
+      for(let c=1;c<k;c++){ const d = sqDist(rgb, centers[c]); if(d < bestd){ best = c; bestd = d; } }
+      if(assign[i] !== best){ assign[i] = best; changed = true; }
+    }
+    // recompute centers
+    const sums = Array.from({length:k}, ()=>[0,0,0,0]); // r,g,b,count
+    for(let i=0;i<samples.length;i++){
+      const a = assign[i], rgb = samples[i].rgb;
+      sums[a][0] += rgb[0]; sums[a][1] += rgb[1]; sums[a][2] += rgb[2]; sums[a][3] += 1;
+    }
+    for(let c=0;c<k;c++){
+      if(sums[c][3] === 0){
+        // reinitialize center if empty
+        centers[c] = samples[Math.floor(Math.random()*samples.length)].rgb.slice();
+      } else {
+        centers[c] = [ Math.round(sums[c][0]/sums[c][3]), Math.round(sums[c][1]/sums[c][3]), Math.round(sums[c][2]/sums[c][3]) ];
+      }
+    }
+    if(!changed) break;
+  }
+  // compute centroids positions (x,y)
+  const posSums = Array.from({length:k}, ()=>[0,0,0]); // sumX,sumY,count
+  for(let i=0;i<samples.length;i++){
+    const a = assign[i];
+    posSums[a][0] += samples[i].x;
+    posSums[a][1] += samples[i].y;
+    posSums[a][2] += 1;
+  }
+  const centroids = posSums.map((s, idx) => {
+    if(s[2] === 0) return {x: naturalW/2, y: naturalH/2};
+    return {x: s[0]/s[2], y: s[1]/s[2]};
+  });
+  return {centers, centroids};
+}
+function sqDist(a,b){ const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2]; return dr*dr+dg*dg+db*db; }
+
+// --- Interaction: Pan & Zoom (wheel & pointer) ---
+let isPanning = false, panStart = null, panStartOffset = null;
+
+viewer.addEventListener('pointerdown', (e)=>{
+  // start pan only if target is NOT a marker (markers call stopPropagation)
+  if(e.target.classList && e.target.classList.contains('marker')) return;
+  isPanning = true;
+  panStart = {x: e.clientX, y: e.clientY};
+  panStartOffset = {x: offsetX, y: offsetY};
+  viewer.setPointerCapture(e.pointerId);
+});
+
+viewer.addEventListener('pointermove', (e)=>{
+  if(!isPanning) return;
+  const dx = e.clientX - panStart.x;
+  const dy = e.clientY - panStart.y;
+  offsetX = panStartOffset.x + dx;
+  offsetY = panStartOffset.y + dy;
+  renderImage();
+});
+
+viewer.addEventListener('pointerup', (e)=>{
+  if(isPanning){
+    isPanning = false;
+    try{ viewer.releasePointerCapture(e.pointerId); }catch(_){}
+  }
+});
+
+viewer.addEventListener('wheel', (e)=>{
+  if(!naturalW) return;
+  e.preventDefault();
+  const rect = imgCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  // image-space coords before zoom
+  const ix = (mx - offsetX) / scale;
+  const iy = (my - offsetY) / scale;
+  const factor = e.deltaY < 0 ? 1.12 : 0.88;
+  const newScale = clamp(scale * factor, MIN_SCALE, MAX_SCALE);
+  // keep (ix,iy) under cursor
+  offsetX = mx - ix * newScale;
+  offsetY = my - iy * newScale;
+  scale = newScale;
+  renderImage();
+}, {passive:false});
+
+// --- Recompute color for all markers (useful after reextract or buffer change) ---
+function resampleAllMarkerColors(){
+  markers.forEach(m=>{
+    const px = Math.round(m.relX * naturalW);
+    const py = Math.round(m.relY * naturalH);
+    m.color = sampleColorAtImagePixel(px, py);
+    m.el.style.background = rgbToHex(m.color);
+  });
+  updatePaletteUI();
+}
+
+// --- Buttons ---
+btnReset.addEventListener('click', ()=>{ fitImageToViewer(); renderImage(); });
+btnReextract.addEventListener('click', ()=>{ if(naturalW) extractColorsKMeans(); });
+
+// --- initial helpers & resize handling ---
+window.addEventListener('resize', ()=>{ if(naturalW){ fitImageToViewer(); renderImage(); } });
+
+// small util
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+// --- initial hint ---
+setHint('Bild auswählen oder hierher ziehen', true);
+</script>
+</body>
+</html>

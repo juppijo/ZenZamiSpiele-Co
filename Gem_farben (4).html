@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farbpaletten-Extraktor</title>
+    <!-- Lade Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Konfigurieren Sie die 'Inter'-Schriftart und Standard-Hintergrund */
+        :root {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Die Leinwand und ihr Container müssen die Größe anpassen */
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 70vh; /* Macht den Container groß und reaktionsschnell */
+            max-width: 100%;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Hintergrundfarbe wird jetzt über Tailwind im HTML gesetzt (bg-slate-800) */
+            background-color: #1e293b; 
+            border-radius: 0.75rem;
+            cursor: grab; /* Standard-Cursor, wenn nicht gezogen wird */
+        }
+        #canvas-container.panning {
+            cursor: grabbing;
+        }
+
+        #image-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: none; /* Wird sichtbar, sobald ein Bild geladen wird */
+        }
+
+        /* Styling für die beweglichen Farbindikatoren */
+        .color-indicator {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid white;
+            /* Indikator-Schatten wird für Sichtbarkeit im Dunkelmodus angepasst */
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 0 10px rgba(0, 0, 0, 0.7);
+            cursor: move;
+            transition: transform 0.1s;
+            z-index: 10;
+        }
+        .color-indicator:hover {
+            transform: scale(1.1);
+        }
+        .color-display {
+            height: 100%;
+            border-radius: 0.75rem;
+            transition: background-color 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen p-4 sm:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl font-extrabold text-white">Bild-Farbpaletten-Extraktor</h1>
+            <p class="text-gray-400 mt-1">Laden Sie ein Bild hoch, um die 5 prominentesten Farben abzutasten und die Palette anzupassen. Nutzen Sie die **Zoom-Funktion** auf der rechten Seite für Präzision.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Linke Seite: Palette und Steuerelemente (DUNKEL) -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Bild hochladen Karte -->
+                <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                    <h2 class="text-xl font-semibold text-white mb-4">Bild hochladen</h2>
+                    <input type="file" id="image-upload" accept="image/*" class="w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-600 hover:file:bg-sky-100 cursor:pointer">
+                    <p id="upload-status" class="mt-3 text-sm text-red-400 hidden">Bitte warten...</p>
+                </div>
+
+                <!-- Farbpalette Anzeige Karte -->
+                <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                    <h2 class="text-xl font-semibold text-white mb-4">Extrahierte Farbpalette (RGB)</h2>
+                    <div id="color-palette-display" class="grid grid-cols-1 gap-4 h-96">
+                        <!-- Die 5 Farbblöcke werden hier von JavaScript eingefügt -->
+                        <div class="flex items-center justify-center text-gray-400 h-full border-2 border-dashed border-slate-600 rounded-xl">
+                            <span class="text-center">Laden Sie ein Bild hoch, um die Palette zu sehen.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Gemini Analyse Karte (NEU) -->
+                <div class="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700">
+                    <h2 class="text-xl font-semibold text-white mb-4">Gemini KI-Analyse</h2>
+                    <button id="analyze-palette" class="w-full py-3 px-4 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-700 transition-colors disabled:opacity-50" disabled>
+                        ✨ Palette analysieren &amp; beschreiben
+                    </button>
+                    <div id="analysis-result" class="mt-4 p-4 bg-slate-700 rounded-lg text-sm text-gray-300 hidden">
+                        <!-- Das Ergebnis der KI wird hier eingefügt -->
+                    </div>
+                    <p id="analysis-loading" class="mt-4 text-sm text-sky-400 hidden">Die KI analysiert die Palette...</p>
+                </div>
+            </div>
+
+            <!-- Rechte Seite: Bildvorschau, Zoom-Steuerung und Indikatoren -->
+            <div class="lg:col-span-2">
+                <!-- Zoom-Steuerung -->
+                <div class="flex justify-end space-x-2 mb-2">
+                    <!-- Zoom Level Display -->
+                    <span id="zoom-level-display" class="p-2 bg-slate-700 rounded-full text-xs font-bold text-white flex items-center">100%</span>
+                    
+                    <!-- Zoom Buttons bleiben hell, damit sie sich abheben -->
+                    <button id="reset-view" class="p-2 bg-white rounded-full shadow hover:bg-gray-100 transition-colors" title="Ansicht zurücksetzen (100%)">
+                        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 19m15.356-2a8.001 8.001 0 00-15.356-2.001m0 0l-2.5-2.5m2.5 2.5V19"></path></svg>
+                    </button>
+                    <button id="zoom-out" class="p-2 bg-white rounded-full shadow hover:bg-gray-100 transition-colors" title="Verkleinern (-)">
+                        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path></svg>
+                    </button>
+                    <button id="zoom-in" class="p-2 bg-white rounded-full shadow hover:bg-gray-100 transition-colors" title="Vergrößern (+)">
+                        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                    </button>
+                </div>
+
+                <div id="canvas-container" class="bg-slate-800 shadow-xl border border-slate-700">
+                    <!-- Die Leinwand wird hierhin gezeichnet -->
+                    <canvas id="image-canvas"></canvas>
+                    <div id="placeholder" class="text-gray-500 text-center p-10">
+                        <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <span>Bild hier hochladen, um es zu sehen</span>
+                    </div>
+                    <!-- Die 5 Farbindikatoren werden hier von JavaScript eingefügt -->
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Globale Variablen
+        const NUM_COLORS = 5;
+        const CANVAS_ID = 'image-canvas';
+        const CONTAINER_ID = 'canvas-container';
+        const PALETTE_ID = 'color-palette-display';
+        
+        // Gemini KI-Elemente
+        const analyzeButton = document.getElementById('analyze-palette');
+        const analysisResultDiv = document.getElementById('analysis-result');
+        const analysisLoadingP = document.getElementById('analysis-loading');
+        const apiKey = ""; // API-Schlüssel wird von der Canvas-Umgebung bereitgestellt
+
+        let canvas;
+        let ctx;
+        let imageElement = new Image();
+        let indicators = [];
+
+        // Zoom- & Pan-Status
+        let zoomScale = 1.0;
+        let viewportX = 0; // Top-left X position in original image pixels currently visible at canvas top-left
+        let viewportY = 0; // Top-left Y position in original image pixels currently visible at canvas top-left
+        let originalImageWidth = 0;
+        let originalImageHeight = 0;
+
+        // Drag-Status (für Indikator und Panning)
+        let isIndicatorDragging = false;
+        let isPanning = false;
+        let currentIndicator = null;
+        let lastPanX = 0;
+        let lastPanY = 0;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        // Hilfsfunktion zur Konvertierung von RGB-Werten in eine Hex-String
+        function rgbToHex(r, g, b) {
+            const toHex = (c) => ('0' + c.toString(16)).slice(-2);
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+
+        // 1. Initialisierung und Event-Listener
+        document.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById(CANVAS_ID);
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+            
+            // Zoom-Buttons
+            document.getElementById('zoom-in').addEventListener('click', () => handleZoom(1.2));
+            document.getElementById('zoom-out').addEventListener('click', () => handleZoom(1 / 1.2));
+            document.getElementById('reset-view').addEventListener('click', resetView);
+            
+            // Gemini API Button
+            analyzeButton.addEventListener('click', fetchGeminiPaletteAnalysis);
+
+            // Zoom mit Mausrad und Panning
+            const container = document.getElementById(CONTAINER_ID);
+            container.addEventListener('wheel', handleWheelZoom, { passive: false });
+            container.addEventListener('mousedown', startPanOrIndicatorDrag);
+            container.addEventListener('touchstart', startPanOrIndicatorDrag, { passive: false });
+        });
+
+        function getClientCoords(event) {
+            if (event.touches) {
+                return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+            }
+            return { x: event.clientX, y: event.clientY };
+        }
+
+        // 2. Bildladevorgang
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imageElement.onload = () => {
+                    document.getElementById('placeholder').classList.add('hidden');
+                    canvas.style.display = 'block';
+                    originalImageWidth = imageElement.naturalWidth;
+                    originalImageHeight = imageElement.naturalHeight;
+                    resetView(); // Setzt Zoom und Pan zurück und initialisiert Indikatoren
+                    analysisResultDiv.classList.add('hidden'); // Verstecke Analyseergebnisse bei neuem Bild
+                };
+                imageElement.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 3. Ansicht zurücksetzen (Zoom und Pan) und Canvas/Indikatoren initialisieren
+        function resetView() {
+            const container = document.getElementById(CONTAINER_ID);
+
+            // Berechne die beste Passform-Skalierung
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            const imageRatio = originalImageWidth / originalImageHeight;
+            const containerRatio = containerWidth / containerHeight;
+
+            let initialZoom;
+            if (originalImageWidth === 0) {
+                 initialZoom = 1.0;
+            } else if (containerRatio > imageRatio) {
+                // Höhe begrenzt
+                initialZoom = containerHeight / originalImageHeight;
+            } else {
+                // Breite begrenzt
+                initialZoom = containerWidth / originalImageWidth;
+            }
+            
+            zoomScale = initialZoom;
+            viewportX = 0;
+            viewportY = 0;
+
+            // Setze Canvas-Größe auf Container-Größe für die Skalierung des Viewports
+            canvas.width = containerWidth;
+            canvas.height = containerHeight;
+
+            redrawImage();
+            
+            // Wenn keine Indikatoren existieren, erstelle sie
+            if (indicators.length === 0) {
+                createInitialIndicators(container);
+            } else {
+                updateIndicatorPositionsOnScreen();
+            }
+            updateZoomDisplay();
+        }
+
+        // 4. Indikatoren erstellen
+        function createInitialIndicators(container) {
+            indicators.forEach(ind => ind.element.remove());
+            indicators = [];
+            
+            // Positionen als normalisierte Koordinaten (0.0 bis 1.0)
+            const normalizedPositions = [
+                {normX: 0.2, normY: 0.2}, {normX: 0.8, normY: 0.2}, {normX: 0.2, normY: 0.8},
+                {normX: 0.8, normY: 0.8}, {normX: 0.5, normY: 0.5}
+            ];
+
+            normalizedPositions.forEach((pos, index) => {
+                const ind = {
+                    id: index,
+                    normX: pos.normX, // Normalisierte X (0.0 bis 1.0)
+                    normY: pos.normY, // Normalisierte Y (0.0 bis 1.0)
+                    element: createIndicatorElement(index)
+                };
+                indicators.push(ind);
+                container.appendChild(ind.element);
+            });
+            updateIndicatorPositionsOnScreen();
+        }
+
+        // 5. Canvas neu zeichnen
+        function redrawImage() {
+            if (!imageElement.src || originalImageWidth === 0) return;
+
+            // Berechne die Größe des Ausschnitts in Original-Pixeln, die auf der Canvas sichtbar sind
+            const visibleCanvasWidth = canvas.width / zoomScale;
+            const visibleCanvasHeight = canvas.height / zoomScale;
+
+            // Begrenze viewportX/Y auf die Ränder des Originalbildes
+            viewportX = Math.max(0, Math.min(originalImageWidth - visibleCanvasWidth, viewportX));
+            viewportY = Math.max(0, Math.min(originalImageHeight - visibleCanvasHeight, viewportY));
+
+            // Falls das Bild kleiner ist als der Container, zentrieren
+            if (originalImageWidth < visibleCanvasWidth) viewportX = (originalImageWidth - visibleCanvasWidth) / 2;
+            if (originalImageHeight < visibleCanvasHeight) viewportY = (originalImageHeight - visibleCanvasHeight) / 2;
+
+
+            // Zeichne den sichtbaren Teil des Originalbildes auf die gesamte Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(
+                imageElement,
+                viewportX, viewportY, // Source X, Y (Startpunkt im Originalbild)
+                visibleCanvasWidth, visibleCanvasHeight, // Source Width, Height (Ausschnittgröße)
+                0, 0, // Destination X, Y (Startpunkt auf der Canvas)
+                canvas.width, canvas.height // Destination Width, Height (Canvas-Größe)
+            );
+            
+            updateIndicatorPositionsOnScreen();
+        }
+        
+        // 6. Pan- und Zoom-Logik
+        function handleZoom(factor, centerX = canvas.width / 2, centerY = canvas.height / 2) {
+            const newScale = Math.max(1.0, Math.min(5.0, zoomScale * factor)); // Max 500%
+            if (newScale === zoomScale) return;
+
+            // Konvertiere den Canvas-Mittelpunkt in Original-Bildkoordinaten VOR der Skalierung
+            const originalXBefore = viewportX + centerX / zoomScale;
+            const originalYBefore = viewportY + centerY / zoomScale;
+
+            zoomScale = newScale;
+            
+            // Berechne neue Viewport-Position, um den Mittelpunkt beizubehalten
+            viewportX = originalXBefore - centerX / zoomScale;
+            viewportY = originalYBefore - centerY / zoomScale;
+            
+            redrawImage();
+            updateZoomDisplay();
+        }
+
+        function handleWheelZoom(event) {
+            if (!imageElement.src || isIndicatorDragging) return;
+            event.preventDefault();
+
+            const rect = canvas.getBoundingClientRect();
+            const centerX = event.clientX - rect.left;
+            const centerY = event.clientY - rect.top;
+
+            const factor = (event.deltaY < 0) ? 1.1 : 1 / 1.1; // 10% Zoom-Schritt
+            handleZoom(factor, centerX, centerY);
+        }
+
+        function updateZoomDisplay() {
+            document.getElementById('zoom-level-display').textContent = `${Math.round(zoomScale * 100)}%`;
+        }
+
+
+        // 7. Panning (Verschieben des Bildausschnitts)
+        function startPanOrIndicatorDrag(event) {
+            const target = event.target;
+            const coords = getClientCoords(event);
+            
+            if (target.classList.contains('color-indicator')) {
+                // Fall 1: Indikator-Drag
+                startIndicatorDrag(event, target);
+            } else if (target === canvas && zoomScale > 1.0) {
+                // Fall 2: Panning (nur wenn gezoomt)
+                isPanning = true;
+                lastPanX = coords.x;
+                lastPanY = coords.y;
+                document.getElementById(CONTAINER_ID).classList.add('panning');
+
+                document.addEventListener('mousemove', pan);
+                document.addEventListener('mouseup', endPan);
+                document.addEventListener('touchmove', pan, { passive: false });
+                document.addEventListener('touchend', endPan);
+            } else {
+                // Fall 3: Panning verhindern, wenn nicht gezoomt oder Klick auf Platzhalter
+                return;
+            }
+            
+            // Verhindere Standard-Aktionen, falls Panning oder Indikator-Drag beginnt
+            if (isPanning || isIndicatorDragging) {
+                event.preventDefault();
+            }
+        }
+
+        function pan(event) {
+            if (!isPanning) return;
+            event.preventDefault(); // Wichtig, um Scrolling zu verhindern
+            
+            const coords = getClientCoords(event);
+            const deltaX = coords.x - lastPanX;
+            const deltaY = coords.y - lastPanY;
+
+            // Konvertiere die Bewegung von Screen-Pixeln in Original-Bild-Pixel
+            viewportX -= deltaX / zoomScale;
+            viewportY -= deltaY / zoomScale;
+
+            lastPanX = coords.x;
+            lastPanY = coords.y;
+
+            redrawImage();
+        }
+
+        function endPan() {
+            isPanning = false;
+            document.getElementById(CONTAINER_ID).classList.remove('panning');
+
+            document.removeEventListener('mousemove', pan);
+            document.removeEventListener('mouseup', endPan);
+            document.removeEventListener('touchmove', pan);
+            document.removeEventListener('touchend', endPan);
+        }
+
+        // 8. Indikator-Logik
+        
+        function createIndicatorElement(id) {
+            const element = document.createElement('div');
+            element.className = 'color-indicator';
+            element.dataset.id = id;
+            
+            // Fügen Sie Mausevents hinzu
+            element.addEventListener('mousedown', (e) => startIndicatorDrag(e, element));
+            element.addEventListener('touchstart', (e) => startIndicatorDrag(e, element), { passive: false });
+            return element;
+        }
+
+        function startIndicatorDrag(event, targetElement) {
+            event.preventDefault(); 
+            
+            currentIndicator = indicators.find(ind => ind.element === targetElement);
+            if (!currentIndicator) return;
+
+            isIndicatorDragging = true;
+            currentIndicator.element.style.zIndex = 20;
+
+            const coords = getClientCoords(event);
+            const rect = targetElement.getBoundingClientRect();
+            
+            // Klick-Offset innerhalb des Indikators
+            dragOffsetX = coords.x - rect.left;
+            dragOffsetY = coords.y - rect.top;
+
+            document.addEventListener('mousemove', dragIndicator);
+            document.addEventListener('mouseup', endIndicatorDrag);
+            document.addEventListener('touchmove', dragIndicator, { passive: false });
+            document.addEventListener('touchend', endIndicatorDrag);
+        }
+
+        function dragIndicator(event) {
+            if (!isIndicatorDragging || !currentIndicator) return;
+            event.preventDefault(); 
+
+            const containerRect = canvas.getBoundingClientRect();
+            const coords = getClientCoords(event);
+            
+            // Bildschirmkoordinaten relativ zur Canvas (nicht zum Container)
+            const canvasX = coords.x - containerRect.left;
+            const canvasY = coords.y - containerRect.top;
+
+            // Die Abtastung verwendet Canvas-Koordinaten, die durch Panning/Zoom skaliert sind.
+            updateIndicatorPosition(currentIndicator, canvasX - dragOffsetX + 16, canvasY - dragOffsetY + 16);
+        }
+
+        function endIndicatorDrag() {
+            if (!isIndicatorDragging) return;
+
+            isIndicatorDragging = false;
+            currentIndicator.element.style.zIndex = 10;
+            currentIndicator = null;
+            
+            document.removeEventListener('mousemove', dragIndicator);
+            document.removeEventListener('mouseup', endIndicatorDrag);
+            document.removeEventListener('touchmove', dragIndicator);
+            document.removeEventListener('touchend', endIndicatorDrag);
+        }
+
+        // Funktion zur Umrechnung von Canvas-Pixeln (Bildschirm) in normalisierte (0-1) Position
+        function getNormalizedPosition(screenX, screenY) {
+            // 1. Konvertiere Screen-Position in Original-Bild-Pixelkoordinaten
+            const originalX = viewportX + (screenX / zoomScale);
+            const originalY = viewportY + (screenY / zoomScale);
+
+            // 2. Normalisiere (0.0 bis 1.0)
+            const normX = originalX / originalImageWidth;
+            const normY = originalY / originalImageHeight;
+            
+            // Beschränke auf 0.0 bis 1.0
+            return {
+                normX: Math.max(0, Math.min(1.0, normX)),
+                normY: Math.max(0, Math.min(1.0, normY))
+            };
+        }
+
+        // Funktion zur Berechnung der Screen-Position von normalisierten Koordinaten
+        function getScreenPosition(indicator) {
+            const originalX = indicator.normX * originalImageWidth;
+            const originalY = indicator.normY * originalImageHeight;
+            
+            // Position relativ zum sichtbaren Ausschnitt
+            const relativeX = originalX - viewportX;
+            const relativeY = originalY - viewportY;
+
+            // Position auf der Canvas (in Screen-Pixeln)
+            const screenX = relativeX * zoomScale;
+            const screenY = relativeY * zoomScale;
+            
+            return { screenX, screenY };
+        }
+
+        // Aktualisiert die Position des Indikators basierend auf einer neuen Canvas-Screen-Position
+        function updateIndicatorPosition(indicator, canvasX, canvasY) {
+            const indicatorSize = 32;
+            
+            // Konvertiere die Screen-Position in normalisierte Koordinaten und aktualisiere den Indikator
+            const normPos = getNormalizedPosition(canvasX, canvasY);
+            indicator.normX = normPos.normX;
+            indicator.normY = normPos.normY;
+
+            // Holen Sie sich die korrekte Screen-Position (wird durch Begrenzung in getNormalizedPosition korrigiert)
+            const { screenX, screenY } = getScreenPosition(indicator);
+
+            const newLeft = screenX - (indicatorSize / 2);
+            const newTop = screenY - (indicatorSize / 2);
+
+            indicator.element.style.left = `${newLeft}px`;
+            indicator.element.style.top = `${newTop}px`;
+            
+            // Abtasten und Indikatorfarbe aktualisieren
+            const color = sampleColor(screenX, screenY);
+            indicator.color = color;
+            indicator.element.style.backgroundColor = color.hex;
+            
+            updatePaletteDisplay();
+        }
+
+        // Aktualisiert alle Indikatoren auf dem Bildschirm (wird nach Pan/Zoom aufgerufen)
+        function updateIndicatorPositionsOnScreen() {
+            indicators.forEach(indicator => {
+                const { screenX, screenY } = getScreenPosition(indicator);
+                const indicatorSize = 32;
+                
+                const newLeft = screenX - (indicatorSize / 2);
+                const newTop = screenY - (indicatorSize / 2);
+                
+                // Indikator ausblenden, wenn er außerhalb des sichtbaren Bereichs liegt
+                if (newLeft < -indicatorSize || newTop < -indicatorSize || newLeft > canvas.width || newTop > canvas.height) {
+                    indicator.element.style.display = 'none';
+                } else {
+                    indicator.element.style.display = 'block';
+                    indicator.element.style.left = `${newLeft}px`;
+                    indicator.element.style.top = `${newTop}px`;
+                    
+                    // Re-Sample Farbe
+                    const color = sampleColor(screenX, screenY);
+                    indicator.color = color;
+                    indicator.element.style.backgroundColor = color.hex;
+                }
+            });
+            updatePaletteDisplay();
+        }
+
+        // 9. Farb-Abtastfunktion
+        function sampleColor(x, y) {
+            // x, y sind Canvas-Screen-Koordinaten (0 bis canvas.width/height)
+            const safeX = Math.max(0, Math.min(canvas.width - 1, x));
+            const safeY = Math.max(0, Math.min(canvas.height - 1, y));
+
+            try {
+                // ctx.getImageData gibt ein 1x1 Pixel großes Bilddatenobjekt zurück
+                const imageData = ctx.getImageData(safeX, safeY, 1, 1);
+                const data = imageData.data;
+                const color = {
+                    r: data[0],
+                    g: data[1],
+                    b: data[2],
+                    hex: rgbToHex(data[0], data[1], data[2])
+                };
+                return color;
+            } catch (e) {
+                console.error("Fehler beim Abrufen von Bilddaten. CORS- oder Sicherheitsbeschränkung.", e);
+                return { r: 255, g: 255, b: 255, hex: '#FFFFFF' };
+            }
+        }
+
+        // 10. Anzeige der Farbpalette aktualisieren
+        function updatePaletteDisplay() {
+            const paletteDisplay = document.getElementById(PALETTE_ID);
+            
+            if (indicators.length === 0) {
+                // Zeige Platzhalter, falls keine Indikatoren vorhanden
+                paletteDisplay.innerHTML = `
+                    <div class="flex items-center justify-center text-gray-400 h-full border-2 border-dashed border-slate-600 rounded-xl">
+                        <span class="text-center">Laden Sie ein Bild hoch, um die Palette zu sehen.</span>
+                    </div>
+                `;
+                enableAnalysisButton(false); // Deaktiviere Analyse-Button
+                return;
+            }
+
+            // Erstelle die Farbrechtecke
+            paletteDisplay.innerHTML = indicators.map(ind => {
+                // Nur Indikatoren anzeigen, die sichtbar sind oder deren Farbe definiert ist
+                const color = ind.color || { hex: '#cccccc', r: 204, g: 204, b: 204 };
+                return `
+                    <div class="color-display p-3 shadow-md border border-slate-700" style="background-color: ${color.hex};">
+                        <span class="font-mono text-xs p-1 rounded bg-black bg-opacity-40 text-white select-all">${color.hex.toUpperCase()}</span>
+                        <span class="font-mono text-xs p-1 rounded bg-black bg-opacity-40 text-white select-all ml-2">rgb(${color.r}, ${color.g}, ${color.b})</span>
+                    </div>
+                `;
+            }).join('');
+            
+            // Aktiviere Analyse-Button nur, wenn alle 5 Farben erfolgreich abgetastet wurden
+            const allColorsSampled = indicators.every(ind => ind.color && ind.color.hex !== '#FFFFFF');
+            enableAnalysisButton(allColorsSampled);
+        }
+        
+        // Hilfsfunktion zur Steuerung des Analyse-Buttons
+        function enableAnalysisButton(enable) {
+            if (analyzeButton) {
+                analyzeButton.disabled = !enable;
+                if (enable) {
+                    analyzeButton.innerHTML = '✨ Palette analysieren &amp; beschreiben';
+                } else {
+                    analyzeButton.innerHTML = 'Palette analysieren &amp; beschreiben';
+                }
+            }
+        }
+
+        // 11. Gemini API-Integration zur Farbanalyse
+        async function fetchGeminiPaletteAnalysis() {
+            if (analyzeButton.disabled || indicators.length === 0) return;
+            
+            // Ladezustand anzeigen und Button deaktivieren
+            analysisResultDiv.classList.add('hidden');
+            analysisResultDiv.innerHTML = '';
+            analysisLoadingP.classList.remove('hidden');
+            enableAnalysisButton(false); 
+            analyzeButton.textContent = 'Analysiere...';
+
+            const colorList = indicators.map(ind => ind.color.hex).join(', ');
+            
+            // Prompt in deutscher Sprache
+            const systemPrompt = "Sie sind ein weltbekannter Farbpsychologe und Innenarchitekt. Analysieren Sie die bereitgestellte Farbpalette und geben Sie eine kurze, aber aufschlussreiche Beschreibung von Stil, Stimmung und Anwendung. Fassen Sie die Antwort in maximal drei Absätzen zusammen und verwenden Sie nur reinen Text ohne Markdown-Formatierung wie Listen oder Überschriften. Schlagen Sie für jede der 5 Farben einen poetischen oder beschreibenden Namen vor.";
+            const userQuery = `Analysieren Sie die folgende Farbpalette und erstellen Sie eine kurze Beschreibung: ${colorList}`;
+            
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            let response;
+            let maxRetries = 3;
+            let delay = 1000;
+
+            // API-Aufruf mit Exponential Backoff
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        break;
+                    }
+                } catch (error) {
+                    // Fehler im Netzwerk oder beim Fetch
+                }
+
+                if (i < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Exponentielle Verzögerung
+                }
+            }
+
+            // Ladezustand beenden und Button wieder aktivieren
+            analysisLoadingP.classList.add('hidden');
+            enableAnalysisButton(true);
+
+            if (!response || !response.ok) {
+                analysisResultDiv.classList.remove('hidden');
+                analysisResultDiv.innerHTML = `<p class="text-red-400">Fehler bei der Analyse: Konnte keine Verbindung zur KI herstellen.</p>`;
+                return;
+            }
+
+            try {
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    analysisResultDiv.classList.remove('hidden');
+                    // Einfache Formatierung für Absätze
+                    const formattedText = text.trim().split('\n').filter(p => p.trim() !== '').map(p => `<p class="mb-3">${p.trim()}</p>`).join('');
+                    analysisResultDiv.innerHTML = formattedText;
+                } else {
+                    analysisResultDiv.classList.remove('hidden');
+                    analysisResultDiv.innerHTML = `<p class="text-red-400">Fehler bei der Analyse: Die KI hat keinen gültigen Text geliefert.</p>`;
+                }
+            } catch (e) {
+                analysisResultDiv.classList.remove('hidden');
+                analysisResultDiv.innerHTML = `<p class="text-red-400">Fehler beim Parsen der KI-Antwort.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
