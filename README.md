@@ -1,4 +1,4 @@
 # ZenZamiSpiele-Co
 Spiele , tools, usw.
 
-Test
+Steine verlegen, Zami Puzzle, ...
