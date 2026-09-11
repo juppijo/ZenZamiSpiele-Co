@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Image Hotspot & JSON Editor</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- CodeMirror for JSON Editing -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --panel-border: #334155;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --accent: #38bdf8;
+            --accent-hover: #0284c7;
+            --danger: #f43f5e;
+            --danger-hover: #e11d48;
+            --input-bg: #0f172a;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            
+            /* Dynamic Marker Custom Properties */
+            --marker-size: 28px;
+            --marker-color: #ff2e63;
+            --marker-opacity: 0.9;
+            --marker-border-color: #ffffff;
+            --marker-border-width: 2px;
+            --marker-shape: 50%;
+        }
+
+        body.theme-light {
+            --bg-color: #f1f5f9;
+            --panel-bg: #ffffff;
+            --panel-border: #cbd5e1;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --accent: #0284c7;
+            --accent-hover: #0369a1;
+            --danger: #e11d48;
+            --danger-hover: #be123c;
+            --input-bg: #f8fafc;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        body.theme-cyber {
+            --bg-color: #05050d;
+            --panel-bg: #0d0f1d;
+            --panel-border: #25284a;
+            --text-main: #00f0ff;
+            --text-sub: #7079b3;
+            --accent: #ff0055;
+            --accent-hover: #d00045;
+            --danger: #ff0055;
+            --danger-hover: #cc0044;
+            --input-bg: #05050d;
+            --card-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header */
+        header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 20;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            letter-spacing: -0.5px;
+        }
+
+        .logo i {
+            color: var(--accent);
+            font-size: 1.4rem;
+        }
+
+        .top-tools {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: var(--panel-border);
+            color: var(--text-main);
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary { background-color: var(--accent); color: #ffffff; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-danger { background-color: var(--danger); color: #ffffff; }
+        .btn-danger:hover { background-color: var(--danger-hover); }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--panel-border);
+        }
+        .btn-outline:hover { background-color: var(--panel-border); }
+
+        .btn-file {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-file input[type="file"] {
+            position: absolute;
+            top: 0; right: 0;
+            min-width: 100%; min-height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* Layout Main Grid */
+        .main-container {
+            display: grid;
+            grid-template-columns: 320px 1fr 360px;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - 65px);
+        }
+
+        /* Left Sidebar - Style Controls */
+        .sidebar-left {
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--panel-border);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-section {
+            background: var(--input-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 14px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group { margin-bottom: 14px; }
+        .control-group:last-child { margin-bottom: 0; }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-sub);
+        }
+
+        .control-group input[type="range"],
+        .control-group select,
+        .control-group input[type="text"],
+        .control-group input[type="color"] {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background-color: var(--panel-bg);
+            color: var(--text-main);
+            font-size: 0.88rem;
+            outline: none;
+        }
+
+        .control-group input[type="color"] {
+            height: 38px;
+            padding: 2px;
+            cursor: pointer;
+        }
+
+        /* Center Canvas */
+        .workspace {
+            background-color: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+            box-shadow: var(--card-shadow);
+            border-radius: 8px;
+            overflow: hidden;
+            max-width: 100%;
+            max-height: 100%;
+            border: 2px dashed var(--panel-border);
+        }
+
+        #image-display {
+            display: block;
+            max-width: 100%;
+            max-height: calc(100vh - 140px);
+            object-fit: contain;
+            user-select: none;
+        }
+
+        .empty-state {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-sub);
+            pointer-events: none;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+
+        /* Dynamic Hotspot Elements */
+        .hotspot {
+            position: absolute;
+            width: var(--marker-size);
+            height: var(--marker-size);
+            background-color: var(--marker-color);
+            opacity: var(--marker-opacity);
+            border: var(--marker-border-width) solid var(--marker-border-color);
+            border-radius: var(--marker-shape);
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: calc(var(--marker-size) * 0.45);
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            user-select: none;
+        }
+
+        .hotspot:hover {
+            z-index: 15;
+            transform: translate(-50%, -50%) scale(1.15);
+        }
+
+        /* Marker Animations */
+        .anim-pulse::after {
+            content: '';
+            position: absolute;
+            width: 100%; height: 100%;
+            border-radius: inherit;
+            background-color: inherit;
+            z-index: -1;
+            animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            80%, 100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        .anim-bounce { animation: bounce 1.2s infinite alternate ease-in-out; }
+        @keyframes bounce {
+            0% { transform: translate(-50%, -50%); }
+            100% { transform: translate(-50%, -65%); }
+        }
+
+        .anim-spin { animation: spin 4s linear infinite; }
+        @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+        /* Tooltip */
+        .hotspot-tooltip {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 1px solid var(--panel-border);
+        }
+
+        .hotspot:hover .hotspot-tooltip { opacity: 1; visibility: visible; }
+
+        /* Right Sidebar - JSON & List */
+        .sidebar-right {
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-header { display: flex; border-bottom: 1px solid var(--panel-border); }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-sub);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            background-color: var(--input-bg);
+        }
+
+        .tab-content { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+        .tab-content.active { display: flex; }
+
+        .CodeMirror { height: 100% !important; font-size: 0.85rem; }
+
+        .json-actions {
+            padding: 10px;
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--panel-border);
+        }
+
+        .hotspot-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .list-item {
+            background: var(--input-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .list-item-title { font-weight: 600; font-size: 0.88rem; color: var(--text-main); }
+        .list-item-coords { font-size: 0.75rem; color: var(--text-sub); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            width: 380px;
+            padding: 24px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .modal-header {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body { display: flex; flex-direction: column; gap: 12px; }
+        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+    </style>
+</head>
+<body class="theme-dark">
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-map-location-dot"></i>
+            <span>Hotspot Studio Pro</span>
+        </div>
+
+        <div class="top-tools">
+            <span class="btn btn-file btn-outline">
+                <i class="fa-solid fa-image"></i> Bild wählen
+                <input type="file" id="img-input" accept="image/*">
+            </span>
+
+            <span class="btn btn-file btn-outline">
+                <i class="fa-solid fa-file-import"></i> JSON Import
+                <input type="file" id="json-input" accept=".json">
+            </span>
+
+            <button class="btn btn-primary" id="export-json-btn">
+                <i class="fa-solid fa-file-export"></i> JSON Export
+            </button>
+
+            <button class="btn btn-outline" id="mode-btn">
+                <i class="fa-solid fa-pen-to-square"></i> Modus: Editieren
+            </button>
+
+            <button class="btn btn-outline" id="fullscreen-btn" title="Vollbild">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+
+        <!-- Sidebar Left: Styling Options -->
+        <aside class="sidebar-left">
+            <div class="panel-section">
+                <div class="panel-title"><i class="fa-solid fa-palette"></i> App Theme</div>
+                <div class="control-group">
+                    <select id="app-theme-select">
+                        <option value="theme-dark">Dark Minimal</option>
+                        <option value="theme-light">Light Professional</option>
+                        <option value="theme-cyber">Cyberpunk Neon</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title"><i class="fa-solid fa-sliders"></i> Marker Style</div>
+                
+                <div class="control-group">
+                    <label>Größe: <span id="val-size">28px</span></label>
+                    <input type="range" id="style-size" min="16" max="60" value="28">
+                </div>
+
+                <div class="control-group">
+                    <label>Farbe</label>
+                    <input type="color" id="style-color" value="#ff2e63">
+                </div>
+
+                <div class="control-group">
+                    <label>Deckkraft / Transparenz: <span id="val-opacity">90%</span></label>
+                    <input type="range" id="style-opacity" min="0.1" max="1.0" step="0.05" value="0.9">
+                </div>
+
+                <div class="control-group">
+                    <label>Form / Radius</label>
+                    <select id="style-shape">
+                        <option value="50%">Kreis</option>
+                        <option value="20%">Abgerundetes Quadrat</option>
+                        <option value="0%">Quadrat</option>
+                        <option value="50% 50% 50% 0%">Tropfen / Pin</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Rahmenfarbe</label>
+                    <input type="color" id="style-border-color" value="#ffffff">
+                </div>
+
+                <div class="control-group">
+                    <label>Rahmenstärke: <span id="val-border-width">2px</span></label>
+                    <input type="range" id="style-border-width" min="0" max="6" value="2">
+                </div>
+
+                <div class="control-group">
+                    <label>Animation</label>
+                    <select id="style-animation">
+                        <option value="none">Keine</option>
+                        <option value="anim-pulse" selected>Pulsieren / Wellen</option>
+                        <option value="anim-bounce">Hüpfen (Bounce)</option>
+                        <option value="anim-spin">Drehen (Spin)</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="workspace" id="workspace-area">
+            <div class="canvas-wrapper" id="canvas-container">
+                <img id="image-display" src="" alt="">
+                <div class="empty-state" id="empty-state">
+                    <i class="fa-regular fa-image"></i>
+                    <h3>Kein Bild geladen</h3>
+                    <p>Lade oben ein Bild hoch, um Hotspots zu setzen.</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Sidebar Right: JSON & List View -->
+        <aside class="sidebar-right">
+            <div class="tab-header">
+                <button class="tab-btn active" id="tab-btn-code" onclick="switchTab('code')">
+                    <i class="fa-solid fa-code"></i> JSON Code
+                </button>
+                <button class="tab-btn" id="tab-btn-list" onclick="switchTab('list')">
+                    <i class="fa-solid fa-list-check"></i> Liste (<span id="hotspot-count">0</span>)
+                </button>
+            </div>
+
+            <div class="tab-content active" id="tab-code">
+                <textarea id="json-textarea"></textarea>
+                <div class="json-actions">
+                    <button class="btn btn-primary" id="apply-json-btn" style="width:100%;">
+                        <i class="fa-solid fa-check"></i> JSON Änderungen anwenden
+                    </button>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-list">
+                <div class="hotspot-list" id="hotspot-list-container"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span id="modal-title-text"><i class="fa-solid fa-location-dot"></i> Hotspot bearbeiten</span>
+                <i class="fa-solid fa-xmark" style="cursor:pointer;" id="modal-close-icon"></i>
+            </div>
+            <div class="modal-body">
+                <div class="control-group">
+                    <label>Titel / Beschriftung</label>
+                    <input type="text" id="modal-spot-title" placeholder="z. B. Hauptgebäude">
+                </div>
+                <div class="control-group">
+                    <label>Ziel-URL / Link</label>
+                    <input type="text" id="modal-spot-url" placeholder="https://example.com">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" id="modal-btn-delete"><i class="fa-solid fa-trash"></i> Löschen</button>
+                <button class="btn btn-outline" id="modal-btn-cancel">Abbrechen</button>
+                <button class="btn btn-primary" id="modal-btn-save"><i class="fa-solid fa-floppy-disk"></i> Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let hotspots = [];
+        let editMode = true;
+        let selectedSpotIndex = null;
+        let pendingCoords = null;
+        let editorInstance = null;
+
+        const imgDisplay = document.getElementById('image-display');
+        const canvasContainer = document.getElementById('canvas-container');
+        const emptyState = document.getElementById('empty-state');
+        const editModal = document.getElementById('edit-modal');
+        const modeBtn = document.getElementById('mode-btn');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            editorInstance = CodeMirror.fromTextArea(document.getElementById('json-textarea'), {
+                mode: { name: "javascript", json: true },
+                theme: "dracula",
+                lineNumbers: true,
+                foldGutter: true
+            });
+            updateJsonCodeView();
+        });
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            if(tab === 'code') {
+                document.getElementById('tab-btn-code').classList.add('active');
+                document.getElementById('tab-code').classList.add('active');
+                editorInstance.refresh();
+            } else {
+                document.getElementById('tab-btn-list').classList.add('active');
+                document.getElementById('tab-list').classList.add('active');
+                renderList();
+            }
+        }
+
+        document.getElementById('img-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    imgDisplay.src = evt.target.result;
+                    emptyState.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('json-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const parsed = JSON.parse(evt.target.result);
+                        if (Array.isArray(parsed)) {
+                            hotspots = parsed;
+                            renderHotspots();
+                            updateJsonCodeView();
+                            renderList();
+                        }
+                    } catch (err) { alert("Fehler beim Parsen der JSON."); }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        document.getElementById('export-json-btn').addEventListener('click', () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(hotspots, null, 2));
+            const anchor = document.createElement('a');
+            anchor.setAttribute("href", dataStr);
+            anchor.setAttribute("download", "hotspots_config.json");
+            anchor.click();
+        });
+
+        document.getElementById('apply-json-btn').addEventListener('click', () => {
+            try {
+                const parsed = JSON.parse(editorInstance.getValue());
+                if (Array.isArray(parsed)) {
+                    hotspots = parsed;
+                    renderHotspots();
+                    renderList();
+                    alert("JSON erfolgreich übernommen!");
+                }
+            } catch (err) { alert("Ungültiges JSON-Format."); }
+        });
+
+        canvasContainer.addEventListener('click', (e) => {
+            if (!editMode || !imgDisplay.src || e.target.classList.contains('hotspot') || e.target.closest('.hotspot')) return;
+
+            const rect = canvasContainer.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+            pendingCoords = { x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(2)) };
+            selectedSpotIndex = null;
+
+            document.getElementById('modal-spot-title').value = '';
+            document.getElementById('modal-spot-url').value = 'https://';
+            document.getElementById('modal-btn-delete').style.display = 'none';
+            editModal.style.display = 'flex';
+        });
+
+        function renderHotspots() {
+            document.querySelectorAll('.hotspot').forEach(el => el.remove());
+            const animClass = document.getElementById('style-animation').value;
+
+            hotspots.forEach((spot, index) => {
+                const pin = document.createElement('div');
+                pin.className = `hotspot ${animClass !== 'none' ? animClass : ''}`;
+                pin.style.left = spot.x + '%';
+                pin.style.top = spot.y + '%';
+                pin.innerText = index + 1;
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'hotspot-tooltip';
+                tooltip.innerText = spot.title || spot.url || `Hotspot #${index + 1}`;
+                pin.appendChild(tooltip);
+
+                pin.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (editMode) {
+                        openEditModal(index);
+                    } else if (spot.url) {
+                        window.open(spot.url, '_blank');
+                    }
+                });
+
+                canvasContainer.appendChild(pin);
+            });
+            document.getElementById('hotspot-count').innerText = hotspots.length;
+        }
+
+        function updateJsonCodeView() {
+            if (editorInstance) editorInstance.setValue(JSON.stringify(hotspots, null, 2));
+        }
+
+        function renderList() {
+            const listContainer = document.getElementById('hotspot-list-container');
+            listContainer.innerHTML = hotspots.length === 0 ? '<div style="color:var(--text-sub); text-align:center;">Keine Hotspots</div>' : '';
+
+            hotspots.forEach((spot, index) => {
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="list-item-title">${index + 1}. ${spot.title || 'Unbenannt'}</div>
+                        <div class="list-item-coords">X: ${spot.x}% | Y: ${spot.y}%</div>
+                    </div>
+                    <button class="btn btn-outline" style="padding:4px 8px;" onclick="openEditModal(${index})"><i class="fa-solid fa-pen"></i></button>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function openEditModal(index) {
+            selectedSpotIndex = index;
+            pendingCoords = null;
+            const spot = hotspots[index];
+            document.getElementById('modal-spot-title').value = spot.title || '';
+            document.getElementById('modal-spot-url').value = spot.url || '';
+            document.getElementById('modal-btn-delete').style.display = 'inline-flex';
+            editModal.style.display = 'flex';
+        }
+
+        document.getElementById('modal-btn-save').addEventListener('click', () => {
+            const title = document.getElementById('modal-spot-title').value;
+            const url = document.getElementById('modal-spot-url').value;
+
+            if (selectedSpotIndex !== null) {
+                hotspots[selectedSpotIndex].title = title;
+                hotspots[selectedSpotIndex].url = url;
+            } else if (pendingCoords) {
+                hotspots.push({ x: pendingCoords.x, y: pendingCoords.y, title, url });
+            }
+
+            closeModal();
+            renderHotspots();
+            updateJsonCodeView();
+            renderList();
+        });
+
+        document.getElementById('modal-btn-delete').addEventListener('click', () => {
+            if (selectedSpotIndex !== null) {
+                hotspots.splice(selectedSpotIndex, 1);
+                closeModal();
+                renderHotspots();
+                updateJsonCodeView();
+                renderList();
+            }
+        });
+
+        function closeModal() { editModal.style.display = 'none'; }
+        document.getElementById('modal-btn-cancel').addEventListener('click', closeModal);
+        document.getElementById('modal-close-icon').addEventListener('click', closeModal);
+
+        modeBtn.addEventListener('click', () => {
+            editMode = !editMode;
+            modeBtn.innerHTML = editMode ? '<i class="fa-solid fa-pen-to-square"></i> Modus: Editieren' : '<i class="fa-solid fa-arrow-pointer"></i> Modus: Links öffnen';
+            canvasContainer.style.cursor = editMode ? "crosshair" : "pointer";
+        });
+
+        document.getElementById('app-theme-select').addEventListener('change', (e) => { document.body.className = e.target.value; });
+        document.getElementById('fullscreen-btn').addEventListener('click', () => {
+            const area = document.getElementById('workspace-area');
+            if (!document.fullscreenElement) area.requestFullscreen(); else document.exitFullscreen();
+        });
+
+        // Dynamic Styling Controls
+        const root = document.documentElement;
+        document.getElementById('style-size').addEventListener('input', (e) => {
+            root.style.setProperty('--marker-size', e.target.value + 'px');
+            document.getElementById('val-size').innerText = e.target.value + 'px';
+        });
+        document.getElementById('style-color').addEventListener('input', (e) => root.style.setProperty('--marker-color', e.target.value));
+        document.getElementById('style-opacity').addEventListener('input', (e) => {
+            root.style.setProperty('--marker-opacity', e.target.value);
+            document.getElementById('val-opacity').innerText = Math.round(e.target.value * 100) + '%';
+        });
+        document.getElementById('style-shape').addEventListener('change', (e) => root.style.setProperty('--marker-shape', e.target.value));
+        document.getElementById('style-border-color').addEventListener('input', (e) => root.style.setProperty('--marker-border-color', e.target.value));
+        document.getElementById('style-border-width').addEventListener('input', (e) => {
+            root.style.setProperty('--marker-border-width', e.target.value + 'px');
+            document.getElementById('val-border-width').innerText = e.target.value + 'px';
+        });
+        document.getElementById('style-animation').addEventListener('change', renderHotspots);
+    </script>
+</body>
+</html>

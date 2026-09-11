@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bild-Hotspots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #121110;
+    --bg-panel: #1b1917;
+    --bg-panel-2: #221f1c;
+    --border: #33302b;
+    --text: #ece7dd;
+    --text-dim: #a89f8f;
+    --gold: #d4af37;
+    --gold-dim: #8a7326;
+    --danger: #b5453a;
+    --marker-color: #d4af37;
+    --marker-size: 26px;
+    --marker-opacity: 1;
+  }
+  body.light{
+    --bg: #f3f0e8;
+    --bg-panel: #ffffff;
+    --bg-panel-2: #ece7da;
+    --border: #d8d0bc;
+    --text: #201d18;
+    --text-dim: #6b6353;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    display:flex;
+    flex-direction:column;
+    transition: background .2s, color .2s;
+  }
+  h1,h2{ font-family:'Bebas Neue', sans-serif; letter-spacing:.03em; margin:0; font-weight:400; }
+  h1{ font-size: 1.7rem; color: var(--gold); }
+  h2{ font-size: 1.25rem; color: var(--gold); margin-bottom: .6rem; }
+
+  header.toolbar{
+    display:flex; flex-wrap:wrap; align-items:center; gap: .9rem;
+    padding: .8rem 1.2rem;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    position: relative; z-index: 20;
+  }
+  .tools{ display:flex; flex-wrap:wrap; gap:.5rem; margin-left:auto; }
+  button{
+    font-family:'Barlow', sans-serif; font-weight:600; font-size:.85rem;
+    background: var(--bg-panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .5rem .9rem;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  button:hover{ border-color: var(--gold-dim); color: var(--gold); }
+  button.active{ background: var(--gold); color: #17140f; border-color: var(--gold); }
+  button.danger:hover{ border-color: var(--danger); color: var(--danger); }
+
+  main{ flex:1; display:flex; overflow:hidden; }
+  .stage{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    padding: 1.5rem; overflow:auto; background:
+      linear-gradient(45deg, rgba(255,255,255,.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.02) 75%) 0 0/24px 24px,
+      linear-gradient(45deg, rgba(255,255,255,.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.02) 75%) 12px 12px/24px 24px;
+  }
+  .stage:fullscreen{ background: var(--bg); padding: 0; }
+  .img-wrap{
+    position: relative; display:inline-block; max-width:100%; max-height: 100%;
+    line-height:0;
+  }
+  .img-wrap.edit-mode{ cursor: crosshair; }
+  #mainImage{ max-width: 100%; max-height: calc(100vh - 8rem); display:block; border: 1px solid var(--border); user-select:none; -webkit-user-drag:none; }
+  .stage:fullscreen #mainImage{ max-height: 100vh; }
+  #placeholder{
+    color: var(--text-dim); font-size: 1rem; text-align:center;
+    border: 1px dashed var(--border); padding: 4rem 5rem; border-radius: 6px;
+  }
+  #markers{ position:absolute; inset:0; pointer-events: none; }
+  .marker{
+    position:absolute; width: var(--marker-size); height: var(--marker-size);
+    transform: translate(-50%,-50%);
+    border-radius:50%;
+    background: color-mix(in srgb, var(--marker-color) 30%, transparent);
+    border: 2px solid var(--marker-color);
+    display:flex; align-items:center; justify-content:center;
+    pointer-events: auto; cursor:pointer;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.25);
+    opacity: var(--marker-opacity);
+  }
+  .marker span{
+    font-family:'Bebas Neue', sans-serif; font-size: calc(var(--marker-size) * .45);
+    color: #14120e; background: var(--marker-color); border-radius:50%;
+    width: 70%; height:70%; display:flex; align-items:center; justify-content:center;
+  }
+  .marker.pulse::after{
+    content:''; position:absolute; inset:-4px; border-radius:50%;
+    border: 2px solid var(--marker-color);
+    animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{ transform: scale(.8); opacity:.9; }
+    100%{ transform: scale(1.9); opacity:0; }
+  }
+
+  aside.panel{
+    width: 320px; flex-shrink:0; background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    padding: 1.1rem 1.2rem; overflow-y:auto;
+  }
+  aside.panel.hidden{ display:none; }
+  #jsonText{
+    width:100%; height: 46vh; background: var(--bg-panel-2); color: var(--text);
+    border:1px solid var(--border); border-radius:4px; padding:.6rem;
+    font-family: ui-monospace, 'Courier New', monospace; font-size:.78rem; resize: vertical;
+    tab-size: 2;
+  }
+  .panel-actions{ display:flex; gap:.5rem; margin-top:.6rem; }
+  .panel-actions button{ flex:1; }
+  .hint{ font-size:.75rem; color: var(--text-dim); margin-top:.5rem; line-height:1.5; }
+
+  aside.panel label{ display:block; font-size:.82rem; color: var(--text-dim); margin-bottom:1rem; }
+  aside.panel input[type=range], aside.panel select{ width:100%; margin-top:.35rem; }
+  aside.panel input[type=color]{ width:100%; height:2.1rem; margin-top:.35rem; border:1px solid var(--border); border-radius:4px; background:none; padding:2px; }
+  .checkline{ display:flex; align-items:center; gap:.5rem; }
+  .checkline input{ margin:0; }
+
+  .point-form{
+    position: fixed; z-index: 50;
+    background: var(--bg-panel); border:1px solid var(--gold-dim); border-radius:6px;
+    padding: .9rem; width: 260px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .point-form.hidden{ display:none; }
+  .point-form label{ display:block; font-size:.78rem; color:var(--text-dim); margin-bottom:.7rem; }
+  .point-form input{
+    width:100%; margin-top:.3rem; background: var(--bg-panel-2); color: var(--text);
+    border:1px solid var(--border); border-radius:4px; padding:.4rem .5rem; font-family:'Barlow',sans-serif;
+  }
+  .pf-actions{ display:flex; gap:.4rem; margin-top:.3rem; }
+  .pf-actions button{ flex:1; padding:.4rem; font-size:.78rem; }
+
+  #jsonInput, #imageInput{ display:none; }
+
+  @media (max-width: 760px){
+    aside.panel{ position: fixed; top:0; right:0; bottom:0; z-index: 30; }
+    header.toolbar h1{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="toolbar">
+  <h1>Bild-Hotspots</h1>
+  <div class="tools">
+    <button id="btnImage">Bild wählen</button>
+    <button id="btnLoadJson">JSON laden</button>
+    <button id="btnSaveJson">JSON speichern</button>
+    <button id="btnExportHtml">Seite exportieren</button>
+    <button id="btnJsonPanel">JSON-Editor</button>
+    <button id="btnMode">Bearbeiten</button>
+    <button id="btnStyles">Styles</button>
+    <button id="btnFullscreen">Vollbild</button>
+  </div>
+  <input type="file" id="imageInput" accept="image/*">
+  <input type="file" id="jsonInput" accept="application/json,.json">
+</header>
+
+<main>
+  <div class="stage" id="stage">
+    <div class="img-wrap" id="imgWrap">
+      <img id="mainImage" alt="" style="display:none;">
+      <div id="markers"></div>
+      <p id="placeholder">Kein Bild gewählt — oben auf „Bild wählen“ klicken</p>
+    </div>
+  </div>
+
+  <aside class="panel hidden" id="jsonPanel">
+    <h2>JSON-Daten</h2>
+    <textarea id="jsonText" spellcheck="false"></textarea>
+    <div class="panel-actions">
+      <button id="btnApplyJson">Übernehmen</button>
+      <button id="btnClearPoints" class="danger">Alle löschen</button>
+    </div>
+    <p class="hint">Format: Array von Objekten <code>{x, y, link, label}</code>. x/y sind Prozentwerte (0–100) relativ zur Bildgröße. Änderungen hier mit „Übernehmen“ auf das Bild anwenden.</p>
+  </aside>
+
+  <aside class="panel hidden" id="stylePanel">
+    <h2>Styles</h2>
+    <label>Theme
+      <select id="themeSelect">
+        <option value="dark">Dunkel</option>
+        <option value="light">Hell</option>
+      </select>
+    </label>
+    <label>Marker-Farbe
+      <input type="color" id="markerColor" value="#d4af37">
+    </label>
+    <label>Marker-Größe (<span id="sizeVal">26</span>px)
+      <input type="range" id="markerSize" min="14" max="56" value="26">
+    </label>
+    <label>Marker-Transparenz (<span id="opacityVal">100</span>%)
+      <input type="range" id="markerOpacity" min="0" max="100" value="100">
+    </label>
+    <label class="checkline">
+      <input type="checkbox" id="markerPulse"> Puls-Animation
+    </label>
+    <label class="checkline">
+      <input type="checkbox" id="markerNumbers" checked> Nummerierung anzeigen
+    </label>
+  </aside>
+</main>
+
+<div class="point-form hidden" id="pointForm">
+  <label>Link (URL)
+    <input type="url" id="pfLink" placeholder="https://…">
+  </label>
+  <label>Beschriftung (optional)
+    <input type="text" id="pfLabel" placeholder="Name / Tooltip">
+  </label>
+  <div class="pf-actions">
+    <button id="pfSave">Speichern</button>
+    <button id="pfDelete" class="danger">Löschen</button>
+  </div>
+  <div class="pf-actions">
+    <button id="pfCancel">Abbrechen</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+
+  let points = [];      // {x, y, link, label}  x/y in Prozent
+  let editMode = false;
+  let currentEditIndex = -1; // -1 = neuer Punkt
+  let imageFileName = '';
+
+  const mainImage = $('mainImage');
+  const placeholder = $('placeholder');
+  const imgWrap = $('imgWrap');
+  const markersLayer = $('markers');
+  const jsonText = $('jsonText');
+  const pointForm = $('pointForm');
+
+  // ---------- Bild laden ----------
+  $('btnImage').addEventListener('click', () => $('imageInput').click());
+  $('imageInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    imageFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      mainImage.src = ev.target.result;
+      mainImage.style.display = 'block';
+      placeholder.style.display = 'none';
+      mainImage.onload = renderMarkers;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------- JSON laden / speichern ----------
+  $('btnLoadJson').addEventListener('click', () => $('jsonInput').click());
+  $('jsonInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if (!Array.isArray(parsed)) throw new Error('Kein Array');
+        points = parsed.map(p => ({
+          x: Number(p.x) || 0, y: Number(p.y) || 0,
+          link: p.link || '', label: p.label || ''
+        }));
+        syncTextarea();
+        renderMarkers();
+      }catch(err){
+        alert('JSON konnte nicht gelesen werden: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  $('btnSaveJson').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(points, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'hotspots.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ---------- Eigenständige HTML-Seite exportieren ----------
+  $('btnExportHtml').addEventListener('click', () => {
+    if (mainImage.style.display === 'none' || !mainImage.src){
+      alert('Bitte zuerst ein Bild wählen.');
+      return;
+    }
+    if (!imageFileName){
+      alert('Der Dateiname des Bildes konnte nicht ermittelt werden.');
+      return;
+    }
+    const color = $('markerColor').value;
+    const size = $('markerSize').value;
+    const opacity = $('markerOpacity').value / 100;
+    const pulse = $('markerPulse').checked;
+    const numbers = $('markerNumbers').checked;
+    const light = document.body.classList.contains('light');
+
+    const bg = light ? '#f3f0e8' : '#121110';
+    const text = light ? '#201d18' : '#ece7dd';
+    const border = light ? '#d8d0bc' : '#33302b';
+
+    const markersHtml = points.map((p, i) => `
+      <a class="marker" href="${escapeAttr(p.link)}" target="_blank" rel="noopener"
+         style="left:${p.x}%; top:${p.y}%;" title="${escapeAttr(p.label || p.link)}">
+        ${numbers ? `<span>${i+1}</span>` : ''}
+      </a>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeAttr(imageFileName)} – Hotspots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:${bg}; color:${text}; font-family:'Barlow',sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh;
+  }
+  #stage{ position:relative; display:inline-flex; max-width:100vw; max-height:100vh; }
+  #stage:fullscreen{ background:${bg}; align-items:center; justify-content:center; display:flex; width:100vw; height:100vh; }
+  #stage img{ max-width:100vw; max-height:100vh; display:block; border:1px solid ${border}; user-select:none; }
+  #stage:fullscreen img{ max-width:100vw; max-height:100vh; }
+  .marker{
+    position:absolute; width:${size}px; height:${size}px; transform:translate(-50%,-50%);
+    border-radius:50%; border:2px solid ${color};
+    background:color-mix(in srgb, ${color} 30%, transparent);
+    display:flex; align-items:center; justify-content:center;
+    text-decoration:none; opacity:${opacity};
+    box-shadow:0 0 0 3px rgba(0,0,0,.25);
+  }
+  .marker span{
+    font-family:'Bebas Neue',sans-serif; font-size:${Math.round(size*0.45)}px;
+    color:#14120e; background:${color}; border-radius:50%;
+    width:70%; height:70%; display:flex; align-items:center; justify-content:center;
+  }
+  ${pulse ? `
+  .marker::after{
+    content:''; position:absolute; inset:-4px; border-radius:50%; border:2px solid ${color};
+    animation:pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse{ 0%{ transform:scale(.8); opacity:.9; } 100%{ transform:scale(1.9); opacity:0; } }` : ''}
+  #btnFs{
+    position:fixed; top:16px; right:16px; z-index:10;
+    font-family:'Barlow',sans-serif; font-weight:600; font-size:.85rem;
+    background:${light ? '#ece7da' : '#221f1c'}; color:${text}; border:1px solid ${border};
+    border-radius:4px; padding:.5rem .9rem; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<button id="btnFs">Vollbild</button>
+<div id="stage">
+  <img src="${escapeAttr(imageFileName)}" alt="">
+  ${markersHtml}
+</div>
+<script>
+  var stage = document.getElementById('stage');
+  var btn = document.getElementById('btnFs');
+  function toggleFs(){
+    if (!document.fullscreenElement){
+      stage.requestFullscreen().catch(function(){});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  btn.addEventListener('click', toggleFs);
+  // Automatischer Vollbild-Versuch beim ersten Klick irgendwo auf der Seite
+  // (Browser blockieren requestFullscreen ohne Nutzeraktion)
+  document.addEventListener('click', function once(){
+    document.removeEventListener('click', once);
+  });
+<\/script>
+</body>
+</html>`;
+
+    const blob = new Blob([html], {type:'text/html'});
+    const url2 = URL.createObjectURL(blob);
+    const a2 = document.createElement('a');
+    a2.href = url2; a2.download = 'hotspots-export.html';
+    a2.click();
+    URL.revokeObjectURL(url2);
+    alert('Exportiert. Bitte die Datei „' + imageFileName + '“ in denselben Ordner wie die exportierte HTML-Seite legen, da das Bild nicht eingebettet, sondern verlinkt ist.');
+  });
+
+  function escapeAttr(str){
+    return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ---------- JSON-Panel ----------
+  $('btnJsonPanel').addEventListener('click', () => {
+    $('stylePanel').classList.add('hidden');
+    $('jsonPanel').classList.toggle('hidden');
+  });
+  $('btnApplyJson').addEventListener('click', () => {
+    try{
+      const parsed = JSON.parse(jsonText.value);
+      if (!Array.isArray(parsed)) throw new Error('Kein Array');
+      points = parsed.map(p => ({
+        x: Number(p.x) || 0, y: Number(p.y) || 0,
+        link: p.link || '', label: p.label || ''
+      }));
+      renderMarkers();
+    }catch(err){
+      alert('JSON ungültig: ' + err.message);
+    }
+  });
+  $('btnClearPoints').addEventListener('click', () => {
+    if (points.length && !confirm('Wirklich alle Punkte löschen?')) return;
+    points = [];
+    syncTextarea();
+    renderMarkers();
+  });
+
+  function syncTextarea(){
+    jsonText.value = JSON.stringify(points, null, 2);
+  }
+
+  // ---------- Bearbeiten-Modus ----------
+  $('btnMode').addEventListener('click', () => {
+    editMode = !editMode;
+    $('btnMode').textContent = editMode ? 'Ansicht' : 'Bearbeiten';
+    $('btnMode').classList.toggle('active', editMode);
+    imgWrap.classList.toggle('edit-mode', editMode);
+    closePointForm();
+  });
+
+  imgWrap.addEventListener('click', e => {
+    if (!editMode) return;
+    if (e.target.closest('.marker')) return; // Marker behandeln das selbst
+    if (mainImage.style.display === 'none') return;
+    const rect = mainImage.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    if (x < 0 || x > 100 || y < 0 || y > 100) return;
+    openPointForm(-1, x, y, e.clientX, e.clientY);
+  });
+
+  // ---------- Marker rendern ----------
+  function renderMarkers(){
+    markersLayer.innerHTML = '';
+    const showNumbers = $('markerNumbers').checked;
+    points.forEach((p, i) => {
+      const el = document.createElement('div');
+      el.className = 'marker' + ($('markerPulse').checked ? ' pulse' : '');
+      el.style.left = p.x + '%';
+      el.style.top = p.y + '%';
+      el.title = p.label || p.link || ('Punkt ' + (i+1));
+      if (showNumbers){
+        const span = document.createElement('span');
+        span.textContent = i + 1;
+        el.appendChild(span);
+      }
+      el.addEventListener('click', ev => {
+        ev.stopPropagation();
+        if (editMode){
+          openPointForm(i, p.x, p.y, ev.clientX, ev.clientY);
+        } else if (p.link){
+          window.open(p.link, '_blank', 'noopener');
+        }
+      });
+      markersLayer.appendChild(el);
+    });
+  }
+
+  // ---------- Punkt-Formular ----------
+  function openPointForm(index, x, y, clientX, clientY){
+    currentEditIndex = index;
+    const isNew = index === -1;
+    $('pfLink').value = isNew ? '' : points[index].link;
+    $('pfLabel').value = isNew ? '' : points[index].label;
+    $('pfDelete').style.display = isNew ? 'none' : 'block';
+
+    pointForm.dataset.x = x;
+    pointForm.dataset.y = y;
+    pointForm.classList.remove('hidden');
+
+    // Position im Viewport halten
+    const formW = 280, formH = 220;
+    let left = clientX + 12, top = clientY + 12;
+    if (left + formW > window.innerWidth) left = window.innerWidth - formW - 12;
+    if (top + formH > window.innerHeight) top = window.innerHeight - formH - 12;
+    pointForm.style.left = left + 'px';
+    pointForm.style.top = top + 'px';
+    $('pfLink').focus();
+  }
+
+  function closePointForm(){
+    pointForm.classList.add('hidden');
+    currentEditIndex = -1;
+  }
+
+  $('pfSave').addEventListener('click', () => {
+    const link = $('pfLink').value.trim();
+    const label = $('pfLabel').value.trim();
+    if (!link){ alert('Bitte einen Link angeben.'); return; }
+    const x = Number(pointForm.dataset.x);
+    const y = Number(pointForm.dataset.y);
+    if (currentEditIndex === -1){
+      points.push({x, y, link, label});
+    } else {
+      points[currentEditIndex] = {x, y, link, label};
+    }
+    syncTextarea();
+    renderMarkers();
+    closePointForm();
+  });
+
+  $('pfDelete').addEventListener('click', () => {
+    if (currentEditIndex > -1){
+      points.splice(currentEditIndex, 1);
+      syncTextarea();
+      renderMarkers();
+    }
+    closePointForm();
+  });
+
+  $('pfCancel').addEventListener('click', closePointForm);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePointForm(); });
+
+  // ---------- Vollbild ----------
+  $('btnFullscreen').addEventListener('click', () => {
+    const stage = $('stage');
+    if (!document.fullscreenElement){
+      stage.requestFullscreen().catch(err => alert('Vollbild nicht möglich: ' + err.message));
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  // ---------- Styles-Panel ----------
+  $('btnStyles').addEventListener('click', () => {
+    $('jsonPanel').classList.add('hidden');
+    $('stylePanel').classList.toggle('hidden');
+  });
+  $('themeSelect').addEventListener('change', e => {
+    document.body.classList.toggle('light', e.target.value === 'light');
+  });
+  $('markerColor').addEventListener('input', e => {
+    document.documentElement.style.setProperty('--marker-color', e.target.value);
+  });
+  $('markerSize').addEventListener('input', e => {
+    document.documentElement.style.setProperty('--marker-size', e.target.value + 'px');
+    $('sizeVal').textContent = e.target.value;
+  });
+  $('markerOpacity').addEventListener('input', e => {
+    document.documentElement.style.setProperty('--marker-opacity', e.target.value / 100);
+    $('opacityVal').textContent = e.target.value;
+  });
+  $('markerPulse').addEventListener('change', renderMarkers);
+  $('markerNumbers').addEventListener('change', renderMarkers);
+
+  // Fenstergröße ändert Markerposition nicht, da Prozentwerte — kein Resize-Handler nötig.
+})();
+</script>
+</body>
+</html>
