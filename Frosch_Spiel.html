@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Interaktives Kinderspiel</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #a1c4fd 0%, #c2e9fb 100%);
+    }
+
+    /* Spielfeld / Teich */
+    #pond {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(180deg, #74ebe5 0%, #4ce3e7 40%, #2bb8d8 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Sonne im Hintergrund */
+    .sun {
+      position: absolute;
+      top: 40px;
+      right: 50px;
+      width: 110px;
+      height: 110px;
+      background-color: #ffde59;
+      border-radius: 50%;
+      box-shadow: 0 0 40px #ffde59;
+      cursor: pointer;
+      z-index: 5;
+      touch-action: manipulation;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .sun.singing {
+      animation: sunPulse 0.6s ease-in-out infinite alternate;
+    }
+
+    @keyframes sunPulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 40px #ffde59;
+      }
+      100% {
+        transform: scale(1.15);
+        box-shadow: 0 0 70px #ff9800;
+      }
+    }
+
+    /* Reihe aus 7 Seerosenblättern */
+    .lily-pads-container {
+      position: absolute;
+      bottom: 22%;
+      left: 5vw;
+      width: 90vw;
+      height: 100px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 6;
+    }
+
+    .pad-wrapper {
+      position: relative;
+      width: calc(90vw / 8.5);
+      max-width: 110px;
+      height: 80px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.1s ease;
+    }
+
+    .pad-wrapper:active {
+      transform: scale(0.92);
+    }
+
+    .lily-pad-svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0px 8px 6px rgba(0,0,0,0.25));
+    }
+
+    .note-label {
+      position: absolute;
+      top: 55%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      pointer-events: none;
+    }
+
+    /* Der Frosch */
+    .frog-container {
+      position: absolute;
+      bottom: 25%;
+      left: 5vw;
+      width: 100px;
+      height: 90px;
+      pointer-events: none;
+      z-index: 8;
+      transition: left 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .frog-container.jumping {
+      animation: frogHopArc 0.4s ease-in-out;
+    }
+
+    @keyframes frogHopArc {
+      0% { transform: translateY(0) scale(1, 1); }
+      50% { transform: translateY(-90px) scale(1.1, 0.9); }
+      100% { transform: translateY(0) scale(1, 1); }
+    }
+
+    /* Grasbereich am Ufer unten links */
+    .grass-hiding-zone {
+      position: absolute;
+      bottom: 0;
+      left: 3%;
+      width: 130px;
+      height: 110px;
+      cursor: pointer;
+      touch-action: manipulation;
+      z-index: 12;
+    }
+
+    /* Das Kaninchen (im Gras versteckt) */
+    .rabbit-container {
+      position: absolute;
+      bottom: -15px;
+      left: 15px;
+      width: 100px;
+      height: 110px;
+      pointer-events: none;
+      z-index: 10;
+      transform: translateY(65px);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .rabbit-container.peek {
+      transform: translateY(-20px);
+    }
+
+    /* Grasbuschel vorne */
+    .grass-front {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 70px;
+      pointer-events: none;
+      z-index: 11;
+    }
+
+    /* Sprechblase Kuckuck */
+    .rabbit-bubble {
+      position: absolute;
+      top: -35px;
+      left: 15px;
+      background-color: #FFFFFF;
+      border-radius: 15px;
+      padding: 4px 10px;
+      font-size: 15px;
+      font-weight: bold;
+      color: #ff5722;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.2s ease-out;
+      pointer-events: none;
+      z-index: 13;
+    }
+
+    .rabbit-bubble.show {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Der Vogel Container */
+    .bird-container {
+      position: absolute;
+      top: 15%;
+      left: -120px;
+      width: 120px;
+      height: 90px;
+      cursor: pointer;
+      touch-action: manipulation;
+      z-index: 10;
+      animation: flyAcross 10s ease-in-out infinite alternate;
+    }
+
+    @keyframes flyAcross {
+      0% {
+        left: -120px;
+        top: 15%;
+        transform: scaleX(1);
+      }
+      49% {
+        transform: scaleX(1);
+      }
+      50% {
+        left: calc(100vw + 20px);
+        top: 25%;
+        transform: scaleX(-1);
+      }
+      99% {
+        transform: scaleX(-1);
+      }
+      100% {
+        left: -120px;
+        top: 15%;
+        transform: scaleX(1);
+      }
+    }
+
+    .bird-svg-wrapper {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .bird-svg-wrapper.chirp {
+      animation: birdLoop 0.7s ease-in-out;
+    }
+
+    @keyframes birdLoop {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(-360deg) scale(1.3); }
+      100% { transform: rotate(-720deg) scale(1); }
+    }
+
+    /* Wolken Container */
+    .cloud-container {
+      position: absolute;
+      top: 12%;
+      left: 30%;
+      width: 160px;
+      height: 100px;
+      cursor: pointer;
+      z-index: 15;
+      touch-action: manipulation;
+      animation: floatCloud 6s ease-in-out infinite alternate;
+    }
+
+    @keyframes floatCloud {
+      0% { transform: translateY(0px); }
+      100% { transform: translateY(12px); }
+    }
+
+    .cloud-svg path {
+      transition: fill 0.3s ease;
+    }
+
+    .cloud-container.raining .cloud-svg path {
+      fill: #78909C;
+    }
+
+    /* Regentröpfchen Container */
+    .rain-container {
+      position: absolute;
+      top: 80px;
+      left: 10px;
+      width: 140px;
+      height: 150px;
+      pointer-events: none;
+      display: none;
+    }
+
+    .cloud-container.raining .rain-container {
+      display: block;
+    }
+
+    .drop {
+      position: absolute;
+      width: 4px;
+      height: 18px;
+      background: linear-gradient(to bottom, rgba(255,255,255,0), #29B6F6);
+      border-radius: 2px;
+      opacity: 0.8;
+      animation: fall 0.5s linear infinite;
+    }
+
+    .drop:nth-child(1) { left: 20px; animation-delay: 0s; }
+    .drop:nth-child(2) { left: 45px; animation-delay: 0.15s; }
+    .drop:nth-child(3) { left: 70px; animation-delay: 0.05s; }
+    .drop:nth-child(4) { left: 95px; animation-delay: 0.25s; }
+    .drop:nth-child(5) { left: 120px; animation-delay: 0.1s; }
+
+    @keyframes fall {
+      0% { transform: translateY(0); opacity: 0.8; }
+      100% { transform: translateY(120px); opacity: 0; }
+    }
+
+    /* Kleine Seerosenblüte */
+    .flower-container {
+      position: absolute;
+      bottom: 8%;
+      right: 15%;
+      width: 85px;
+      height: 85px;
+      cursor: pointer;
+      z-index: 9;
+      touch-action: manipulation;
+      transition: transform 0.2s ease;
+    }
+
+    .flower-container:active {
+      transform: scale(0.9);
+    }
+
+    /* Der Fisch */
+    .fish-container {
+      position: absolute;
+      bottom: 4%;
+      right: 14%;
+      width: 90px;
+      height: 70px;
+      pointer-events: none;
+      z-index: 7;
+      opacity: 0;
+      transform: translateY(40px) scale(0.5);
+      transition: transform 0.5s ease-out, opacity 0.3s ease-out;
+    }
+
+    .fish-container.pop-up {
+      opacity: 1;
+      transform: translateY(-50px) scale(1);
+    }
+
+    .bubble {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.6);
+      border: 2px solid #FFF;
+      border-radius: 50%;
+      top: -10px;
+      left: 10px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .fish-container.pop-up .bubble {
+      animation: bubbleRise 1.2s ease-out infinite;
+    }
+
+    @keyframes bubbleRise {
+      0% { transform: translateY(0) scale(0.5); opacity: 1; }
+      100% { transform: translateY(-40px) scale(1.3); opacity: 0; }
+    }
+
+    /* Sprechblase "Hallo!" */
+    .speech-bubble {
+      position: absolute;
+      top: -40px;
+      left: 50px;
+      background-color: #FFFFFF;
+      border-radius: 15px;
+      padding: 5px 12px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s ease-out;
+    }
+
+    .fish-container.pop-up .speech-bubble {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Vollbild-Button */
+    #fullscreen-btn {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 12px 20px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #fff;
+      background-color: #ff7f50;
+      border: 3px solid #fff;
+      border-radius: 25px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      cursor: pointer;
+      z-index: 100;
+    }
+
+    #fullscreen-btn:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="pond">
+    <!-- Die Sonne -->
+    <div class="sun" id="sun" onclick="playSunSong(event)"></div>
+
+    <button id="fullscreen-btn" onclick="toggleFullscreen()">Vollbild ⛶</button>
+
+    <!-- Die Wolke -->
+    <div class="cloud-container" id="cloud" onclick="makeItRain(event)">
+      <svg class="cloud-svg" viewBox="0 0 160 100" width="100%" height="100%">
+        <path d="M 30 70 
+                 A 25 25 0 0 1 35 25 
+                 A 30 30 0 0 1 95 20 
+                 A 25 25 0 0 1 135 45 
+                 A 20 20 0 0 1 130 70 Z" 
+              fill="#FFFFFF" 
+              stroke="#E0E0E0" 
+              stroke-width="3"/>
+      </svg>
+
+      <div class="rain-container">
+        <div class="drop"></div>
+        <div class="drop"></div>
+        <div class="drop"></div>
+        <div class="drop"></div>
+        <div class="drop"></div>
+      </div>
+    </div>
+
+    <!-- Der Vogel -->
+    <div class="bird-container" id="bird" onclick="birdChirp(event)">
+      <div class="bird-svg-wrapper" id="bird-wrapper">
+        <svg viewBox="0 0 120 100" width="100%" height="100%">
+          <path d="M 50 45 Q 30 10 10 30 Q 30 45 50 50" fill="#FF7043"/>
+          <ellipse cx="60" cy="50" rx="35" ry="25" fill="#FFCA28"/>
+          <ellipse cx="65" cy="55" rx="25" ry="18" fill="#FFF59D"/>
+          <circle cx="85" cy="40" r="20" fill="#FFCA28"/>
+          <polygon points="100,38 118,45 100,52" fill="#FF5722"/>
+          <circle cx="90" cy="35" r="5" fill="#FFFFFF"/>
+          <circle cx="91" cy="35" r="3" fill="#000000"/>
+          <path d="M 55 50 Q 35 15 15 35 Q 35 55 55 55" fill="#FF9800"/>
+          <polygon points="25,50 5,40 10,55 2,65 25,55" fill="#FF7043"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 7 Seerosenblätter -->
+    <div class="lily-pads-container" id="pads-container"></div>
+
+    <!-- Frosch SVG -->
+    <div class="frog-container" id="frog">
+      <svg viewBox="0 0 200 180" width="100%" height="100%">
+        <ellipse cx="40" cy="130" rx="30" ry="20" fill="#4CAF50" stroke="#2E7D32" stroke-width="4"/>
+        <ellipse cx="160" cy="130" rx="30" ry="20" fill="#4CAF50" stroke="#2E7D32" stroke-width="4"/>
+        <ellipse cx="100" cy="110" rx="65" ry="50" fill="#66BB6A" stroke="#2E7D32" stroke-width="4"/>
+        <ellipse cx="100" cy="115" rx="45" ry="35" fill="#AED581"/>
+        <circle cx="65" cy="50" r="25" fill="#66BB6A" stroke="#2E7D32" stroke-width="4"/>
+        <circle cx="135" cy="50" r="25" fill="#66BB6A" stroke="#2E7D32" stroke-width="4"/>
+        <circle cx="65" cy="50" r="16" fill="#FFFFFF"/>
+        <circle cx="135" cy="50" r="16" fill="#FFFFFF"/>
+        <circle cx="65" cy="50" r="8" fill="#000000"/>
+        <circle cx="135" cy="50" r="8" fill="#000000"/>
+        <circle cx="62" cy="47" r="3" fill="#FFFFFF"/>
+        <circle cx="132" cy="47" r="3" fill="#FFFFFF"/>
+        <path d="M 65 105 Q 100 135 135 105" fill="none" stroke="#1B5E20" stroke-width="5" stroke-linecap="round"/>
+        <ellipse cx="55" cy="95" rx="10" ry="6" fill="#FF8A80" opacity="0.6"/>
+        <ellipse cx="145" cy="95" rx="10" ry="6" fill="#FF8A80" opacity="0.6"/>
+      </svg>
+    </div>
+
+    <!-- Grasbereich mit verstecktem Kaninchen -->
+    <div class="grass-hiding-zone" onclick="rabbitPeek(event)">
+      <!-- Sprechblase -->
+      <div class="rabbit-bubble" id="rabbit-bubble">Kuckuck!</div>
+
+      <!-- Kaninchen -->
+      <div class="rabbit-container" id="rabbit">
+        <svg viewBox="0 0 100 110" width="100%" height="100%">
+          <circle cx="20" cy="80" r="10" fill="#FFFFFF"/>
+          <ellipse cx="40" cy="95" rx="18" ry="10" fill="#A1887F"/>
+          <ellipse cx="45" cy="75" rx="25" ry="22" fill="#8D6E63"/>
+          <ellipse cx="65" cy="95" rx="10" ry="8" fill="#A1887F"/>
+          <circle cx="65" cy="50" r="18" fill="#8D6E63"/>
+          <ellipse cx="72" cy="54" rx="10" ry="8" fill="#D7CCC8"/>
+          <circle cx="78" cy="50" r="3" fill="#FF8A80"/>
+          <circle cx="68" cy="44" r="3.5" fill="#000000"/>
+          <circle cx="69" cy="43" r="1" fill="#FFFFFF"/>
+          <ellipse cx="58" cy="22" rx="6" ry="20" fill="#8D6E63" transform="rotate(-10 58 22)"/>
+          <ellipse cx="58" cy="22" rx="3.5" ry="15" fill="#FF8A80" transform="rotate(-10 58 22)"/>
+          <ellipse cx="68" cy="20" rx="6" ry="22" fill="#8D6E63" transform="rotate(5 68 20)"/>
+          <ellipse cx="68" cy="20" rx="3.5" ry="17" fill="#FF8A80" transform="rotate(5 68 20)"/>
+        </svg>
+      </div>
+
+      <!-- Grasbuschel -->
+      <svg class="grass-front" viewBox="0 0 120 70">
+        <path d="M 0 70 Q 10 20 25 5 Q 30 35 40 70 Q 50 15 65 0 Q 70 30 80 70 Q 95 10 105 25 Q 110 45 120 70 Z" fill="#4CAF50"/>
+        <path d="M 10 70 Q 25 30 35 15 Q 45 45 55 70 Q 70 25 85 10 Q 90 40 100 70 Z" fill="#81C784"/>
+      </svg>
+    </div>
+
+    <!-- Kleine Seerose -->
+    <div class="flower-container" id="flower" onclick="fishAppear(event)">
+      <svg viewBox="0 0 100 100" width="100%" height="100%">
+        <ellipse cx="50" cy="60" rx="40" ry="20" fill="#2e8b57"/>
+        <path d="M 50 20 Q 35 45 50 65 Q 65 45 50 20" fill="#FF4081"/>
+        <path d="M 30 35 Q 25 55 50 65 Q 40 45 30 35" fill="#F50057"/>
+        <path d="M 70 35 Q 75 55 50 65 Q 60 45 70 35" fill="#F50057"/>
+        <path d="M 20 50 Q 20 65 50 65 Q 35 55 20 50" fill="#FF80AB"/>
+        <path d="M 80 50 Q 80 65 50 65 Q 65 55 80 50" fill="#FF80AB"/>
+        <circle cx="50" cy="55" r="8" fill="#FFEB3B"/>
+      </svg>
+    </div>
+
+    <!-- Der Fisch -->
+    <div class="fish-container" id="fish">
+      <div class="bubble"></div>
+      <div class="speech-bubble">Hallo!</div>
+      <svg viewBox="0 0 100 80" width="100%" height="100%">
+        <polygon points="20,40 0,20 0,60" fill="#FF5722"/>
+        <ellipse cx="50" cy="40" rx="35" ry="25" fill="#FF9800"/>
+        <ellipse cx="55" cy="45" rx="25" ry="18" fill="#FFC107"/>
+        <circle cx="70" cy="32" r="6" fill="#FFFFFF"/>
+        <circle cx="72" cy="32" r="3" fill="#000000"/>
+        <circle cx="73" cy="30" r="1" fill="#FFFFFF"/>
+        <path d="M 70 48 Q 75 52 80 46" fill="none" stroke="#D84315" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 40 15 Q 55 0 65 17" fill="#FF5722"/>
+      </svg>
+    </div>
+  </div>
+
+  <script>
+    // Audio Context
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function ensureAudioContext() {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // 7 Noten für die Tonleiter C-Dur (C4 bis B4)
+    const notesData = [
+      { name: 'C', freq: 261.63 },
+      { name: 'D', freq: 293.66 },
+      { name: 'E', freq: 329.63 },
+      { name: 'F', freq: 349.23 },
+      { name: 'G', freq: 392.00 },
+      { name: 'A', freq: 440.00 },
+      { name: 'B', freq: 493.88 }
+    ];
+
+    // Erzeugen der 7 Seerosenblätter
+    const padsContainer = document.getElementById('pads-container');
+    const frog = document.getElementById('frog');
+
+    notesData.forEach((note, index) => {
+      const padWrapper = document.createElement('div');
+      padWrapper.className = 'pad-wrapper';
+      padWrapper.id = `pad-${index}`;
+
+      padWrapper.innerHTML = `
+        <svg class="lily-pad-svg" viewBox="0 0 100 70">
+          <path d="M 10 35 A 40 25 0 1 0 90 35 A 40 25 0 1 0 10 35 Z" fill="#2e8b57" stroke="#1e5b38" stroke-width="4"/>
+          <polygon points="50,35 90,20 90,50" fill="#4ce3e7"/>
+        </svg>
+        <div class="note-label">${note.name}</div>
+      `;
+
+      padWrapper.onclick = (e) => frogJumpToPad(index, note.freq, e);
+      padsContainer.appendChild(padWrapper);
+    });
+
+    window.addEventListener('load', () => {
+      updateFrogPosition(0);
+    });
+
+    function updateFrogPosition(index) {
+      const pad = document.getElementById(`pad-${index}`);
+      if (pad) {
+        const padRect = pad.getBoundingClientRect();
+        const pondRect = document.getElementById('pond').getBoundingClientRect();
+        const targetLeft = padRect.left - pondRect.left + (padRect.width / 2) - 50;
+        frog.style.left = `${targetLeft}px`;
+      }
+    }
+
+    function frogJumpToPad(index, freq, event) {
+      if (event) event.stopPropagation();
+      ensureAudioContext();
+
+      playFrogNoteSound(freq);
+      updateFrogPosition(index);
+
+      frog.classList.remove('jumping');
+      void frog.offsetWidth;
+      frog.classList.add('jumping');
+    }
+
+    function playFrogNoteSound(freq) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    // Kaninchen lugt hervor und ruft Kuckuck
+    let isRabbitActive = false;
+    function rabbitPeek(event) {
+      event.stopPropagation();
+      if (isRabbitActive) return;
+
+      isRabbitActive = true;
+      ensureAudioContext();
+
+      const rabbit = document.getElementById('rabbit');
+      const bubble = document.getElementById('rabbit-bubble');
+
+      // Kaninchen hüpft hoch aus dem Gras
+      rabbit.classList.add('peek');
+
+      setTimeout(() => {
+        bubble.classList.add('show');
+
+        // Sprachausgabe "Kuckuck!"
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance("Kuckuck!");
+          utterance.lang = "de-DE";
+          utterance.pitch = 1.7; // Hohe, niedliche Stimme
+          utterance.rate = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }
+      }, 150);
+
+      // Nach 1.8 Sekunden wieder im Gras verstecken
+      setTimeout(() => {
+        bubble.classList.remove('show');
+        rabbit.classList.remove('peek');
+        isRabbitActive = false;
+      }, 1800);
+    }
+
+    // Vogel-Melodie
+    function playBirdMelody() {
+      ensureAudioContext();
+      const notes = [
+        { freq: 1760, duration: 0.08, delay: 0 },
+        { freq: 2217.46, duration: 0.1, delay: 0.09 },
+        { freq: 2637.02, duration: 0.08, delay: 0.20 },
+        { freq: 3520, duration: 0.15, delay: 0.30 },
+        { freq: 2637.02, duration: 0.08, delay: 0.48 },
+        { freq: 3520, duration: 0.2, delay: 0.58 }
+      ];
+
+      notes.forEach(note => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(note.freq, audioCtx.currentTime + note.delay);
+
+        osc.frequency.exponentialRampToValueAtTime(
+          note.freq * 1.1, 
+          audioCtx.currentTime + note.delay + note.duration
+        );
+
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + note.delay);
+        gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + note.delay + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + note.delay + note.duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(audioCtx.currentTime + note.delay);
+        osc.stop(audioCtx.currentTime + note.delay + note.duration);
+      });
+    }
+
+    // Regen-Sound
+    function playRainSound() {
+      ensureAudioContext();
+      const duration = 2.5;
+      const bufferSize = audioCtx.sampleRate * duration;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 1000;
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      whiteNoise.start();
+    }
+
+    // Sonnen-Kinderlied
+    let isPlayingSong = false;
+    function playSunSong(event) {
+      event.stopPropagation();
+      if (isPlayingSong) return;
+
+      ensureAudioContext();
+      isPlayingSong = true;
+
+      const sun = document.getElementById('sun');
+      sun.classList.add('singing');
+
+      const notes = [
+        { note: 261.63, dur: 0.35, delay: 0.0 },
+        { note: 293.66, dur: 0.35, delay: 0.4 },
+        { note: 329.63, dur: 0.35, delay: 0.8 },
+        { note: 349.23, dur: 0.35, delay: 1.2 },
+        { note: 392.00, dur: 0.70, delay: 1.6 },
+        { note: 392.00, dur: 0.70, delay: 2.4 },
+        
+        { note: 440.00, dur: 0.35, delay: 3.2 },
+        { note: 440.00, dur: 0.35, delay: 3.6 },
+        { note: 440.00, dur: 0.35, delay: 4.0 },
+        { note: 440.00, dur: 0.35, delay: 4.4 },
+        { note: 392.00, dur: 0.80, delay: 4.8 }
+      ];
+
+      const totalDuration = 5.8;
+
+      notes.forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(n.note, audioCtx.currentTime + n.delay);
+
+        gain.gain.setValueAtTime(0, audioCtx.currentTime + n.delay);
+        gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + n.delay + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.delay + n.dur);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(audioCtx.currentTime + n.delay);
+        osc.stop(audioCtx.currentTime + n.delay + n.dur);
+      });
+
+      setTimeout(() => {
+        sun.classList.remove('singing');
+        isPlayingSong = false;
+      }, totalDuration * 1000);
+    }
+
+    // Wasser-Plitsch-Sound
+    function playSplashSound() {
+      ensureAudioContext();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.3);
+
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    // Fisch-Aktion
+    let isFishActive = false;
+    function fishAppear(event) {
+      event.stopPropagation();
+      if (isFishActive) return;
+
+      isFishActive = true;
+      const fish = document.getElementById('fish');
+      
+      playSplashSound();
+      fish.classList.add('pop-up');
+
+      setTimeout(() => {
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance("Hallo!");
+          utterance.lang = "de-DE";
+          utterance.pitch = 1.6;
+          utterance.rate = 0.9;
+          window.speechSynthesis.speak(utterance);
+        }
+      }, 200);
+
+      setTimeout(() => {
+        fish.classList.remove('pop-up');
+        isFishActive = false;
+      }, 2500);
+    }
+
+    // Vogel-Aktion
+    function birdChirp(event) {
+      event.stopPropagation();
+      const birdWrapper = document.getElementById('bird-wrapper');
+      
+      playBirdMelody();
+
+      birdWrapper.classList.remove('chirp');
+      void birdWrapper.offsetWidth;
+      birdWrapper.classList.add('chirp');
+    }
+
+    // Wolken-Aktion
+    let isRaining = false;
+    function makeItRain(event) {
+      event.stopPropagation();
+      if (isRaining) return;
+
+      isRaining = true;
+      const cloud = document.getElementById('cloud');
+      
+      playRainSound();
+      cloud.classList.add('raining');
+
+      setTimeout(() => {
+        cloud.classList.remove('raining');
+        isRaining = false;
+      }, 2500);
+    }
+
+    // Vollbild-Funktion
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.log(`Fehler beim Aktivieren des Vollbildmodus: ${err.message}`);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Fenstergrößen-Änderung
+    window.addEventListener('resize', () => {
+      const currentPadIndex = Math.min(Math.max(0, Math.floor((parseFloat(frog.style.left) || 0) / (window.innerWidth / 7))), 6);
+      updateFrogPosition(currentPadIndex);
+    });
+  </script>
+</body>
+</html>
