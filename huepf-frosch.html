@@ -91,6 +91,28 @@ body.played .hint{ display:none; }
 .blink #lids{ display:inline; }
 .blink #eyes{ display:none; }
 
+/* Wiese + Kaninchen */
+.meadow{ position:absolute; left:0; right:0; top:calc(38% - 14vmin); height:14vmin; pointer-events:none; }
+.meadow svg{ width:100%; height:100%; display:block; }
+.grass-layer{ position:absolute; inset:0; pointer-events:none; }
+.bunny{ position:absolute; left:0; top:0; pointer-events:none; clip-path:inset(-2000px -2000px 0 -2000px); }
+.tuft{ position:absolute; cursor:pointer; pointer-events:auto; transform-origin:50% 100%; touch-action:none; outline-offset:2px; }
+.tuft::before{ content:""; position:absolute; inset:-14px -8px -4px; }
+.tuft svg{ width:100%; height:100%; display:block; overflow:visible; transform-origin:50% 100%; animation:sway 4s ease-in-out infinite; }
+@keyframes sway{ 0%,100%{ transform:rotate(-1.6deg); } 50%{ transform:rotate(1.6deg); } }
+.island{ position:absolute; pointer-events:none; }
+.island svg{ width:100%; height:100%; display:block; overflow:visible; }
+@media (prefers-reduced-motion: reduce){ .tuft svg{ animation:none; } }
+.bunny-hide{ position:absolute; left:0; top:0; width:100%; height:100%; transform-origin:50% 100%; }
+.bunny-hop, .bunny-body{ width:100%; height:100%; }
+.bunny-body{ transform-origin:50% 100%; }
+.bunny-body svg{ width:100%; height:100%; display:block; overflow:visible; }
+.ear-l{ transform-origin:34px 54px; animation:earL 3.6s ease-in-out infinite; }
+.ear-r{ transform-origin:66px 54px; animation:earR 4.2s ease-in-out infinite; }
+@keyframes earL{ 0%,100%{ transform:rotate(0deg); } 45%{ transform:rotate(-10deg); } 60%{ transform:rotate(-4deg); } }
+@keyframes earR{ 0%,100%{ transform:rotate(0deg); } 30%{ transform:rotate(8deg); } 70%{ transform:rotate(3deg); } }
+@media (prefers-reduced-motion: reduce){ .ear-l, .ear-r{ animation:none; } }
+
 /* Seerose + Fisch */
 .lily{ position:absolute; left:0; top:0; cursor:pointer; pointer-events:auto; outline-offset:4px; }
 .lily-in{ width:100%; height:100%; transform-origin:50% 75%; }
@@ -149,6 +171,14 @@ body.played .hint{ display:none; }
   <div class="cloud c2"><svg viewBox="0 0 120 60" aria-hidden="true"><g class="cf"><circle cx="38" cy="36" r="20"/><circle cx="62" cy="26" r="26"/><circle cx="88" cy="36" r="20"/><rect x="18" y="36" width="90" height="20" rx="10"/></g></svg></div>
   <div class="cloud c3"><svg viewBox="0 0 120 60" aria-hidden="true"><g class="cf"><circle cx="38" cy="36" r="20"/><circle cx="62" cy="26" r="26"/><circle cx="88" cy="36" r="20"/><rect x="18" y="36" width="90" height="20" rx="10"/></g></svg></div>
 
+  <div class="meadow" aria-hidden="true">
+    <svg viewBox="0 0 1200 100" preserveAspectRatio="none">
+      <path d="M0 100 L0 40 Q120 10 240 38 T480 34 T720 42 T960 30 T1200 38 L1200 100 Z" fill="#5fbf58"/>
+      <path d="M0 100 L0 62 Q150 36 300 60 T600 56 T900 62 T1200 54 L1200 100 Z" fill="#79d36b"/>
+      <g fill="#fff"><ellipse cx="180" cy="72" rx="5" ry="3.5"/><ellipse cx="520" cy="68" rx="5" ry="3.5"/><ellipse cx="1010" cy="66" rx="5" ry="3.5"/></g>
+      <g fill="#ffd23f"><ellipse cx="740" cy="74" rx="4.5" ry="3"/><ellipse cx="90" cy="78" rx="4.5" ry="3"/><ellipse cx="880" cy="70" rx="4.5" ry="3"/></g>
+    </svg>
+  </div>
   <svg class="reeds l" viewBox="0 0 90 140" aria-hidden="true">
     <g stroke="#3a9a45" stroke-width="5" stroke-linecap="round" fill="none"><path d="M20 140 Q18 80 24 30"/><path d="M42 140 Q46 90 40 50"/><path d="M62 140 Q60 100 68 70"/></g>
     <g fill="#8a5a2b"><rect x="18" y="14" width="12" height="34" rx="6"/><rect x="34" y="34" width="12" height="30" rx="6"/><rect x="62" y="54" width="12" height="28" rx="6"/></g>
@@ -169,11 +199,41 @@ body.played .hint{ display:none; }
     <div class="glint" style="left:6%;top:64%;width:9vmin"></div>
   </div>
 
+  <div class="grass-layer" id="grassLayer">
+    <div class="bunny" id="bunny">
+      <div class="bunny-hide" id="bunnyHide">
+        <div class="bunny-hop" id="bunnyHop">
+          <div class="bunny-body" id="bunnyBody">
+<svg viewBox="0 0 100 120" aria-hidden="true">
+            <g class="ear-l">
+              <ellipse cx="34" cy="26" rx="11" ry="30" fill="#f4eee6" stroke="#dcd0c2" stroke-width="1.5" transform="rotate(-10 34 26)"/>
+              <ellipse cx="34" cy="28" rx="5" ry="21" fill="#ffb6c8" transform="rotate(-10 34 26)"/>
+            </g>
+            <g class="ear-r">
+              <ellipse cx="66" cy="26" rx="11" ry="30" fill="#f4eee6" stroke="#dcd0c2" stroke-width="1.5" transform="rotate(10 66 26)"/>
+              <ellipse cx="66" cy="28" rx="5" ry="21" fill="#ffb6c8" transform="rotate(10 66 26)"/>
+            </g>
+            <ellipse cx="50" cy="102" rx="34" ry="24" fill="#f4eee6"/>
+            <ellipse cx="50" cy="70" rx="31" ry="27" fill="#faf6ef"/>
+            <circle cx="39" cy="66" r="4.4" fill="#2b2b2b"/><circle cx="40.5" cy="64.5" r="1.5" fill="#fff"/>
+            <circle cx="61" cy="66" r="4.4" fill="#2b2b2b"/><circle cx="62.5" cy="64.5" r="1.5" fill="#fff"/>
+            <ellipse cx="50" cy="75" rx="4.5" ry="3.2" fill="#ff8fa8"/>
+            <path d="M50 78 Q46 85 41 81 M50 78 Q54 85 59 81" stroke="#8a5a5a" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <circle cx="31" cy="76" r="6" fill="#ff9db5" opacity=".5"/><circle cx="69" cy="76" r="6" fill="#ff9db5" opacity=".5"/>
+            <ellipse cx="40" cy="110" rx="8" ry="6" fill="#fff"/><ellipse cx="60" cy="110" rx="8" ry="6" fill="#fff"/>
+            <ellipse cx="28" cy="117" rx="12" ry="5" fill="#f4eee6"/><ellipse cx="72" cy="117" rx="12" ry="5" fill="#f4eee6"/>
+          </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="sky-fx" id="skyFx"></div>
 
   <div class="play" id="play">
     <div class="fx" id="fxBelow"></div>
-    <div id="frog" role="button" tabindex="0" aria-label="Frosch – antippen zum Hüpfen">
+    <div id="frog" role="button" tabindex="0" aria-label="Frosch – antippen, dann hüpft er und spielt einen Ton">
       <div class="frog-in" id="frogIn">
         <div class="hint"></div>
         <svg id="frogSvg" viewBox="0 0 200 200" aria-hidden="true">
@@ -249,14 +309,17 @@ body.played .hint{ display:none; }
   const $ = id => document.getElementById(id);
 
   // Seerosenblätter (Anteile der Spielfläche)
-  const LAYOUT = [[.24,.57],[.76,.55],[.50,.71],[.22,.87],[.78,.86]];
-  const DECOR  = [[.10,.45],[.90,.43],[.93,.69],[.05,.71]];
+  const LAYOUT = [[.22,.565],[.76,.545],[.50,.65],[.15,.75],[.85,.74],[.42,.845],[.84,.915]];
+  // Tonleiter C-Dur: weiter oben im Bild = höherer Ton
+  const PAD_NOTES  = [880.00, 987.77, 783.99, 659.25, 698.46, 587.33, 523.25];
+  const PAD_COLORS = ['#7b8cff', '#c78bff', '#6fd3ff', '#ffe14d', '#c8ff8a', '#ffa53a', '#ff6b6b'];
+  const DECOR  = [[.10,.45],[.90,.43],[.30,.485],[.72,.47]];
 
   const PAD_SVG = `<svg viewBox="0 0 200 100" aria-hidden="true">
     <ellipse cx="100" cy="56" rx="96" ry="40" fill="#2f8a3e"/>
     <ellipse cx="100" cy="48" rx="96" ry="40" fill="#62c65a"/>
     <path d="M100 48 L172 20 A96 40 0 0 1 196 46 Z" fill="#2aa0b8"/>
-    <ellipse cx="100" cy="46" rx="70" ry="26" fill="none" stroke="#9be58a" stroke-width="3" opacity=".7"/>
+    <ellipse cx="100" cy="46" rx="82" ry="33" fill="none" stroke="%RING%" stroke-width="7" opacity=".95"/>
     <g stroke="#4fae4e" stroke-width="2.5" stroke-linecap="round" opacity=".7">
       <path d="M100 48 L30 44"/><path d="M100 48 L54 76"/><path d="M100 48 L110 84"/><path d="M100 48 L48 20"/><path d="M100 48 L120 12"/>
     </g></svg>`;
@@ -274,7 +337,7 @@ body.played .hint{ display:none; }
 
   const pads = LAYOUT.map((_, i) => {
     const el = document.createElement('div');
-    el.className = 'pad'; el.innerHTML = PAD_SVG;
+    el.className = 'pad'; el.innerHTML = PAD_SVG.replace('%RING%', PAD_COLORS[i]);
     play.insertBefore(el, fxBelow);
     return { el, x:0, y:0 };
   });
@@ -324,20 +387,20 @@ body.played .hint{ display:none; }
   }
   function layout(){
     const W = play.clientWidth, H = play.clientHeight;
-    s  = Math.max(80, Math.min(W*.34, H*.27, 270));
-    pw = Math.min(s*1.55, W*.46); ph = pw*.5;
+    s  = Math.max(68, Math.min(W*.34, H*.27, 270)*.85);
+    pw = Math.min(s*1.25, W*.34); ph = pw*.5;
     frog.style.width = frog.style.height = s + 'px';
     pads.forEach((p, i) => {
       p.x = W*LAYOUT[i][0]; p.y = H*LAYOUT[i][1];
       p.el.style.width = pw + 'px'; p.el.style.height = ph + 'px';
       p.el.style.transform = `translate(${p.x - pw/2}px,${p.y - ph/2}px)`;
     });
-    const dw = pw*.55, dh = dw*.65;
+    const dw = pw*.55/.85, dh = dw*.65;
     decors.forEach((el, i) => {
       el.style.width = dw + 'px'; el.style.height = dh + 'px';
       el.style.transform = `translate(${W*DECOR[i][0] - dw/2}px,${H*DECOR[i][1] - dh/2}px)`;
     });
-    lw = Math.max(76, pw*.6); lh = lw*.65;
+    lw = Math.max(76, pw*.6/.85); lh = lw*.65;
     const lilyTop = H*.455 - lh/2;
     lily.style.width = lw + 'px'; lily.style.height = lh + 'px';
     lily.style.transform = `translate(${W*.5 - lw/2}px,${lilyTop}px)`;
@@ -373,9 +436,9 @@ body.played .hint{ display:none; }
   const sfx = {
     boing(){ tone({f0:180,f1:540,dur:.22,gain:.3}); tone({f0:540,f1:260,dur:.3,delay:.2,gain:.15}); },
     plop(){ tone({f0:520,f1:140,dur:.14,gain:.22}); },
-    land(){
+    land(f){
       this.plop();
-      const n = NOTES[Math.floor(Math.random()*NOTES.length)];
+      const n = f || NOTES[Math.floor(Math.random()*NOTES.length)];
       tone({f0:n,dur:.8,type:'triangle',gain:.2,delay:.06});
       tone({f0:n*2,dur:.5,gain:.06,delay:.06});
     }
@@ -458,7 +521,7 @@ body.played .hint{ display:none; }
       fly.cancel();
       setPose(false);
       const p = pads[ti];
-      sfx.land();
+      sfx.land(PAD_NOTES[ti]);
       ripple(p.x, p.y + ph*.05, pw*.9);
       sparkles(p.x, p.y - s*.35);
       inner.getAnimations().forEach(x => x.cancel());
@@ -474,6 +537,50 @@ body.played .hint{ display:none; }
     busy = false;
   }
 
+  // Auf dem eigenen Blatt: nur hoch hüpfen und den Ton nochmal spielen
+  async function hopInPlace(){
+    if(busy) return;
+    busy = true;
+    document.body.classList.add('played');
+    const p = frogPos(pads[cur]);
+    tone({ f0:200, f1:520, dur:.14, gain:.16 });
+    try{
+      await inner.animate(
+        [{ transform:'scale(1,1)' }, { transform:'scale(1.14,.84)' }],
+        { duration:90, easing:'ease-out', fill:'forwards' }).finished;
+      setPose(true);
+      const h = s*.5, dur = 380, N = 24, kf = [];
+      for(let i = 0; i <= N; i++){
+        const t = i/N;
+        kf.push({ transform:`translate3d(${p.x}px,${p.y - 4*h*t*(1 - t)}px,0)` });
+      }
+      inner.animate([
+        { transform:'scale(1.14,.84)' },
+        { transform:'scale(.9,1.16)', offset:.3 },
+        { transform:'scale(.96,1.06)', offset:.75 },
+        { transform:'scale(1,1)' }
+      ], { duration:dur, easing:'ease-in-out', fill:'forwards' });
+      const fly = frog.animate(kf, { duration:dur, easing:'linear', fill:'forwards' });
+      await fly.finished;
+      place();
+      fly.cancel();
+      setPose(false);
+      const pad = pads[cur];
+      sfx.land(PAD_NOTES[cur]);
+      ripple(pad.x, pad.y + ph*.05, pw*.9);
+      sparkles(pad.x, pad.y - s*.35);
+      inner.getAnimations().forEach(x => x.cancel());
+      busy = false;   // sofort wieder frei, damit man den Ton schnell wiederholen kann
+      inner.animate([
+        { transform:'scale(1.16,.82)' },
+        { transform:'scale(.96,1.05)', offset:.6 },
+        { transform:'scale(1,1)' }
+      ], { duration:220, easing:'ease-out' });
+    }catch(e){
+      place(); setPose(false); busy = false;
+    }
+  }
+
   function randomOther(){
     const opts = pads.map((_, i) => i).filter(i => i !== cur);
     return opts[Math.floor(Math.random()*opts.length)];
@@ -481,15 +588,15 @@ body.played .hint{ display:none; }
 
   frog.addEventListener('pointerdown', e => {
     e.preventDefault(); e.stopPropagation(); ctx();
-    hop(randomOther());
+    hopInPlace();
   });
   frog.addEventListener('keydown', e => {
-    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ctx(); hop(randomOther()); }
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ctx(); hopInPlace(); }
   });
   pads.forEach((p, i) => {
     p.el.addEventListener('pointerdown', e => {
       e.preventDefault(); e.stopPropagation(); ctx();
-      hop(i === cur ? randomOther() : i);
+      if(i === cur) hopInPlace(); else hop(i);
     });
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
@@ -663,10 +770,11 @@ body.played .hint{ display:none; }
     ], { duration:520, easing:'ease-in-out' });
 
     const dir = Math.random() < .5 ? 1 : -1;
-    const fw = Math.max(56, s*.62), fh = fw*.73;
-    const bw = Math.max(96, s*.95), bh = bw*.5;
+    const sb = s/.85;
+    const fw = Math.max(56, sb*.62), fh = fw*.73;
+    const bw = Math.max(96, sb*.95), bh = bw*.5;
     const d = lw*.8, y0 = ly;
-    const h = Math.max(s*.55, Math.min(s*1.15, y0 - bh - fh*.5 - 22));
+    const h = Math.max(sb*.55, Math.min(sb*1.15, y0 - bh - fh*.5 - 22));
 
     const fish = document.createElement('div');
     fish.className = 'fish'; fish.innerHTML = FISH_SVG;
@@ -724,6 +832,250 @@ body.played .hint{ display:none; }
   // Ton auch beim Loslassen freischalten (Touch-Geräte)
   ['pointerup','touchend','click','keydown'].forEach(ev =>
     document.addEventListener(ev, () => ctx(), { capture:true, passive:true }));
+
+  // --- Grasbüschel: Das Kaninchen versteckt sich, man muss es suchen ---
+  const grassLayer = $('grassLayer');
+  const bunny = $('bunny'), bunnyHide = $('bunnyHide'), bunnyHop = $('bunnyHop'), bunnyBody = $('bunnyBody');
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+
+  // t = Ufer-Wiese oder Insel, fx/fy = Anteil der Szene, k = Größe, hv = Höhe, d = Tiefe (Pixel nach hinten)
+  const SPOTS = [
+    { t:'bank',   fx:.62, k:.85, hv:1.10, d:12 },
+    { t:'bank',   fx:.27, k:.80, hv:1.15, d:10 },
+    { t:'bank',   fx:.92, k:.80, hv:1.20, d:9  },
+    { t:'bank',   fx:.78, k:1.05,hv:1.00, d:4  },
+    { t:'bank',   fx:.10, k:1.00,hv:1.00, d:2  },
+    { t:'bank',   fx:.45, k:1.20,hv:.90,  d:0  },
+    { t:'island', fx:.08, fy:.685, k:1.00, hv:1.00 },
+    { t:'island', fx:.93, fy:.655, k:.90,  hv:1.10 }
+  ];
+  const GREENS = ['#2f8a3e','#3f9f46','#4aa83a','#54b84f','#62c65a','#7ad96c'];
+  const FLOWERS = ['#ffffff','#ffd23f','#ff9db5','#c9a7ff'];
+  function rng(seed){
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function tuftSVG(seed, flower){
+    const r = rng(seed*7919 + 13);
+    const n = 9 + Math.floor(r()*5);
+    let blades = '', best = null;
+    for(let i = 0; i < n; i++){
+      const bx = 8 + 134*i/(n - 1) + (r() - .5)*8;
+      const tip = 1 + r()*30, lean = (r() - .5)*38, w = 10 + r()*9;
+      const c = GREENS[Math.floor(r()*GREENS.length)];
+      const mid = tip + (60 - tip)*.5;
+      blades += `<path d="M${(bx - w/2).toFixed(1)} 60 Q${(bx - w/2 + lean*.3).toFixed(1)} ${mid.toFixed(1)} ${(bx + lean).toFixed(1)} ${tip.toFixed(1)} Q${(bx + w/2 + lean*.5).toFixed(1)} ${(mid + 4).toFixed(1)} ${(bx + w/2).toFixed(1)} 60Z" fill="${c}"/>`;
+      if(!best || tip < best.tip) best = { x:bx + lean, tip };
+    }
+    let fl = '';
+    if(flower && best) fl = `<circle cx="${best.x.toFixed(1)}" cy="${(best.tip + 1).toFixed(1)}" r="5" fill="${FLOWERS[seed % FLOWERS.length]}"/><circle cx="${best.x.toFixed(1)}" cy="${(best.tip + 1).toFixed(1)}" r="2" fill="#ffb02e"/>`;
+    return `<svg viewBox="0 0 150 60" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="53" width="150" height="7" rx="3" fill="#3a9a45"/>${blades}${fl}</svg>`;
+  }
+  const ISLAND_SVG = `<svg viewBox="0 0 200 60" preserveAspectRatio="none" aria-hidden="true">
+    <ellipse cx="100" cy="46" rx="104" ry="13" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="3"/>
+    <ellipse cx="100" cy="42" rx="98" ry="16" fill="#2f8a3e"/>
+    <ellipse cx="100" cy="36" rx="96" ry="16" fill="#79d36b"/>
+    <ellipse cx="100" cy="33" rx="78" ry="9" fill="#93e384" opacity=".7"/>
+  </svg>`;
+
+  let bunnyRs = 78, bunnyIdx = 0, bunnyBusy = false;
+  const spots = SPOTS.map(sp => ({ ...sp }));
+  // Inseln zuerst, dann Büschel (weit hinten zuerst), damit sich alles richtig überdeckt
+  spots.forEach(sp => {
+    if(sp.t !== 'island') return;
+    sp.isl = document.createElement('div');
+    sp.isl.className = 'island'; sp.isl.innerHTML = ISLAND_SVG;
+    grassLayer.appendChild(sp.isl);
+  });
+  spots.forEach((sp, i) => {
+    const el = document.createElement('div');
+    el.className = 'tuft';
+    el.innerHTML = tuftSVG(i + 3, i % 3 === 0);
+    const svgEl = el.firstChild;
+    const rr = rng(i*31 + 5);
+    svgEl.style.animationDuration = (3 + rr()*2.6) + 's';
+    svgEl.style.animationDelay = (-rr()*4) + 's';
+    grassLayer.appendChild(el);
+    sp.el = el;
+    makeButton(el, 'Grasbüschel \u2013 antippen und nachschauen', () => onTuft(i));
+  });
+
+  function layoutGrass(){
+    const W = scene.clientWidth, H = scene.clientHeight;
+    const rs = Math.max(58, Math.min(W*.2, H*.16, 140));
+    bunnyRs = rs;
+    spots.forEach(sp => {
+      const tw = rs*1.15*sp.k, th = Math.max(rs*.36, tw*.5*sp.hv);
+      sp.tw = tw; sp.th = th; sp.x = W*sp.fx;
+      sp.base = sp.t === 'bank' ? H*.38 - 16 - sp.d : H*sp.fy;
+      sp.el.style.width = tw + 'px'; sp.el.style.height = th + 'px';
+      sp.el.style.left = (sp.x - tw/2) + 'px'; sp.el.style.top = (sp.base - th) + 'px';
+      if(sp.isl){
+        const iw = tw*1.7, ih = iw*.3;
+        sp.isl.style.width = iw + 'px'; sp.isl.style.height = ih + 'px';
+        sp.isl.style.left = (sp.x - iw/2) + 'px'; sp.isl.style.top = (sp.base - ih*.6) + 'px';
+      }
+    });
+    positionBunny();
+  }
+  function positionBunny(){
+    const sp = spots[bunnyIdx], rs = bunnyRs;
+    bunny.style.width = rs + 'px'; bunny.style.height = (rs*1.2) + 'px';
+    bunny.style.transform = `translate(${sp.x - rs/2}px,${sp.base - rs*1.2}px)`;
+    if(bunny.nextSibling !== sp.el) grassLayer.insertBefore(bunny, sp.el);
+    if(!bunnyBusy) bunnyHide.style.transform = `translateY(${rs*1.3}px)`;
+  }
+
+  function rustleSound(){
+    const a = ctx(); if(!a) return;
+    try{
+      if(!noiseBuf){
+        const len = a.sampleRate*2;
+        noiseBuf = a.createBuffer(1, len, a.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for(let i = 0; i < len; i++) d[i] = Math.random()*2 - 1;
+      }
+      const src = a.createBufferSource(); src.buffer = noiseBuf;
+      const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3800; bp.Q.value = .8;
+      const g = a.createGain(); const t = a.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(.07, t + .03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + .22);
+      src.connect(bp); bp.connect(g); g.connect(a.destination);
+      src.start(t); src.stop(t + .25);
+    }catch(e){}
+  }
+  function wiggle(el, big){
+    const k = big ? 1 : .7;
+    el.animate([
+      { transform:'rotate(0deg)' },
+      { transform:`rotate(${-7*k}deg)`, offset:.25 },
+      { transform:`rotate(${6*k}deg)`, offset:.55 },
+      { transform:`rotate(${-3*k}deg)`, offset:.8 },
+      { transform:'rotate(0deg)' }
+    ], { duration:480, easing:'ease-in-out' });
+  }
+
+  function speak(text, pitch, rate){
+    try{
+      if('speechSynthesis' in window){
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'de-DE'; u.pitch = pitch; u.rate = rate; u.volume = 1;
+        const v = (speechSynthesis.getVoices() || []).find(v => v.lang && v.lang.toLowerCase().startsWith('de'));
+        if(v) u.voice = v;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+        return true;
+      }
+    }catch(e){}
+    return false;
+  }
+  function sayKuckuck(){
+    if(!speak('Kuckuck!', 1.5, .9)){
+      tone({ f0:784, dur:.22, type:'sine', gain:.2 });
+      tone({ f0:659, dur:.3, type:'sine', gain:.2, delay:.26 });
+    }
+  }
+  async function callOut(sp, R){
+    const rs = bunnyRs, W = scene.clientWidth;
+    const bw = Math.max(110, rs*1.9), bh = bw*.4;
+    const bub = document.createElement('div');
+    bub.className = 'bubble'; bub.textContent = 'Kuckuck!';
+    bub.style.width = bw + 'px'; bub.style.height = bh + 'px'; bub.style.fontSize = (bh*.45) + 'px';
+    bub.style.left = Math.max(4, Math.min(W - bw - 4, sp.x - bw/2)) + 'px';
+    bub.style.top = Math.max(4, sp.base - rs*1.2 - R - bh - 14) + 'px';
+    skyFx.appendChild(bub);
+    sayKuckuck();
+    bub.animate([
+      { transform:'scale(.3)', opacity:0 },
+      { transform:'scale(1.12)', opacity:1, offset:.6 },
+      { transform:'scale(1)', opacity:1 }
+    ], { duration:280, easing:'ease-out', fill:'forwards' });
+    await wait(1100);
+    bub.animate([{ opacity:1 }, { opacity:0 }], { duration:250, fill:'forwards' })
+      .finished.then(() => bub.remove()).catch(() => bub.remove());
+  }
+  async function bunnyLeap(x0, y0, x1, y1, h, dur){
+    const kf = [], N = 22;
+    for(let i = 0; i <= N; i++){
+      const t = i/N;
+      kf.push({ transform:`translate3d(${x0 + (x1-x0)*t}px,${y0 + (y1-y0)*t - 4*h*t*(1-t)}px,0)` });
+    }
+    tone({ f0:300, f1:620, dur:.12, gain:.14 });
+    bunnyBody.animate([
+      { transform:'scale(1.1,.88)' },
+      { transform:'scale(.92,1.12)', offset:.25 },
+      { transform:'scale(.96,1.05)', offset:.75 },
+      { transform:'scale(1.1,.88)', offset:.95 },
+      { transform:'scale(1,1)' }
+    ], { duration:dur, easing:'ease-in-out' });
+    const a = bunnyHop.animate(kf, { duration:dur, easing:'linear', fill:'forwards' });
+    await a.finished;
+    tone({ f0:240, f1:120, dur:.09, gain:.12 });
+  }
+
+  let lastTap = Date.now(), lastHint = 0;
+  async function bunnyShow(){
+    if(bunnyBusy) return;
+    bunnyBusy = true; lastTap = Date.now(); ctx();
+    const sp = spots[bunnyIdx], rs = bunnyRs;
+    const R = Math.max(rs*.2, sp.th*.75), up = -R, hid = rs*1.3;
+    const h = rs*.32, dur = 480, sx = rs*.28;
+    try{
+      const a = bunnyHide.animate([
+        { transform:`translateY(${hid}px)` },
+        { transform:`translateY(${up - rs*.1}px)`, offset:.6 },
+        { transform:`translateY(${up}px)` }
+      ], { duration:380, easing:'ease-out', fill:'forwards' });
+      await a.finished;
+      bunnyHide.style.transform = `translateY(${up}px)`; a.cancel();
+      await callOut(sp, R);
+      await bunnyLeap(0, 0, sx, 0, h, dur);
+      await bunnyLeap(sx, 0, -sx, 0, h, dur);
+      await bunnyLeap(-sx, 0, 0, 0, h, dur);
+      bunnyHop.getAnimations().forEach(x => x.cancel());
+      await callOut(sp, R);
+      const b = bunnyHide.animate([
+        { transform:`translateY(${up}px)` },
+        { transform:`translateY(${hid}px)` }
+      ], { duration:300, easing:'ease-in', fill:'forwards' });
+      await b.finished;
+    }catch(e){}
+    bunnyHop.getAnimations().forEach(x => x.cancel());
+    bunnyHide.getAnimations().forEach(x => x.cancel());
+    bunnyHide.style.transform = `translateY(${hid}px)`;
+    // neues Versteck (das Kaninchen ist jetzt komplett unsichtbar)
+    const opts = spots.map((_, i) => i).filter(i => i !== bunnyIdx);
+    bunnyIdx = opts[Math.floor(Math.random()*opts.length)];
+    positionBunny();
+    lastTap = Date.now();
+    bunnyBusy = false;
+  }
+  function onTuft(i){
+    ctx(); lastTap = Date.now();
+    wiggle(spots[i].el, true);
+    if(!bunnyBusy && i === bunnyIdx){ bunnyShow(); return; }
+    rustleSound();
+  }
+
+  bunnyIdx = Math.floor(Math.random()*spots.length);
+  layoutGrass();
+  window.addEventListener('resize', layoutGrass);
+
+  // Kleiner Tipp: Wenn lange niemand das Kaninchen findet, raschelt sein Büschel ab und zu
+  setInterval(() => {
+    const now = Date.now();
+    if(bunnyBusy || now - lastTap < 40000 || now - lastHint < 12000) return;
+    lastHint = now;
+    wiggle(spots[bunnyIdx].el, false);
+    if(ac) rustleSound();
+  }, 1000);
 
   // --- Vogel: fliegt hin und her, Salto + Zwitschern ---
   const CHIRPS = [
