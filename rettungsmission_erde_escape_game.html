@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BUA: Rettungsmission Erde - Escape Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bua: {
+                            base: '#0B132B',
+                            dark: '#1C2541',
+                            accent: '#10B981',
+                            neon: '#00FF66',
+                            danger: '#EF4444',
+                            warning: '#F59E0B',
+                            cyan: '#06B6D4'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"Share Tech Mono"', 'monospace'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glow-neon {
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
+        }
+        .glow-neon-strong {
+            box-shadow: 0 0 25px rgba(0, 255, 102, 0.6);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+        .scanline {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.3) 50%,
+                rgba(0, 0, 0, 0.3)
+            );
+            background-size: 100% 4px;
+        }
+        .grid-bg {
+            background-image: radial-gradient(rgba(16, 185, 129, 0.15) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0B132B;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #10B981;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans grid-bg select-none overflow-x-hidden">
+
+    <!-- TOP BAR / HEADER -->
+    <header class="bg-slate-900/90 border-b border-emerald-500/30 backdrop-blur-md sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <!-- Logo & Badge -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/40 glow-neon">
+                    <i data-lucide="shield-alert" class="w-7 h-7 text-emerald-400"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-mono text-xs text-emerald-400 tracking-widest uppercase font-bold">BUA SONDEREINSATZ</span>
+                        <span id="level-badge" class="bg-emerald-950 text-emerald-300 text-[10px] px-2 py-0.5 rounded border border-emerald-500/30 font-mono">STATION 0/8</span>
+                    </div>
+                    <h1 class="text-lg font-extrabold tracking-tight text-white flex items-center gap-2">
+                        RETTUNGSMISSION ERDE <span class="text-xs font-normal text-slate-400 hidden sm:inline">| BUA Agenten-Terminal</span>
+                    </h1>
+                </div>
+            </div>
+
+            <!-- Stats Header (Timer & Tokens) -->
+            <div class="flex items-center space-x-4 sm:space-x-6">
+                <!-- Stoppuhr -->
+                <div class="flex items-center bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-700 font-mono">
+                    <i data-lucide="clock" class="w-4 h-4 text-emerald-400 mr-2 animate-pulse"></i>
+                    <div>
+                        <div class="text-[10px] text-slate-400 uppercase">Einsatzzeit</div>
+                        <div id="game-timer" class="text-lg font-bold text-emerald-400">00:00</div>
+                    </div>
+                </div>
+
+                <!-- Token-Zähler -->
+                <div class="flex items-center bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-700 font-mono">
+                    <i data-lucide="award" class="w-4 h-4 text-amber-400 mr-2"></i>
+                    <div>
+                        <div class="text-[10px] text-slate-400 uppercase">Öko-Tokens</div>
+                        <div id="token-count" class="text-lg font-bold text-amber-400">0</div>
+                    </div>
+                </div>
+
+                <!-- Fullscreen Button -->
+                <button id="fullscreen-btn" onclick="toggleFullscreen()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 rounded-lg border border-emerald-500/30 transition-all glow-neon hover:scale-105" title="Vollbild umschalten">
+                    <i data-lucide="maximize" id="fullscreen-icon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- PROGRESS BAR -->
+    <div class="w-full bg-slate-900 border-b border-slate-800 h-2 relative">
+        <div id="progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-500 shadow-[0_0_10px_#10B981]"></div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
+        <!-- AGENT INVENTORY BAR -->
+        <div id="inventory-bar" class="mb-4 bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between shadow-lg">
+            <div class="flex items-center space-x-2 text-xs font-mono text-slate-400">
+                <i data-lucide="briefcase" class="w-4 h-4 text-emerald-400"></i>
+                <span>AGENTEN-INVENTAR:</span>
+            </div>
+            <div id="inventory-items" class="flex items-center space-x-2 overflow-x-auto py-1">
+                <span class="text-xs italic text-slate-500">Keine Beweismittel/Gegenstände gesammelt</span>
+            </div>
+        </div>
+
+        <!-- GAME CARD CONTAINER -->
+        <div id="game-card" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden backdrop-blur-md">
+            <!-- Scanline effect overlay -->
+            <div class="pointer-events-none absolute inset-0 scanline opacity-20"></div>
+
+            <!-- DYNAMIC CONTENT GOES HERE -->
+            <div id="stage-content" class="relative z-10">
+                <!-- Loaded dynamically by JS -->
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="py-4 text-center text-xs text-slate-500 font-mono border-t border-slate-900">
+        <p>BRIGADE GEGEN UMWELTATTACKEN (BUA) • TOP SECRET MISSION FILE #8842</p>
+    </footer>
+
+    <script>
+        /* ==========================================================================
+           1. GAME STATE & SYSTEM VARIABLES
+           ========================================================================== */
+        const gameState = {
+            currentStation: 0, // 0 = Briefing/Intro, 1..8 = Stations, 9 = Ending
+            startTime: null,
+            elapsedSeconds: 0,
+            timerInterval: null,
+            tokens: 0,
+            inventory: [],
+            stationData: {
+                s1: { pathChosen: null, FeatherCount: 0 },
+                s2: { safeUnlocked: false },
+                s3: { gardenSolved: false },
+                s4: { msgDecoded: false },
+                s5: { trashSorted: false },
+                s6: { quizScore: 0 },
+                s7: { gpsCoordinates: null },
+                s8: { rescued: false }
+            }
+        };
+
+        // Sound Effects Engine (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'success') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.setValueAtTime(110, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'unlock') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.1);
+                osc.frequency.setValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+        }
+
+        /* Fullscreen Helper */
+        function toggleFullscreen() {
+            playSound('click');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert(`Fehler beim Aktivieren des Vollbildmodus: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const icon = document.getElementById('fullscreen-icon');
+            if (document.fullscreenElement) {
+                icon.setAttribute('data-lucide', 'minimize');
+            } else {
+                icon.setAttribute('data-lucide', 'maximize');
+            }
+            lucide.createIcons();
+        });
+
+        /* Timer Engine */
+        function startTimer() {
+            if (gameState.timerInterval) return;
+            gameState.startTime = Date.now() - (gameState.elapsedSeconds * 1000);
+            gameState.timerInterval = setInterval(() => {
+                gameState.elapsedSeconds = Math.floor((Date.now() - gameState.startTime) / 1000);
+                const mins = String(Math.floor(gameState.elapsedSeconds / 60)).padStart(2, '0');
+                const secs = String(gameState.elapsedSeconds % 60).padStart(2, '0');
+                document.getElementById('game-timer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(gameState.timerInterval);
+            gameState.timerInterval = null;
+        }
+
+        /* Token & Inventory Management */
+        function addTokens(amount, reason) {
+            gameState.tokens += amount;
+            document.getElementById('token-count').textContent = gameState.tokens;
+            playSound('success');
+            showFeedbackNotification(`+${amount} Öko-Tokens erhalten: ${reason}`, 'success');
+        }
+
+        function addItemToInventory(item) {
+            if (!gameState.inventory.find(i => i.id === item.id)) {
+                gameState.inventory.push(item);
+                renderInventory();
+                playSound('unlock');
+            }
+        }
+
+        function renderInventory() {
+            const container = document.getElementById('inventory-items');
+            if (gameState.inventory.length === 0) {
+                container.innerHTML = `<span class="text-xs italic text-slate-500">Keine Beweismittel/Gegenstände gesammelt</span>`;
+                return;
+            }
+            container.innerHTML = gameState.inventory.map(item => `
+                <div class="flex items-center space-x-1.5 bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs px-2.5 py-1 rounded-lg font-mono shadow">
+                    <i data-lucide="${item.icon}" class="w-3.5 h-3.5"></i>
+                    <span>${item.name}</span>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function updateProgressBar() {
+            const total = 8;
+            const percentage = Math.min(100, Math.round((gameState.currentStation / total) * 100));
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+            document.getElementById('level-badge').textContent = `STATION ${gameState.currentStation}/${total}`;
+        }
+
+        /* Toast Feedback Overlay */
+        function showFeedbackNotification(msg, type = 'info') {
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-emerald-600 border-emerald-400' :
+                            type === 'error' ? 'bg-red-600 border-red-400' : 'bg-cyan-600 border-cyan-400';
+
+            toast.className = `fixed bottom-6 right-6 ${bgClass} text-white px-4 py-3 rounded-xl border shadow-2xl z-50 font-mono text-sm flex items-center space-x-2 animate-bounce`;
+            toast.innerHTML = `
+                <i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-triangle' : 'info'}" class="w-5 h-5"></i>
+                <span>${msg}</span>
+            `;
+            document.body.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => toast.remove(), 500);
+            }, 3000);
+        }
+
+        /* ==========================================================================
+           2. STATION ROUTER & RENDERERS
+           ========================================================================== */
+        function goToStation(stationNum) {
+            gameState.currentStation = stationNum;
+            updateProgressBar();
+            playSound('click');
+
+            const container = document.getElementById('stage-content');
+            
+            switch (stationNum) {
+                case 0:
+                    renderBriefing(container);
+                    break;
+                case 1:
+                    renderStation1(container);
+                    break;
+                case 2:
+                    renderStation2(container);
+                    break;
+                case 3:
+                    renderStation3(container);
+                    break;
+                case 4:
+                    renderStation4(container);
+                    break;
+                case 5:
+                    renderStation5(container);
+                    break;
+                case 6:
+                    renderStation6(container);
+                    break;
+                case 7:
+                    renderStation7(container);
+                    break;
+                case 8:
+                    renderStation8(container);
+                    break;
+                case 9:
+                    renderEnding(container);
+                    break;
+            }
+            lucide.createIcons();
+        }
+
+        /* ==========================================================================
+           STATION 0: BRIEFING & REKRUTIERUNG
+           ========================================================================== */
+        function renderBriefing(container) {
+            container.innerHTML = `
+                <div class="space-y-6 max-w-3xl mx-auto">
+                    <div class="flex items-center space-x-3 text-red-500 font-mono text-sm tracking-widest uppercase bg-red-950/40 p-2.5 rounded-lg border border-red-500/30">
+                        <i data-lucide="alert-octagon" class="w-5 h-5 animate-pulse"></i>
+                        <span>AKTUELLE NOTFALL-MELDUNG • BUA-HAUPTQUARTIER</span>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row items-center gap-6 bg-slate-800/60 p-5 rounded-xl border border-slate-700">
+                        <div class="w-24 h-24 rounded-full bg-emerald-950 border-2 border-emerald-400 flex items-center justify-center shrink-0 shadow-lg glow-neon">
+                            <i data-lucide="bot" class="w-12 h-12 text-emerald-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-emerald-300 font-mono">Agentin Feni (BUA-KI Assistentin)</h2>
+                            <p class="text-slate-300 text-sm mt-1 leading-relaxed">
+                                „Hallo Rekrut! Schön, dass du da bist. Wir haben einen Notfall: <strong>Agent Eko</strong> ist spurlos verschwunden! Er war einer Umweltverschwörung auf der Spur. Wir müssen seinen Spuren folgen, Rätsel lösen, Umwelt-Tokens sammeln und ihn retten!“
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950/70 p-5 rounded-xl border border-slate-800 font-mono text-sm space-y-3">
+                        <div class="text-emerald-400 font-bold flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> MISSIONSPROTOKOLL:
+                        </div>
+                        <ul class="list-disc list-inside space-y-1.5 text-slate-300 text-xs sm:text-sm">
+                            <li>Löse 8 aufeinanderaufbauende Rätselstationen.</li>
+                            <li>Sammle BUA Öko-Tokens für vorbildliche Entscheidungen.</li>
+                            <li>Nutze dein logisches Denken, Umweltwissen und Kombinationsgabe.</li>
+                            <li>Die Stoppuhr läuft, sobald du die Mission startest!</li>
+                        </ul>
+                    </div>
+
+                    <div class="text-center pt-2">
+                        <button onclick="startMission()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-lg px-8 py-4 rounded-xl shadow-lg glow-neon-strong transition-all transform hover:scale-105 flex items-center mx-auto space-x-3">
+                            <i data-lucide="play" class="w-6 h-6 fill-current"></i>
+                            <span>MISSION JETZT STARTEN</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startMission() {
+            startTimer();
+            addTokens(10, "Rekrutierungs-Bonus");
+            goToStation(1);
+        }
+
+        /* ==========================================================================
+           STATION 1: DAS LABYRINTH DER BIODIVERSITÄT
+           ========================================================================== */
+        function renderStation1(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="compass" class="w-5 h-5"></i> STATION 1: Labyrinth der Biodiversität
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #1</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Ekos erste Spur führt in ein dichtes Waldlabyrinth. Um den richtigen Pfad zur BUA-Geheimstation zu finden, musst du die ökologische Bedeutung der Bestäuber und Vögel erkennen!
+                    </p>
+
+                    <!-- Mini Quiz / Riddle Step 1 -->
+                    <div id="labyrinth-step-1" class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4">
+                        <h3 class="font-mono text-sm text-amber-400 font-bold flex items-center gap-2">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i> Welches Lebewesen ist für die Bestäubung von ca. 80% aller Nutz- und Wildpflanzen verantwortlich?
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-sm">
+                            <button onclick="checkS1Path('A')" class="p-3 bg-slate-900 hover:bg-emerald-950 hover:border-emerald-500 border border-slate-700 rounded-lg text-left transition-all">
+                                A) Wild- und Honigbienen
+                            </button>
+                            <button onclick="checkS1Path('B')" class="p-3 bg-slate-900 hover:bg-emerald-950 hover:border-emerald-500 border border-slate-700 rounded-lg text-left transition-all">
+                                B) Borkenkäfer
+                            </button>
+                            <button onclick="checkS1Path('C')" class="p-3 bg-slate-900 hover:bg-emerald-950 hover:border-emerald-500 border border-slate-700 rounded-lg text-left transition-all">
+                                C) Stare & Tauben
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 2 Feather Counting Riddle (Hidden initially) -->
+                    <div id="labyrinth-step-2" class="hidden bg-slate-800/40 p-5 rounded-xl border border-emerald-500/30 space-y-4">
+                        <h3 class="font-mono text-sm text-emerald-300 font-bold flex items-center gap-2">
+                            <i data-lucide="feather" class="w-4 h-4"></i> Agenten-Spur gefunden: Das Feder-Rätsel
+                        </h3>
+                        <p class="text-xs text-slate-300">
+                            Auf dem Pfad liegen BUA-Markierungsfedern. Zähle die Federn mit <strong>gerader Punkte-Anzahl</strong> auf der Zeichnung, um die Richtungszahl zu erhalten!
+                        </p>
+                        
+                        <!-- Visual Feather Display -->
+                        <div class="flex justify-center items-center gap-4 py-4 bg-slate-950 rounded-lg border border-slate-800">
+                            <div class="text-center p-2 bg-slate-900 rounded border border-slate-800">
+                                <i data-lucide="feather" class="w-8 h-8 text-amber-400 mx-auto"></i>
+                                <span class="text-xs font-mono text-slate-400">4 Punkte</span>
+                            </div>
+                            <div class="text-center p-2 bg-slate-900 rounded border border-slate-800">
+                                <i data-lucide="feather" class="w-8 h-8 text-slate-500 mx-auto"></i>
+                                <span class="text-xs font-mono text-slate-400">3 Punkte</span>
+                            </div>
+                            <div class="text-center p-2 bg-slate-900 rounded border border-slate-800">
+                                <i data-lucide="feather" class="w-8 h-8 text-amber-400 mx-auto"></i>
+                                <span class="text-xs font-mono text-slate-400">8 Punkte</span>
+                            </div>
+                            <div class="text-center p-2 bg-slate-900 rounded border border-slate-800">
+                                <i data-lucide="feather" class="w-8 h-8 text-amber-400 mx-auto"></i>
+                                <span class="text-xs font-mono text-slate-400">2 Punkte</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <input type="number" id="feather-input" placeholder="Anzahl gerader Federn..." class="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 font-mono text-sm text-emerald-400 focus:outline-none focus:border-emerald-500 w-full sm:w-64">
+                            <button onclick="checkS1Feathers()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-mono px-5 py-2 rounded-lg transition-all">
+                                Prüfen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkS1Path(choice) {
+            if (choice === 'A') {
+                playSound('success');
+                showFeedbackNotification("Richtig! Bienen sind unverzichtbare Bestäuber.", "success");
+                document.getElementById('labyrinth-step-1').classList.add('opacity-50', 'pointer-events-none');
+                document.getElementById('labyrinth-step-2').classList.remove('hidden');
+            } else {
+                playSound('error');
+                showFeedbackNotification("Falscher Pfad! Versuche es nochmal.", "error");
+            }
+        }
+
+        function checkS1Feathers() {
+            const input = document.getElementById('feather-input').value.trim();
+            // Federn mit gerader Punktzahl: 4, 8, 2 -> Das sind 3 Federn!
+            if (input === '3') {
+                addTokens(15, "Labyrinth meisterhaft durchquert");
+                addItemToInventory({ id: 'feather_map', name: 'Waldkarte', icon: 'map' });
+                goToStation(2);
+            } else {
+                playSound('error');
+                showFeedbackNotification("Falsche Zahl! Zähle nur Federn mit gerader Punkteanzahl (4, 8, 2).", "error");
+            }
+        }
+
+        /* ==========================================================================
+           STATION 2: DER PLASTIK-SAFE & OZEAN-VERSCHMUTZUNG
+           ========================================================================== */
+        function renderStation2(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="lock" class="w-5 h-5"></i> STATION 2: Der Plastik-Safe
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #2</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Am Flussufer stößt du auf einen verschlossenen Tresor von Agent Eko. Der Code errechnet sich aus den Zersetzungszeiten von Müll im Ozean.
+                    </p>
+
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4">
+                        <div class="text-xs font-mono text-cyan-300 bg-cyan-950/40 p-3 rounded border border-cyan-500/30">
+                            <strong>HINWEIS FENI:</strong> „Ordne den Müllsorten die richtige Abbauzeit zu. Der 3-stellige Code setzt sich aus den Anfangsziffern zusammen!“
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-center">
+                                <i data-lucide="apple" class="w-6 h-6 text-amber-500 mx-auto mb-1"></i>
+                                <div class="text-slate-300 font-bold">Apfelgriebsch</div>
+                                <div class="text-emerald-400 mt-1">ca. 2 Monate</div>
+                                <div class="text-[10px] text-slate-500 mt-1">Code-Ziffer 1: <strong>2</strong></div>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-center">
+                                <i data-lucide="cup-soda" class="w-6 h-6 text-red-400 mx-auto mb-1"></i>
+                                <div class="text-slate-300 font-bold">Aludose</div>
+                                <div class="text-emerald-400 mt-1">ca. 200 Jahre</div>
+                                <div class="text-[10px] text-slate-500 mt-1">Code-Ziffer 2: Erste Zahl von 200? → <strong>2</strong></div>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded border border-slate-800 text-center">
+                                <i data-lucide="milk" class="w-6 h-6 text-blue-400 mx-auto mb-1"></i>
+                                <div class="text-slate-300 font-bold">Plastikflasche</div>
+                                <div class="text-emerald-400 mt-1">ca. 450 Jahre</div>
+                                <div class="text-[10px] text-slate-500 mt-1">Code-Ziffer 3: Erste Zahl von 450? → <strong>4</strong></div>
+                            </div>
+                        </div>
+
+                        <!-- Safe Numpad Interface -->
+                        <div class="max-w-xs mx-auto bg-slate-950 p-4 rounded-xl border-2 border-emerald-500/40 glow-neon">
+                            <div class="text-center font-mono text-2xl text-emerald-400 tracking-widest bg-slate-900 py-2 rounded mb-3 border border-slate-800" id="safe-display">
+                                ___
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                ${[1,2,3,4,5,6,7,8,9,0].map(n => `
+                                    <button onclick="pressSafeNum('${n}')" class="bg-slate-800 hover:bg-slate-700 text-white font-mono py-2 rounded font-bold transition-all border border-slate-700">${n}</button>
+                                `).join('')}
+                                <button onclick="clearSafe()" class="bg-red-900/60 hover:bg-red-800 text-red-300 font-mono py-2 rounded font-bold col-span-2 text-xs">CLEAR</button>
+                            </div>
+                            <button onclick="submitSafeCode()" class="w-full mt-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold py-2 rounded text-sm uppercase">
+                                TRESOR ÖFFNEN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let safeInput = "";
+        function pressSafeNum(num) {
+            if (safeInput.length < 3) {
+                safeInput += num;
+                playSound('click');
+                document.getElementById('safe-display').textContent = safeInput.padEnd(3, '_');
+            }
+        }
+        function clearSafe() {
+            safeInput = "";
+            playSound('click');
+            document.getElementById('safe-display').textContent = "___";
+        }
+        function submitSafeCode() {
+            if (safeInput === "224") {
+                playSound('unlock');
+                addTokens(20, "Plastik-Safe geöffnet");
+                addItemToInventory({ id: 'encrypted_note', name: 'Verschlüsselte Notiz', icon: 'file-text' });
+                goToStation(3);
+            } else {
+                playSound('error');
+                showFeedbackNotification("Code Falsch! (Hinweis: Apfel=2, Dose=200->2, Flasche=450->4)", "error");
+                clearSafe();
+            }
+        }
+
+        /* ==========================================================================
+           STATION 3: GARTEN & INSEKTEN-ZAHLENRÄTSEL
+           ========================================================================== */
+        function renderStation3(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="flower2" class="w-5 h-5"></i> STATION 3: Insekten-Zahlenrätsel
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #3</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Im naturnahen Garten von Ekos Unterschlupf findest du eine Geheimtafel mit ökologischen Fakten zu Insekten. Berechne die Lösungssumme!
+                    </p>
+
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4 font-mono text-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                <div class="text-amber-400 text-xs uppercase font-bold">1. Schmetterlinge</div>
+                                <p class="text-xs text-slate-400 mt-1">Ein Schmetterling besucht 10 Blumen pro Minute. Wie viele besucht er in 3 Minuten?</p>
+                                <div class="text-lg font-bold text-emerald-400 mt-2">A = 30</div>
+                            </div>
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                <div class="text-amber-400 text-xs uppercase font-bold">2. Bienen-Radius</div>
+                                <p class="text-xs text-slate-400 mt-1">Eine Honigbiene fliegt bis zu 3 Kilometer weit für Nektar. Verdopple diese Strecke!</p>
+                                <div class="text-lg font-bold text-emerald-400 mt-2">B = 6</div>
+                            </div>
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                <div class="text-amber-400 text-xs uppercase font-bold">3. Totholz-Käfer</div>
+                                <p class="text-xs text-slate-400 mt-1">Ein Haufen Totholz bietet Lebensraum für über 14 Arten. Ziehe 4 ab.</p>
+                                <div class="text-lg font-bold text-emerald-400 mt-2">C = 10</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-emerald-950/40 p-4 rounded-lg border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div>
+                                <div class="text-emerald-300 font-bold">RECHNE DIE FINALSUMME:</div>
+                                <div class="text-xs text-slate-400">Summe = A + B + C (30 + 6 + 10)</div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="insekten-input" placeholder="Ergebnis..." class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 font-mono text-emerald-400 w-32 focus:outline-none focus:border-emerald-500">
+                                <button onclick="checkS3Garden()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg">
+                                    Bestätigen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkS3Garden() {
+            const val = document.getElementById('insekten-input').value.trim();
+            if (val === '46') {
+                addTokens(15, "Insekten-Zahlenrätsel gelöst");
+                addItemToInventory({ id: 'magnifier', name: 'Vergrößerungsglas', icon: 'search' });
+                goToStation(4);
+            } else {
+                playSound('error');
+                showFeedbackNotification("Falsche Summe! (Rechne: 30 + 6 + 10)", "error");
+            }
+        }
+
+        /* ==========================================================================
+           STATION 4: DAS SORTIERZENTRUM & GEHEIMBOTSCHAFT (DECHIFFRIERUNG)
+           ========================================================================== */
+        function renderStation4(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="binary" class="w-5 h-5"></i> STATION 4: Dechiffrierzentrum
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #4</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Aus Ekos Safe hast du eine verschlüsselte BUA-Geheimbotschaft erhalten. Entschlüssele den Buchstaben-Code mithilfe des BUA-Auskunftsschlüssels!
+                    </p>
+
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4">
+                        <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-xs space-y-2">
+                            <div class="text-amber-400 font-bold">BUA-DECODER TABELLE:</div>
+                            <div class="grid grid-cols-5 gap-2 text-center text-slate-300">
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">1 = U</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">2 = M</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">3 = W</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">4 = E</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">5 = L</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">6 = T</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">7 = S</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">8 = C</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">9 = H</div>
+                                <div class="p-1 bg-slate-900 rounded border border-slate-800">10 = Z</div>
+                            </div>
+                        </div>
+
+                        <div class="text-center font-mono py-3 bg-slate-900 rounded-lg border border-emerald-500/30">
+                            <span class="text-xs text-slate-400 block mb-1">GEHEIMER CODE:</span>
+                            <span class="text-xl font-bold text-emerald-400 tracking-wider">1 - 2 - 3 - 4 - 5 - 6</span>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-mono text-slate-400">Übersetze den Zahlen-Code in das gesuchte Passwort:</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="decode-input" placeholder="GESUCHTES WORT..." class="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 font-mono text-emerald-400 uppercase w-full focus:outline-none focus:border-emerald-500">
+                                <button onclick="checkS4Decode()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-mono px-5 py-2 rounded-lg">
+                                    Entschlüsseln
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkS4Decode() {
+            const val = document.getElementById('decode-input').value.trim().toUpperCase();
+            // 1=U, 2=M, 3=W, 4=E, 5=L, 6=T -> UMWELT
+            if (val === "UMWELT") {
+                addTokens(20, "Geheimbotschaft erfolgreich dechiffriert");
+                addItemToInventory({ id: 'decoder_chip', name: 'BUA-Decoderchip', icon: 'cpu' });
+                goToStation(5);
+            } else {
+                playSound('error');
+                showFeedbackNotification("Falsches Wort! Nutze die Tabelle (1=U, 2=M, 3=W...)", "error");
+            }
+        }
+
+        /* ==========================================================================
+           STATION 5: MÜLLTRENNUNG (INTERAKTIV)
+           ========================================================================== */
+        const trashItems = [
+            { id: 't1', name: 'Zeitung', type: 'papier', icon: 'file-text' },
+            { id: 't2', name: 'Bananenschale', type: 'bio', icon: 'apple' },
+            { id: 't3', name: 'Plastikbecher', type: 'gelb', icon: 'cup-soda' },
+            { id: 't4', name: 'Glasflasche', type: 'glas', icon: 'wine' }
+        ];
+        let sortedCount = 0;
+
+        function renderStation5(container) {
+            sortedCount = 0;
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i> STATION 5: Mülltrenn-Zentrum
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #5</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Um das Sicherheitstor der Müllverwertungsanlage zu öffnen, musst du die Abfälle ordnungsgemäß den richtigen Wertstoff-Containern zuordnen!
+                    </p>
+
+                    <!-- Trash items to sort -->
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-6">
+                        <div>
+                            <div class="text-xs font-mono text-slate-400 mb-2">ABFALL-OBJEKTE (Klicke auf ein Objekt, dann auf den passenden Container):</div>
+                            <div id="trash-pool" class="flex flex-wrap gap-3">
+                                ${trashItems.map(item => `
+                                    <button id="item-${item.id}" onclick="selectTrashItem('${item.id}')" class="bg-slate-900 border border-slate-700 hover:border-emerald-500 p-3 rounded-lg font-mono text-xs flex items-center space-x-2 transition-all">
+                                        <i data-lucide="${item.icon}" class="w-4 h-4 text-amber-400"></i>
+                                        <span>${item.name}</span>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Containers -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+                            <button onclick="assignToBin('papier')" class="bg-blue-950/60 border border-blue-500/40 hover:bg-blue-900 p-4 rounded-xl text-center transition-all">
+                                <i data-lucide="archive" class="w-8 h-8 text-blue-400 mx-auto mb-2"></i>
+                                <div class="font-bold text-blue-300">PAPIERTATTON</div>
+                            </button>
+
+                            <button onclick="assignToBin('bio')" class="bg-amber-950/60 border border-amber-500/40 hover:bg-amber-900 p-4 rounded-xl text-center transition-all">
+                                <i data-lucide="sprout" class="w-8 h-8 text-amber-400 mx-auto mb-2"></i>
+                                <div class="font-bold text-amber-300">BIOTONNE</div>
+                            </button>
+
+                            <button onclick="assignToBin('gelb')" class="bg-yellow-950/60 border border-yellow-500/40 hover:bg-yellow-900 p-4 rounded-xl text-center transition-all">
+                                <i data-lucide="recycle" class="w-8 h-8 text-yellow-400 mx-auto mb-2"></i>
+                                <div class="font-bold text-yellow-300">GELBER SACK</div>
+                            </button>
+
+                            <button onclick="assignToBin('glas')" class="bg-emerald-950/60 border border-emerald-500/40 hover:bg-emerald-900 p-4 rounded-xl text-center transition-all">
+                                <i data-lucide="container" class="w-8 h-8 text-emerald-400 mx-auto mb-2"></i>
+                                <div class="font-bold text-emerald-300">GLASCONTAINER</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let selectedTrashId = null;
+        function selectTrashItem(id) {
+            selectedTrashId = id;
+            playSound('click');
+            trashItems.forEach(item => {
+                const el = document.getElementById(`item-${item.id}`);
+                if (el) {
+                    if (item.id === id) {
+                        el.classList.add('ring-2', 'ring-emerald-400', 'bg-emerald-950');
+                    } else {
+                        el.classList.remove('ring-2', 'ring-emerald-400', 'bg-emerald-950');
+                    }
+                }
+            });
+        }
+
+        function assignToBin(binType) {
+            if (!selectedTrashId) {
+                showFeedbackNotification("Wähle zuerst ein Müll-Objekt aus!", "info");
+                return;
+            }
+
+            const item = trashItems.find(t => t.id === selectedTrashId);
+            if (item.type === binType) {
+                playSound('success');
+                showFeedbackNotification(`Richtig! ${item.name} wurde korrekt einsortiert.`, 'success');
+                document.getElementById(`item-${item.id}`).remove();
+                selectedTrashId = null;
+                sortedCount++;
+
+                if (sortedCount === trashItems.length) {
+                    addTokens(20, "Mülltrennung perfekt durchgeführt");
+                    addItemToInventory({ id: 'keycard', name: 'Müllwerk-Keycard', icon: 'key' });
+                    goToStation(6);
+                }
+            } else {
+                playSound('error');
+                showFeedbackNotification(`Falsche Tonne für ${item.name}! Versuche es noch einmal.`, 'error');
+            }
+        }
+
+        /* ==========================================================================
+           STATION 6: SUPERMARKT & NACHHALTIGKEITS-QUIZ
+           ========================================================================== */
+        function renderStation6(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="shopping-cart" class="w-5 h-5"></i> STATION 6: Supermarkt-Umweltcheck
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #6</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        In einem Supermarktgetränkelager befindet sich ein Hinweis auf Ekos Aufenthaltsort. Treffe die ökologisch nachhaltigsten Kaufentscheidungen, um Zugang zu erhalten!
+                    </p>
+
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4 font-mono text-sm">
+                        <div class="space-y-3">
+                            <label class="text-amber-400 font-bold block">Frage 1: Welche Verpackung hat beim Einkaufen die beste Ökobilanz für Getränke aus der Region?</label>
+                            <div class="space-y-2">
+                                <button onclick="answerS6(1, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg">
+                                    A) Regional abgefüllte Glas-Mehrwegflasche
+                                </button>
+                                <button onclick="answerS6(1, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg">
+                                    B) Einweg-Plastikflasche aus dem Ausland
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="q2-container" class="hidden space-y-3 pt-3 border-t border-slate-800">
+                            <label class="text-amber-400 font-bold block">Frage 2: Was bedeutet das BIO-Siegel hauptsächlich?</label>
+                            <div class="space-y-2">
+                                <button onclick="answerS6(2, false)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg">
+                                    A) Die Lebensmittel enthalten mehr Zucker.
+                                </button>
+                                <button onclick="answerS6(2, true)" class="w-full text-left p-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg">
+                                    B) Anbau ohne synthetische Pflanzenschutzmittel & schonend für Tiere.
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function answerS6(questionNum, isCorrect) {
+            if (isCorrect) {
+                playSound('success');
+                if (questionNum === 1) {
+                    showFeedbackNotification("Richtig! Mehrweg schont Ressourcen.", "success");
+                    document.getElementById('q2-container').classList.remove('hidden');
+                } else if (questionNum === 2) {
+                    addTokens(20, "Supermarkt-Quiz gemeistert");
+                    addItemToInventory({ id: 'gps_tracker', name: 'GPS-Sender', icon: 'map-pin' });
+                    goToStation(7);
+                }
+            } else {
+                playSound('error');
+                showFeedbackNotification("Nicht optimal für die Umwelt! Versuche die nachhaltigere Option.", "error");
+            }
+        }
+
+        /* ==========================================================================
+           STATION 7: GPS-ORTUNG & ROUTENFINDUNG
+           ========================================================================== */
+        function renderStation7(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-emerald-400 font-mono flex items-center gap-2">
+                            <i data-lucide="map-pin" class="w-5 h-5"></i> STATION 7: GPS-Ortung
+                        </h2>
+                        <span class="text-xs font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded">Missionskarte #7</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Du hast ein schwaches GPS-Signal von Agent Ekos BUA-Peilsender empfangen. Gib die Koordinaten der Zielkoordinate ein!
+                    </p>
+
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4">
+                        <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-xs space-y-2">
+                            <div class="text-cyan-400 font-bold">SIGNAL-DECODER HINWEISE:</div>
+                            <p class="text-slate-300">• Breitengrad (Nord): <span class="text-amber-400 font-bold">51</span> Grad</p>
+                            <p class="text-slate-300">• Längengrad (Ost): <span class="text-amber-400 font-bold">10</span> Grad</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono">
+                            <div>
+                                <label class="text-xs text-slate-400 block mb-1">Breitengrad (°N):</label>
+                                <input type="number" id="lat-input" placeholder="z.B. 51" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-emerald-400 focus:outline-none focus:border-emerald-500">
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400 block mb-1">Längengrad (°E):</label>
+                                <input type="number" id="lon-input" placeholder="z.B. 10" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-emerald-400 focus:outline-none focus:border-emerald-500">
+                            </div>
+                        </div>
+
+                        <button onclick="checkGPS()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold font-mono py-3 rounded-lg shadow glow-neon">
+                            GPS-SIGNAL ANPEILEN & STARTEN
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function checkGPS() {
+            const lat = document.getElementById('lat-input').value.trim();
+            const lon = document.getElementById('lon-input').value.trim();
+
+            if (lat === '51' && lon === '10') {
+                playSound('unlock');
+                addTokens(20, "GPS-Ortung erfolgreich");
+                addItemToInventory({ id: 'eko_coordinates', name: 'Ekos Versteck-Koordinaten', icon: 'navigation' });
+                goToStation(8);
+            } else {
+                playSound('error');
+                showFeedbackNotification("Signal nicht gefunden! Prüfe die Hinweise (Nord: 51, Ost: 10)", "error");
+            }
+        }
+
+        /* ==========================================================================
+           STATION 8: EKOS VERSTECK & FINALE RETTUNG
+           ========================================================================== */
+        function renderStation8(container) {
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h2 class="text-xl font-bold text-red-400 font-mono flex items-center gap-2">
+                            <i data-lucide="shield-alert" class="w-5 h-5 animate-pulse"></i> STATION 8: Ekos Versteck & Finale Rettung
+                        </h2>
+                        <span class="text-xs font-mono bg-red-950 text-red-400 border border-red-500/40 px-2 py-1 rounded">FINALES RÄTSEL</span>
+                    </div>
+
+                    <p class="text-slate-300 text-sm leading-relaxed">
+                        Du hast Ekos geheimes Hauptquartier erreicht! Er ist hinter einer elektronischen Sicherheitstür gefangen. Gib den 4-stelligen BUA-Hauptschlüssel ein, um die Tür zu entriegeln!
+                    </p>
+
+                    <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700 space-y-4">
+                        <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-xs space-y-2">
+                            <div class="text-amber-400 font-bold">BUA-ZUSAMMENFASSUNG DES HAUPTSCHLÜSSELS:</div>
+                            <p class="text-slate-300">1. Erste Ziffer = Anzahl gerader Federn aus Station 1 (<span class="text-emerald-400">3</span>)</p>
+                            <p class="text-slate-300">2. Zweite Ziffer = Erste Zahl des Plastik-Safe Codes aus Station 2 (<span class="text-emerald-400">2</span>)</p>
+                            <p class="text-slate-300">3. Dritte Ziffer = Erste Zahl der Koordinaten aus Station 7 (<span class="text-emerald-400">5</span>)</p>
+                            <p class="text-slate-300">4. Vierte Ziffer = Letzte Zahl der Koordinaten aus Station 7 (<span class="text-emerald-400">0</span>)</p>
+                        </div>
+
+                        <div class="flex items-center justify-center space-x-3 py-2">
+                            <input type="text" maxlength="4" id="final-code" placeholder="____" class="bg-slate-950 border-2 border-emerald-500/50 rounded-xl px-6 py-3 font-mono text-3xl text-emerald-400 tracking-[1rem] text-center w-64 focus:outline-none focus:border-emerald-400 glow-neon">
+                        </div>
+
+                        <button onclick="rescueEko()" class="w-full bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-600 text-slate-950 font-black font-mono text-lg py-4 rounded-xl shadow-2xl glow-neon-strong transition-all transform hover:scale-[1.02]">
+                            TÜR ENTRIEGELN & AGENT EKO RETTEN!
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function rescueEko() {
+            const code = document.getElementById('final-code').value.trim();
+            if (code === '3250') {
+                stopTimer();
+                addTokens(50, "Agent Eko erfolgreich gerettet!");
+                goToStation(9); // Ending
+            } else {
+                playSound('error');
+                showFeedbackNotification("Sicherheitstür verweigert Zugriff! Code Falsch (Hinweis: 3 - 2 - 5 - 0)", "error");
+            }
+        }
+
+        /* ==========================================================================
+           STATION 9: FINALE / VICTORY SCREEN
+           ========================================================================== */
+        function renderEnding(container) {
+            const mins = Math.floor(gameState.elapsedSeconds / 60);
+            const secs = gameState.elapsedSeconds % 60;
+            const timeString = `${mins} Minuten und ${secs} Sekunden`;
+
+            container.innerHTML = `
+                <div class="text-center space-y-6 py-4">
+                    <div class="inline-flex p-4 bg-emerald-500/20 rounded-full border-2 border-emerald-400 text-emerald-400 glow-neon-strong animate-bounce">
+                        <i data-lucide="award" class="w-16 h-16"></i>
+                    </div>
+
+                    <h2 class="text-3xl font-black text-emerald-300 font-mono tracking-tight">MISSION ERFOLGREICH ABGESCHLOSSEN!</h2>
+                    
+                    <p class="text-slate-200 text-base max-w-xl mx-auto leading-relaxed">
+                        Großartige Arbeit, Agent! Du hast Agent Eko gerettet und bewiesen, dass du ein echter Umweltschutz-Elite-Agent der BUA bist!
+                    </p>
+
+                    <!-- Scorecard -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto font-mono">
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <div class="text-xs text-slate-400">BENÖTIGTE ZEIT</div>
+                            <div class="text-xl font-bold text-emerald-400 mt-1">${timeString}</div>
+                        </div>
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <div class="text-xs text-slate-400">GESAMMELTE ÖKO-TOKENS</div>
+                            <div class="text-xl font-bold text-amber-400 mt-1">${gameState.tokens} TOKENS</div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-xl max-w-xl mx-auto text-xs font-mono text-emerald-300">
+                        🏆 BUA-URKUNDE ERHALTEN: ELITE-AGENT FÜR UMWELTSCHUTZ & BIODIVERSITÄT
+                    </div>
+
+                    <div class="pt-4">
+                        <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-700 text-white font-mono font-bold px-6 py-3 rounded-lg border border-slate-600 transition-all">
+                            MISSION NEU STARTEN
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        /* INITIALIZATION ON LOAD */
+        window.onload = function() {
+            lucide.createIcons();
+            goToStation(0); // Start at Briefing
+        };
+    </script>
+</body>
+</html>

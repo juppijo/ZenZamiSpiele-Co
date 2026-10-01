@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rettungsmission Erde – Escape Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1a12;--bg2:#15291d;--fg:#eef2e8;--gold:#e8b830;--gr:#2fa050;--red:#d9503f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f3f1e6;--bg2:#fff;--fg:#1c2a20;--gold:#b58500}}
+:root[data-theme="light"]{--bg:#f3f1e6;--bg2:#fff;--fg:#1c2a20;--gold:#b58500}
+:root[data-theme="dark"]{--bg:#0d1a12;--bg2:#15291d;--fg:#eef2e8;--gold:#e8b830}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:radial-gradient(circle at 20% 0,var(--bg2),var(--bg));color:var(--fg);font:16px/1.5 Barlow,system-ui,sans-serif;overflow-y:auto}
+h1,h2{font-family:'Bebas Neue',Impact,sans-serif;letter-spacing:.06em;color:var(--gold);margin:.2em 0;font-weight:400}
+h1{font-size:clamp(2.4rem,8vw,4.5rem)}h2{font-size:2rem}
+header{position:sticky;top:0;z-index:5;display:flex;gap:.6rem;align-items:center;padding:.6rem 1rem;background:var(--bg);border-bottom:1px solid #e8b83055}
+header b{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);letter-spacing:.08em;margin-right:auto;font-weight:400}
+.t{font:1.4rem 'Bebas Neue',monospace;letter-spacing:.1em}
+button{font:600 1rem Barlow,sans-serif;background:var(--gold);color:#1a1405;border:0;border-radius:8px;padding:.6rem 1.1rem;cursor:pointer}
+button.g{background:transparent;color:var(--gold);border:1px solid var(--gold);padding:.35rem .7rem}
+main{max-width:760px;margin:0 auto;padding:1.2rem}
+.card{background:var(--bg2);border:1px solid #e8b83044;border-radius:14px;padding:1.2rem;margin:1rem 0;box-shadow:0 6px 24px #0005}
+.fact{border-left:4px solid var(--gr);padding:.5rem .8rem;margin-top:1rem;font-size:.92rem;opacity:.9}
+label{display:block;margin:.8rem 0 .2rem;font-weight:600}
+input,select{-webkit-user-select:text;user-select:text;pointer-events:auto;position:relative;z-index:1;width:100%;padding:.6rem;border-radius:8px;border:2px solid #e8b83066;background:var(--bg);color:var(--fg);font:inherit}
+input.ok,select.ok{border-color:var(--gr)}input.no,select.no{border-color:var(--red)}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem;align-items:center}
+.coins{display:flex;gap:.3rem;font-size:1.4rem;min-width:1.5rem}
+pre{background:var(--bg);padding:.8rem;border-radius:8px;overflow-x:auto;font-size:1.05rem;letter-spacing:.06em}
+table{border-collapse:collapse;margin:.5rem 0}td,th{border:1px solid #e8b83066;padding:.3rem .7rem;text-align:center}th{color:var(--gold)}
+.msg{min-height:1.5em;font-weight:600}.hint{color:var(--gold);font-style:italic}
+.big{text-align:center;padding:2rem 0}.prog{height:6px;background:var(--bg2);border-radius:3px;margin-top:.4rem}.prog i{display:block;height:100%;background:var(--gold);border-radius:3px;transition:width .4s}
+#mz{text-align:center;margin:1rem 0}#mz canvas{border:2px solid var(--gold);border-radius:10px;touch-action:none;max-width:100%}.pad{display:grid;grid-template-columns:repeat(3,3.2rem);gap:.3rem;justify-content:center;margin:.6rem 0}.pad button{padding:.5rem 0;font-size:1.2rem}#mzh{font-weight:600;min-height:3em}</style></head><body>
+<header><b>🌍 Rettungsmission Erde</b><span class="coins" id="coins"></span><span class="t" id="tm">00:00</span><button class="g" id="th">◐</button><button class="g" id="fs">⛶ Vollbild</button></header>
+<main id="m"></main>
+<script>
+const S=[
+{t:"Das Labyrinth",maze:1,
+x:`<b>⚠️ Höchste Priorität:</b> Finde Eko! Es gibt Hinweise, dass er durch dieses Labyrinth gegangen ist. Finde den umweltfreundlichsten, natürlichsten Weg zum Ausgang 🚪 und geh den Fallen (🚬 🛍️ 🏭 🗑️ 🪵) aus dem Weg – sie schicken dich zurück zum Start (+15 s).<br>Unterwegs begegnest du: 1) einem <b>Bestäubungsinsekt</b> 🦋, 2) einer Tierart der <b>Honigerzeugung</b> 🐝, 3) einer geheimnisvollen <b>Feder</b> 🪶. Jeder Fund ist ein Token mit einem Wert.<br><small>Steuerung: Pfeiltasten/WASD, Buttons oder Wischen (gleitet bis zur Wand).</small><div id="mz"></div>`,
+f:[["Summe der drei Tokens (🦋 + 🐝 + 🪶)","10"]],
+h:"Sammle alle drei Tokens ein und erreiche den Ausgang. Der Wert steht dann in der Anzeige unter der Karte – addiere sie.",
+fa:"20 bis 30 % der Tier- und Pflanzenarten sind vom Aussterben bedroht."},
+{t:"Der Safe im Plastikmeer",
+x:`Eko hat Tokens und Forschungsergebnisse in einem Safe gesichert. Jede Farbe steht für eine Plastikart: <b>PET (01) rot</b>, <b>HDPE (02) gelb</b>, <b>PP (05) grün</b>, <b>PE-LD (04) blau</b>.<pre>10 + 7 + 🔴 = ?
+🛍️🇧🇪 − 🔵 − 9 = ?
+4 + 12 + 🟡 = ?
+28 − 🟢 − 5 = ?</pre>🛍️🇧🇪 = Plastikabfall pro Einwohner Belgiens und Jahr (in kg). Alle vier Gleichungen ergeben dasselbe – das ist der Safe-Code.`,
+f:[["Plastikabfall pro Belgier/Jahr (kg)","31"],["Safe-Code","18"]],
+h:"Rot = 1, Blau = 4, Gelb = 2, Grün = 5. Rechne 10 + 7 + 1.",
+fa:"Der Great Pacific Garbage Patch ist etwa 52 Mal so groß wie Belgien!"},
+{t:"Der Garten der Bestäuber",
+x:`Feni braucht Tokens. Lies die Steckbriefe: 🐝 Honigbiene 1.000 Blüten/Tag · 🐞 Käfer versehentlich · 🦋 Schmetterling <b>50</b> Blüten/Tag · 🐝 Hummel 100–200 Blüten/Tag.<br>Fakten: <i>40 %</i> aller Bestäuber sind bedroht, Honigbienen fliegen bis zu <i>6 km</i> weit.<br><br><b>Token 1 − Token 2 + Token 3</b><br>1) Blüten/Tag eines Schmetterlings · 2) Prozent bedrohter Bestäuber · 3) km einer Honigbiene`,
+f:[["Token 1","50"],["Token 2","40"],["Token 3","6"],["Ergebnis","16"]],
+h:"50 − 40 = 10, dann + 6.",fa:"Wildbienen bestäuben bis zu 95 % der Blüten an einem Ort."},
+{t:"Die Flaschen-Botschaft",
+x:`Eko liebt Multiplizieren! Jede Zahl ist ein <b>Produkt</b> aus Zeile × Spalte – such den Buchstaben in der Tabelle.<table><tr><th>×</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr><tr><th>1</th><td>E</td><td>A</td><td>N</td><td>D</td><td>I</td></tr><tr><th>2</th><td>A</td><td>D</td><td>S</td><td>U</td><td>L</td></tr><tr><th>3</th><td>N</td><td>S</td><td>T</td><td>G</td><td>H</td></tr><tr><th>4</th><td>D</td><td>U</td><td>G</td><td>C</td><td>V</td></tr><tr><th>5</th><td>I</td><td>L</td><td>H</td><td>V</td><td>R</td></tr></table>
+<pre>4.5.1  M.1.5.6.9.1.3
+15.2.8.6.15.2.10.9.6-
+20.1.25.P.2.16.K.8.3.12.1.3
+W.1.25.4.1.3  25.1.16.Y.16.1.10.9</pre>
+(Beispiel: 6 = 2×3 = S.) Die Botschaft nennt eine Prozentzahl. Addiere ihre 2 Ziffern.`,
+f:[["Wie viel Prozent werden recycelt?","95"],["Quersumme (Token)","14"]],
+h:"Die Botschaft beginnt mit „DIE MEISTEN HAUSHALTS…“ und endet mit „…WERDEN RECYCELT“. Die Zahl steht im Infokasten.",
+fa:"95 % der Haushaltsverpackungen wurden 2022 in Belgien recycelt."},
+{t:"Kniffelige Fragen im Laden",
+x:"Entscheide dich im Sinne der Umwelt. Jede richtige Antwort liefert eine Ziffer des Kassencodes.",
+f:[["1. Welches Lebensmittel wird am häufigsten weggeworfen?","Brot",["–","Brot","Obst"]],
+["2. Welcher Snack ist am umweltfreundlichsten?","Unverpackt",["–","Verpackt","Unverpackt"]],
+["3. Wie viel Lebensmittel wirft Belgien jährlich weg?","3,6 Mio.",["–","2 Mio. t","3,6 Mio. t"]],
+["4. Wie viele Verpackungen sind überflüssig?","20 %",["–","15 %","20 %"]],
+["5. Was ist umweltfreundlicher?","Mehrweg",["–","Einwegflasche","Mehrweg-Trinkflasche"]]],
+fix:{0:"Brot",1:"Unverpackt",2:"3,6 Mio. t",3:"20 %",4:"Mehrweg-Trinkflasche"},
+h:"Denk an den Infokasten: 3,6 Millionen Tonnen, über 20 % überflüssig.",
+fa:"Über 3,6 Millionen Tonnen Lebensmittel landen in Belgien jährlich im Müll."},
+{t:"Auf leichten Rädern",
+x:`Eko war <b>4 h 30</b> unterwegs, davon <b>30 Min. Pause</b> in einer Stadt mit „P“.<br>🟠 Orange: 22 km/2 h + 8 km/1 h · 🔵 Blau: 10 km/1 h + 42 km/3 h · 🟣 Violett: 81 km/5 h 30`,
+f:[["Welche Route?","Blau",["–","Orange","Blau","Violett"]],["Stadt mit P","paderbach"],["Gesamtstrecke (km)","52"]],
+fix:{0:"Blau"},h:"4 h 30 minus 30 Min. Pause = 4 h Fahrzeit. Welche Route hat 1 h + 3 h?",
+fa:"10 km Fahrrad sparen 2 kg CO₂."},
+{t:"Im Haus von Eko",
+x:"Öffne die Tür und das Garagentor! Addiere am Ende die drei Tokens.",
+f:[["Wasser, das man pro Minute spart, wenn man beim Einseifen den Hahn zudreht (Liter)","6"],["Ideale Duschzeit (Minuten)","5"],["Ideale Kühlschranktemperatur (°C)","5"],["Summe der Tokens = Garagencode","16"]],
+h:"20 Sekunden = 2 Liter, also ×3. Die Infokästen verraten den Rest.",
+fa:"Ein 5-Minuten-Song ist die perfekte Duschuhr."}
+];
+const $=id=>document.getElementById(id),m=$('m');
+let i=-1,t0=0,hints=0,tick,done=[];
+const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+const norm=v=>v.toLowerCase().replace(/[\s.]/g,'');
+function coins(){$('coins').textContent='🪙'.repeat(done.length)}
+function intro(){m.innerHTML=`<div class="big"><h1>Rettungsmission Erde</h1><h2>Sondereinsatz für Elite-Agenten</h2>
+<div class="card" style="text-align:left"><b>🚨 Rekrut, wir brauchen dich!</b><br>Unser bester Agent <b>Eko</b> ist verschwunden – die BUA (Brigade gegen Umweltattacken) vermutet eine Entführung. Gemeinsam mit dem Fabelwesen <b>Feni</b> löst du Rätsel, sammelst 🪙 Tokens und findest Eko.<br><br>Du brauchst Kritzelpapier und Stift. Die Stoppuhr startet mit dem Einsatz.<br><i>Schützen · Verteidigen · Retten</i></div><button id="go">Einsatz starten</button></div>`;
+$('go').onclick=()=>{t0=Date.now();tick=setInterval(()=>$('tm').textContent=fmt(Math.floor((Date.now()-t0)/1000)),500);show(0)}}
+function show(n){i=n;const s=S[n];
+m.innerHTML=`<div class="prog"><i style="width:${n/S.length*100}%"></i></div><div class="card"><h2>${n+1}/${S.length} · ${s.t}</h2><div>${s.x}</div>
+${s.f.map((f,k)=>`<label>${f[0]}</label>${f[2]?`<select data-k="${k}">${f[2].map(o=>`<option>${o}</option>`).join('')}</select>`:`<input type="text" data-k="${k}" autocomplete="off" inputmode="${/^\d+$/.test(f[1])?'numeric':'text'}" enterkeyhint="done">`}`).join('')}
+<div class="row"><button id="ck">Prüfen</button><button class="g" id="hb">💡 Hinweis (+30 s)</button><span class="msg" id="ms"></span></div><div class="hint" id="hi"></div>
+<div class="fact">💡 Wusstest du? ${s.fa}</div></div>`;
+$('ck').onclick=check;$('hb').onclick=()=>{hints++;t0-=30000;$('hi').textContent=s.h};
+m.querySelectorAll('input').forEach(e=>{e.onkeydown=ev=>{ev.stopPropagation();if(ev.key==='Enter')check()};e.onclick=()=>e.focus()});const fi=m.querySelector('input');if(s.maze)initMaze();else if(fi)setTimeout(()=>fi.focus(),50)}
+function check(){const s=S[i];let ok=true;if(s.maze&&!mz.won){$('ms').textContent='🚪 Sammle erst alle 3 Tokens und erreiche den Ausgang!';return}
+m.querySelectorAll('[data-k]').forEach(e=>{const k=+e.dataset.k,f=s.f[k];
+const good=f[2]?(s.fix&&s.fix[k]?e.value===s.fix[k]:e.value===f[1]):norm(e.value)===norm(f[1]);
+e.className=good?'ok':'no';if(!good)ok=false});
+$('ms').textContent=ok?'✅ Richtig! Token gefunden.':'❌ Noch nicht ganz – versuch es nochmal.';
+if(ok){done.push(i);coins();setTimeout(()=>i+1<S.length?show(i+1):end(),1100)}}
+function end(){clearInterval(tick);const sec=Math.floor((Date.now()-t0)/1000);
+m.innerHTML=`<div class="big"><h1>Auftrag ausgeführt!</h1><div class="card"><b>BRAVO!</b> Du hast die Stadt <b>Grüntal</b> gefunden! Eko war in einem Lagerschuppen gefesselt – die Gang floh, als ihr kamt.<br><br>Durch dein Wissen über umweltfreundliche Gewohnheiten hast du es geschafft. Du bist ein wichtiger Rekrut der BUA!<br><br>⏱ Zeit (inkl. Strafzeit): <b>${fmt(sec)}</b> · 🪙 ${done.length} Tokens · 💡 ${hints} Hinweise<br><i>– Feni &amp; Eko</i></div><button onclick="location.reload()">Nochmal spielen</button></div>`}
+$('fs').onclick=()=>{const d=document,e=d.documentElement;try{d.fullscreenElement?d.exitFullscreen():e.requestFullscreen().catch(()=>alert('Vollbild wird hier vom Browser blockiert.'))}catch(x){alert('Vollbild nicht verfügbar.')}};
+$('th').onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'};
+const N=15,D=[[0,-1,1,4],[1,0,2,8],[0,1,4,1],[-1,0,8,2]],mz={};
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function bfs(o){const p=Array(N*N).fill(-1),d=Array(N*N).fill(-1),q=[0];d[0]=0;
+for(let h=0;h<q.length;h++){const c=q[h],x=c%N,y=c/N|0;D.forEach(e=>{if(o[c]&e[2]){const n=(y+e[1])*N+x+e[0];if(d[n]<0){d[n]=d[c]+1;p[n]=c;q.push(n)}}})}return{p,d}}
+function initMaze(){const r=rng(2026),o=Array(N*N).fill(0),vis=Array(N*N).fill(0),sk=[0];vis[0]=1;
+while(sk.length){const c=sk[sk.length-1],x=c%N,y=c/N|0,nb=D.filter(e=>{const a=x+e[0],b=y+e[1];return a>=0&&b>=0&&a<N&&b<N&&!vis[b*N+a]});
+if(!nb.length){sk.pop();continue}const e=nb[r()*nb.length|0],n=(y+e[1])*N+x+e[0];o[c]|=e[2];o[n]|=e[3];vis[n]=1;sk.push(n)}
+const{p,d}=bfs(o),ex=N*N-1,dead=[];
+for(let c=1;c<ex;c++){const b=o[c];if((b&(b-1))===0&&d[c]>=10)dead.push(c)}
+for(let k=dead.length-1;k>0;k--){const j=r()*(k+1)|0;[dead[k],dead[j]]=[dead[j],dead[k]]}
+const it={},E=[['🦋',2],['🐝',5],['🪶',3]];E.forEach((e,k)=>it[dead[k]]={e:e[0],v:e[1]});
+const safe=new Set([0]);[ex,...Object.keys(it).map(Number)].forEach(c=>{for(;c>=0;c=p[c])safe.add(c)});
+const tr={},T=['🚬','🛍️','🏭','🗑️','🪵'];let g=0;
+while(Object.keys(tr).length<18&&g++<999){const c=r()*N*N|0;if(!safe.has(c)&&!tr[c])tr[c]=T[r()*T.length|0]}
+Object.assign(mz,{o,it,tr,pos:0,got:{},won:false,ex});
+const cs=Math.max(20,Math.floor(Math.min(560,m.clientWidth-40)/N));mz.cs=cs;
+$('mz').innerHTML=`<canvas id="cv" width="${cs*N}" height="${cs*N}"></canvas><div id="mzh"></div><div class="pad"><span></span><button data-d="0">▲</button><span></span><button data-d="3">◀</button><button data-d="2">▼</button><button data-d="1">▶</button></div>`;
+mz.cv=$('cv');let sx,sy;
+mz.cv.ontouchstart=e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY};
+mz.cv.ontouchend=e=>{const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;
+run(Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0))};
+document.querySelectorAll('.pad button').forEach(b=>b.onclick=()=>mv(+b.dataset.d));
+document.onkeydown=e=>{if(!S[i]||!S[i].maze||e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+const k={ArrowUp:0,w:0,ArrowRight:1,d:1,ArrowDown:2,s:2,ArrowLeft:3,a:3}[e.key];if(k!==undefined){e.preventDefault();mv(k)}};
+say('Los geht’s! Finde 🦋, 🐝 und 🪶 – und dann den Ausgang 🚪.');draw()}
+function say(t){const h=$('mzh');if(h)h.innerHTML=t+'<br>Tokens: '+[['🦋',2],['🐝',5],['🪶',3]].map(e=>e[0]+' '+(mz.got[e[0]]?e[1]:'❓')).join(' · ')}
+function run(k){let n=0;while(mv(k)===1&&n++<N*N);}
+function mv(k){if(mz.won)return 0;const c=mz.pos,e=D[k];if(!(mz.o[c]&e[2]))return 0;
+const n=(c/N|0)*N+(c%N)+e[1]*N+e[0];mz.pos=n;let r=1;
+if(mz.tr[n]){mz.pos=0;t0-=15000;r=2;say('💥 Falle '+mz.tr[n]+'! Zurück zum Start (+15 s). Denk an einen natürlichen Weg!')}
+else if(mz.it[n]&&!mz.got[mz.it[n].e]){const a=mz.it[n];mz.got[a.e]=1;r=2;say('✨ Token gefunden: '+a.e+' = '+a.v)}
+else if(n===mz.ex){if(Object.keys(mz.got).length===3){mz.won=true;r=2;say('🎉 Ausgang erreicht! Addiere die drei Token-Werte und trage die Summe unten ein.')}else{r=2;say('🚪 Der Ausgang ist da – aber dir fehlen noch Tokens!')}}
+draw();return r}
+function draw(){const c=mz.cv,g=c.getContext('2d'),cs=mz.cs,gold=getComputedStyle(document.documentElement).getPropertyValue('--gold');
+g.fillStyle='#0f2a1a';g.fillRect(0,0,c.width,c.height);g.strokeStyle=gold;g.lineWidth=2;g.lineCap='round';g.beginPath();
+mz.o.forEach((b,i)=>{const x=(i%N)*cs,y=(i/N|0)*cs;if(!(b&1)){g.moveTo(x,y);g.lineTo(x+cs,y)}if(!(b&2)){g.moveTo(x+cs,y);g.lineTo(x+cs,y+cs)}if(!(b&4)){g.moveTo(x,y+cs);g.lineTo(x+cs,y+cs)}if(!(b&8)){g.moveTo(x,y);g.lineTo(x,y+cs)}});g.stroke();
+g.font=(cs*.68)+'px serif';g.textAlign='center';g.textBaseline='middle';
+const P=(i,s)=>g.fillText(s,(i%N+.5)*cs,((i/N|0)+.55)*cs);
+Object.entries(mz.tr).forEach(([i,s])=>P(+i,s));Object.entries(mz.it).forEach(([i,a])=>{if(!mz.got[a.e])P(+i,a.e)});
+P(mz.ex,'🚪');P(mz.pos,'🦊')}
+intro();
+</script></body></html>

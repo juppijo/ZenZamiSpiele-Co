@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Rettungsmission Erde - Escape Game</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial,sans-serif;
+}
+
+body{
+background:#0d1b2a;
+color:white;
+min-height:100vh;
+}
+
+header{
+background:#1b263b;
+padding:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+border-bottom:3px solid #5bc0be;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+padding:20px;
+}
+
+.card{
+background:#1b263b;
+padding:25px;
+border-radius:15px;
+margin-top:20px;
+box-shadow:0 0 20px rgba(0,0,0,.4);
+}
+
+button{
+padding:12px 20px;
+border:none;
+background:#5bc0be;
+color:white;
+cursor:pointer;
+border-radius:8px;
+margin-top:15px;
+font-weight:bold;
+}
+
+button:hover{
+background:#3aafa9;
+}
+
+input{
+width:100%;
+padding:12px;
+margin-top:10px;
+border-radius:8px;
+border:none;
+}
+
+.hidden{
+display:none;
+}
+
+.token{
+color:gold;
+font-size:22px;
+}
+
+.progress{
+width:100%;
+height:20px;
+background:#334;
+border-radius:10px;
+overflow:hidden;
+margin-top:10px;
+}
+
+.bar{
+height:100%;
+width:0%;
+background:limegreen;
+transition:.5s;
+}
+
+.success{
+color:#7CFC00;
+font-weight:bold;
+}
+
+.fail{
+color:#ff8080;
+}
+
+h1,h2{
+margin-bottom:15px;
+}
+
+.center{
+text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div>🌍 Rettungsmission Erde</div>
+<div>⏰ <span id="timer">60:00</span></div>
+<div>🪙 Tokens: <span id="tokens">0</span></div>
+</header>
+
+<div class="container">
+
+<div class="progress">
+<div class="bar" id="bar"></div>
+</div>
+
+<div id="game">
+
+<div id="s0" class="card">
+<h1>BUA Geheimmission</h1>
+
+<p>
+Agent Eko wurde entführt. Die Brigade gegen Umweltattacken (BUA)
+braucht deine Hilfe. Löse alle Umwelt-Rätsel und sammle Tokens,
+um Eko zu retten.
+</p>
+
+<button onclick="next(1)">Mission starten</button>
+</div>
+
+<div id="s1" class="card hidden">
+<h2>🌿 Das Labyrinth</h2>
+
+<p>
+Finde den umweltfreundlichsten Weg.
+Welcher dieser Wege schützt die Natur am besten?
+</p>
+
+<p>
+A = Durch Blumenbeete laufen<br>
+B = Auf dem markierten Pfad bleiben<br>
+C = Müll liegen lassen
+</p>
+
+<input id="q1">
+
+<button onclick="check1()">Antwort</button>
+
+<div id="r1"></div>
+</div>
+
+<div id="s2" class="card hidden">
+<h2>🌊 Der Plastikkontinent</h2>
+
+<p>
+Wie heißt der größte bekannte Plastikteppich im Pazifik?
+</p>
+
+<p>
+Hinweis: Great Pacific Garbage ....
+</p>
+
+<input id="q2">
+
+<button onclick="check2()">Safe öffnen</button>
+
+<div id="r2"></div>
+</div>
+
+<div id="s3" class="card hidden">
+<h2>🐝 Garten der Bestäuber</h2>
+
+<p>
+Wer bestäubt bis zu 95 % der Blüten
+an einem Ort?
+</p>
+
+<input id="q3">
+
+<button onclick="check3()">Weiter</button>
+
+<div id="r3"></div>
+</div>
+
+<div id="s4" class="card hidden">
+<h2>♻️ Sortierzentrum</h2>
+
+<p>
+Welche Tonne ist richtig für Papier?
+</p>
+
+<p>
+A = Glascontainer<br>
+B = Papiercontainer<br>
+C = Restmüll
+</p>
+
+<input id="q4">
+
+<button onclick="check4()">Sortieren</button>
+
+<div id="r4"></div>
+</div>
+
+<div id="s5" class="card hidden">
+<h2>🛒 Nachhaltigkeits-Challenge</h2>
+
+<p>
+Welche Wahl ist umweltfreundlicher?
+</p>
+
+<p>
+A = Wiederverwendbare Tasche<br>
+B = Jeden Einkauf neue Plastiktüte
+</p>
+
+<input id="q5">
+
+<button onclick="check5()">Prüfen</button>
+
+<div id="r5"></div>
+</div>
+
+<div id="s6" class="card hidden">
+<h2>🚲 Umweltfreundliche Mobilität</h2>
+
+<p>
+Welches Verkehrsmittel erzeugt
+am wenigsten Emissionen?
+</p>
+
+<p>
+A = Fahrrad<br>
+B = Auto<br>
+C = Motorrad
+</p>
+
+<input id="q6">
+
+<button onclick="check6()">Route wählen</button>
+
+<div id="r6"></div>
+</div>
+
+<div id="s7" class="card hidden">
+<h2>🏠 Ekos Haus</h2>
+
+<p>
+Beim Einseifen der Hände sollte man...</p>
+
+<p>
+A = Wasser laufen lassen<br>
+B = Wasserhahn schließen
+</p>
+
+<input id="q7">
+
+<button onclick="check7()">Tür öffnen</button>
+
+<div id="r7"></div>
+</div>
+
+<div id="s8" class="card hidden center">
+<h1>🎉 MISSION ERFOLGREICH</h1>
+
+<h2>Agent Eko wurde gerettet!</h2>
+
+<p>
+Du hast alle Umweltaufgaben gelöst
+und genügend Tokens gesammelt.
+</p>
+
+<h2 id="finalTokens"></h2>
+
+<button onclick="location.reload()">
+Neu starten
+</button>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let current=0;
+let tokens=0;
+let totalStages=8;
+
+function addToken(){
+tokens++;
+document.getElementById("tokens").innerText=tokens;
+}
+
+function next(id){
+
+document.querySelectorAll('.card')
+.forEach(x=>x.classList.add("hidden"));
+
+document.getElementById("s"+id)
+.classList.remove("hidden");
+
+let percent=(id/8)*100;
+document.getElementById("bar").style.width=
+percent+"%";
+}
+
+function success(id,msg,nextPage){
+
+addToken();
+
+document.getElementById(id).innerHTML=
+'<p class="success">'+msg+'</p><button onclick="next('+nextPage+')">Weiter</button>';
+}
+
+function fail(id){
+document.getElementById(id).innerHTML=
+'<p class="fail">Leider falsch.</p>';
+}
+
+function check1(){
+let a=q1.value.trim().toUpperCase();
+a==="B"
+?success("r1","Richtig! Du schützt die Biodiversität.",2)
+:fail("r1");
+}
+
+function check2(){
+let a=q2.value.toLowerCase();
+a.includes("patch")
+?success("r2","Safe geöffnet!",3)
+:fail("r2");
+}
+
+function check3(){
+let a=q3.value.toLowerCase();
+a.includes("wild")
+?success("r3","Die Wildbiene hilft dir weiter.",4)
+:fail("r3");
+}
+
+function check4(){
+let a=q4.value.trim().toUpperCase();
+a==="B"
+?success("r4","Perfekt sortiert.",5)
+:fail("r4");
+}
+
+function check5(){
+let a=q5.value.trim().toUpperCase();
+a==="A"
+?success("r5","Nachhaltige Entscheidung.",6)
+:fail("r5");
+}
+
+function check6(){
+let a=q6.value.trim().toUpperCase();
+a==="A"
+?success("r6","Die Route ist frei.",7)
+:fail("r6");
+}
+
+function check7(){
+let a=q7.value.trim().toUpperCase();
+
+if(a==="B"){
+
+addToken();
+
+document.getElementById("finalTokens").innerText=
+"Gesammelte Tokens: "+tokens;
+
+next(8);
+
+}else{
+fail("r7");
+}
+}
+
+let time=3600;
+
+setInterval(()=>{
+
+time--;
+
+let m=Math.floor(time/60);
+let s=time%60;
+
+document.getElementById("timer").innerText=
+String(m).padStart(2,"0")+":"+
+String(s).padStart(2,"0");
+
+if(time<=0){
+
+alert("Zeit abgelaufen!");
+
+location.reload();
+
+}
+
+},1000);
+
+</script>
+
+</body>
+</html>
