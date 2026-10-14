@@ -31,7 +31,7 @@
         </div>
 
         <!-- Stats & Controls -->
-        <div class="flex items-center space-x-4 mt-2 sm:mt-0">
+        <div class="flex items-center space-x-3 mt-2 sm:mt-0">
             <div class="bg-slate-900/60 border border-slate-700/60 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-sm">
                 <span class="text-slate-400">Zeit:</span>
                 <span id="timer" class="font-mono font-semibold text-indigo-400">00:00</span>
@@ -40,6 +40,15 @@
                 <span class="text-slate-400">Züge:</span>
                 <span id="moves" class="font-mono font-semibold text-emerald-400">0</span>
             </div>
+            <!-- Rückgängig Button -->
+            <button onclick="undoMove()" title="Letzten Zug rückgängig machen" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                <span class="hidden md:inline">Zurück</span>
+            </button>
+            <!-- Vollbild Button -->
+            <button onclick="toggleFullScreen()" title="Vollbild umschalten" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center justify-center">
+                <svg id="fullscreen-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+            </button>
             <button onclick="resetGame()" class="bg-slate-700 hover:bg-slate-600 text-white px-3.5 py-1.5 rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-1">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <span>Neu</span>
@@ -118,7 +127,7 @@
         </div>
     </main>
 
-    <!-- Modal Box for Messages (No alert/confirm used) -->
+    <!-- Modal Box for Messages -->
     <div id="modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col items-center text-center">
             <div id="modal-icon" class="w-12 h-12 rounded-full flex items-center justify-center mb-4 text-white bg-indigo-600">
@@ -132,13 +141,9 @@
 
     <!-- JavaScript Logic -->
     <script>
-        // Colors mapping: 0=Rot, 1=Gelb, 2=Blau, 3=Grün
         const COLOR_MAP = ['#f43f5e', '#fbbf24', '#38bdf8', '#10b981'];
         const COLOR_NAMES = ['Rot', 'Gelb', 'Blau', 'Grün'];
 
-        // Rubik's Tangle standard 25 tile definitions [Top, Right, Bottom, Left]
-        // Each tile has 4 edge colors. Note: The classic puzzle has fixed arc pairings on each tile.
-        // For simplicity and accurate puzzle recreation, we define standard symmetric/asymmetric line crossings.
         const RAW_TILES = [
             [0,1,2,3], [0,2,1,3], [0,3,2,1], [1,0,3,2], [1,2,0,3],
             [1,3,0,2], [2,0,1,3], [2,1,3,0], [2,3,0,1], [3,0,1,2],
@@ -147,38 +152,76 @@
             [0,0,1,1], [2,2,3,3], [0,1,0,1], [1,2,1,2], [2,3,2,3]
         ];
 
-        let tiles = []; // Tray tiles
-        let board = Array(25).fill(null); // Board cells 0-24
+        let tiles = []; 
+        let board = Array(25).fill(null); 
         let selectedTrayIndex = null;
         let moves = 0;
         let timerInterval = null;
         let secondsElapsed = 0;
         let gameStarted = false;
         let correctSolution = [];
+        let historyStack = []; // Speicher für Undo-Funktion
 
-        // Initialize Game
         function initGame() {
             moves = 0;
             secondsElapsed = 0;
             gameStarted = false;
+            historyStack = [];
             document.getElementById('moves').innerText = moves;
             document.getElementById('timer').innerText = '00:00';
             if (timerInterval) clearInterval(timerInterval);
 
-            // Generate winning valid state first so we can guarantee solvability and test validation
             generateValidPuzzle();
         }
 
-        // Generate a valid configuration and shuffle into tray
+        // Zustand für Undo speichern
+        function saveStateToHistory() {
+            historyStack.push({
+                tiles: JSON.parse(JSON.stringify(tiles)),
+                board: JSON.parse(JSON.stringify(board)),
+                moves: moves
+            });
+            // Begrenzen der History auf die letzten 50 Züge
+            if (historyStack.length > 50) {
+                historyStack.shift();
+            }
+        }
+
+        function undoMove() {
+            if (historyStack.length === 0) {
+                showModal("Hinweis", "Es gibt keine vorherigen Züge zum Rückgängigmachen.", "bg-indigo-600");
+                return;
+            }
+            const prevState = historyStack.pop();
+            tiles = prevState.tiles;
+            board = prevState.board;
+            moves = prevState.moves;
+            selectedTrayIndex = null;
+            document.getElementById('moves').innerText = moves;
+            renderTray();
+            renderBoard();
+        }
+
+        // Vollbild-Modus umschalten
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.error("Fehler beim Aktivieren des Vollbildmodus:", err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
         function generateValidPuzzle() {
-            // Create 25 tiles with random rotations
             correctSolution = RAW_TILES.map((edges, id) => ({
                 id,
                 edges: [...edges],
-                rotation: 0 // 0=0deg, 1=90deg, 2=180deg, 3=270deg
+                rotation: 0
             }));
 
-            // Assign random rotations for the tray start
             tiles = RAW_TILES.map((edges, id) => {
                 const rotation = Math.floor(Math.random() * 4);
                 return {
@@ -189,9 +232,9 @@
                 };
             });
 
-            // Shuffle tray
             tiles.sort(() => Math.random() - 0.5);
             board = Array(25).fill(null);
+            historyStack = [];
 
             renderTray();
             renderBoard();
@@ -205,7 +248,6 @@
             return res;
         }
 
-        // Start timer on first move
         function startTimerIfNeeded() {
             if (!gameStarted) {
                 gameStarted = true;
@@ -218,7 +260,6 @@
             }
         }
 
-        // Render Tray
         function renderTray() {
             const trayEl = document.getElementById('tile-tray');
             trayEl.innerHTML = '';
@@ -239,10 +280,9 @@
             });
         }
 
-        // Select tile from tray
         function selectTrayTile(index) {
             if (selectedTrayIndex === index) {
-                // If already selected, rotate it in tray
+                saveStateToHistory();
                 tiles[index].rotation = (tiles[index].rotation + 1) % 4;
                 tiles[index].edges = rotateEdges(tiles[index].originalEdges, tiles[index].rotation);
                 renderTray();
@@ -252,12 +292,9 @@
             }
         }
 
-        // Render Board (5x5)
         function renderBoard() {
             const boardEl = document.getElementById('game-board');
             boardEl.innerHTML = '';
-
-            // Calculate current edge matches for glowing lines
             let matches = calculateMatches();
 
             for (let i = 0; i < 25; i++) {
@@ -277,73 +314,52 @@
             }
         }
 
-        // Handle board click: place selected tray tile or rotate existing board tile
         function handleBoardClick(index, e) {
             startTimerIfNeeded();
-            moves++;
-            document.getElementById('moves').innerText = moves;
 
             if (board[index]) {
-                // Rotate tile on board
+                saveStateToHistory();
+                moves++;
                 board[index].rotation = (board[index].rotation + 1) % 4;
                 board[index].edges = rotateEdges(board[index].originalEdges, board[index].rotation);
             } else if (selectedTrayIndex !== null) {
-                // Place tile from tray to board
+                saveStateToHistory();
+                moves++;
                 board[index] = tiles[selectedTrayIndex];
                 tiles.splice(selectedTrayIndex, 1);
                 selectedTrayIndex = null;
             } else {
-                // If board cell has a tile, maybe return to tray? Clicking with shift or double click could return, but rotation is primary.
-                moves--; // Don't count empty clicks
-                document.getElementById('moves').innerText = moves;
+                return;
             }
 
+            document.getElementById('moves').innerText = moves;
             renderTray();
             renderBoard();
         }
 
-        // Generate SVG graphic for tile with curved paths connecting the 4 edges (Top=0, Right=1, Bottom=2, Left=3)
-        // Rubik's Tangle connects edges across the tile. Standard paths connect opposite or adjacent sides.
         function createTileSVG(edges, onBoard, cellIndex = -1, matches = null) {
-            // Edge coordinates on a 100x100 box:
-            // Top: (50, 0), Right: (100, 50), Bottom: (50, 100), Left: (0, 50); Center: (50, 50)
             const coords = {
                 0: {x: 50, y: 0},
                 1: {x: 100, y: 50},
                 2: {x: 50, y: 100},
                 3: {x: 0, y: 50}
             };
-
-            // Map edges to pairs. In Rubik's Tangle, the 4 edges are connected in 2 pairs.
-            // edges array order: [TopColor, RightColor, BottomColor, LeftColor]
-            // We pair (0 & 2) or (0 & 1) etc. based on standard tile setup. Let's connect (0-2 and 1-3) or standard curved paths.
-            // To make accurate Tangle curves, let's pair adjacent or opposite edges. Standard Tangle connects opposite or adjacent sides.
-            // Let's pair index 0 with 2, and 1 with 3 for standard crossing, or connect adjacent if colors match.
             
             let svg = `<svg viewBox="0 0 100 100" class="w-full h-full p-1">`;
-            
-            // Background tile card
             svg += `<rect x="2" y="2" width="96" height="96" rx="12" fill="#1e293b" stroke="#334155" stroke-width="4"/>`;
 
-            // Draw paths connecting edges (Pairing 0-2 and 1-3 for simplicity, or standard Tangle links)
-            // Edges: [Top, Right, Bottom, Left]
             let pairs = [
                 {e1: 0, e2: 2, color: COLOR_MAP[edges[0]]},
                 {e1: 1, e2: 3, color: COLOR_MAP[edges[1]]}
             ];
 
-            // If edge 0 and 1 have same color or 0 and 3, let's curve accordingly
-            // Standard Rubik's Tangle tile has 2 continuous colored paths crossing inside.
             pairs.forEach(p => {
                 let c1 = coords[p.e1];
                 let c2 = coords[p.e2];
                 let strokeColor = COLOR_MAP[edges[p.e1]];
-                
-                // Control points for smooth bezier curves through center (50,50)
                 svg += `<path d="M ${c1.x} ${c1.y} Q 50 50 ${c2.x} ${c2.y}" fill="none" stroke="${strokeColor}" stroke-width="12" stroke-linecap="round"/>`;
             });
 
-            // Add small colored circles on the 4 edge ports for clear visual docking
             [0, 1, 2, 3].forEach(eIdx => {
                 let c = coords[eIdx];
                 let col = COLOR_MAP[edges[eIdx]];
@@ -354,17 +370,15 @@
                 }
 
                 let glow = isMatching ? `filter="drop-shadow(0 0 4px ${col})"` : '';
-                svg += `<circle cx="${c.x}" cy="${c.y}" r="6" fill="${col}" ${glow} stroke="#0f172a" stroke-width="2"/>`;
+                svg += `<circle cx="${c.x}" cy="${c.y}" r="32" fill="${col}" ${glow} stroke="#0f172a" stroke-width="2"/>`;
             });
 
             svg += `</svg>`;
             return svg;
         }
 
-        // Calculate matches across all board cells
         function calculateMatches() {
-            let matchGrid = Array(25).fill(0).map(() => [false, false, false, false]); // [top, right, bottom, left]
-            
+            let matchGrid = Array(25).fill(0).map(() => [false, false, false, false]);
             const getRowCol = (idx) => ({r: Math.floor(idx / 5), c: idx % 5});
 
             for (let i = 0; i < 25; i++) {
@@ -372,44 +386,32 @@
                 let {r, c} = getRowCol(i);
                 let edges = board[i].edges;
 
-                // Check Top (0) with neighbor above
                 if (r > 0) {
                     let neighborIdx = (r - 1) * 5 + c;
-                    if (board[neighborIdx]) {
-                        if (edges[0] === board[neighborIdx].edges[2]) {
-                            matchGrid[i][0] = true;
-                            matchGrid[neighborIdx][2] = true;
-                        }
+                    if (board[neighborIdx] && edges[0] === board[neighborIdx].edges[2]) {
+                        matchGrid[i][0] = true;
+                        matchGrid[neighborIdx][2] = true;
                     }
                 }
-                // Check Right (1) with neighbor right
                 if (c < 4) {
                     let neighborIdx = r * 5 + (c + 1);
-                    if (board[neighborIdx]) {
-                        if (edges[1] === board[neighborIdx].edges[3]) {
-                            matchGrid[i][1] = true;
-                            matchGrid[neighborIdx][3] = true;
-                        }
+                    if (board[neighborIdx] && edges[1] === board[neighborIdx].edges[3]) {
+                        matchGrid[i][1] = true;
+                        matchGrid[neighborIdx][3] = true;
                     }
                 }
-                // Check Bottom (2) with neighbor below
                 if (r < 4) {
                     let neighborIdx = (r + 1) * 5 + c;
-                    if (board[neighborIdx]) {
-                        if (edges[2] === board[neighborIdx].edges[0]) {
-                            matchGrid[i][2] = true;
-                            matchGrid[neighborIdx][0] = true;
-                        }
+                    if (board[neighborIdx] && edges[2] === board[neighborIdx].edges[0]) {
+                        matchGrid[i][2] = true;
+                        matchGrid[neighborIdx][0] = true;
                     }
                 }
-                // Check Left (3) with neighbor left
                 if (c > 0) {
                     let neighborIdx = r * 5 + (c - 1);
-                    if (board[neighborIdx]) {
-                        if (edges[3] === board[neighborIdx].edges[1]) {
-                            matchGrid[i][3] = true;
-                            matchGrid[neighborIdx][1] = true;
-                        }
+                    if (board[neighborIdx] && edges[3] === board[neighborIdx].edges[1]) {
+                        matchGrid[i][3] = true;
+                        matchGrid[neighborIdx][1] = true;
                     }
                 }
             }
@@ -420,7 +422,6 @@
             return matches[cellIndex] && matches[cellIndex][edgeIndex];
         }
 
-        // Validate Puzzle Completion
         function checkPuzzle() {
             let placedCount = board.filter(b => b !== null).length;
             if (placedCount < 25) {
@@ -430,18 +431,16 @@
 
             let matches = calculateMatches();
             let totalEdgesMatched = 0;
-            let totalPossibleEdges = 0;
 
             for(let i=0; i<25; i++) {
                 let r = Math.floor(i/5);
                 let c = i%5;
-                if(r > 0) { totalPossibleEdges++; if(matches[i][0]) totalEdgesMatched++; }
-                if(c < 4) { totalPossibleEdges++; if(matches[i][1]) totalEdgesMatched++; }
-                if(r < 4) { totalPossibleEdges++; if(matches[i][2]) totalEdgesMatched++; }
-                if(c < 0) { totalPossibleEdges++; if(matches[i][3]) totalEdgesMatched++; } // handled by right of prev
+                if(r > 0 && matches[i][0]) totalEdgesMatched++;
+                if(c < 4 && matches[i][1]) totalEdgesMatched++;
+                if(r < 4 && matches[i][2]) totalEdgesMatched++;
+                if(c > 0 && matches[i][3]) totalEdgesMatched++;
             }
 
-            // Internal board edges count: 5*4 + 4*5 = 40 boundary connections
             if (totalEdgesMatched === 40) {
                 showModal("Glückwunsch! 🎉", `Du hast das Rubik's Tangle erfolgreich gelöst in ${moves} Zügen und ${document.getElementById('timer').innerText}!`, "bg-emerald-600");
             } else {
@@ -450,9 +449,7 @@
             renderBoard();
         }
 
-        // Hint Feature
         function getHint() {
-            // Find an empty board slot or misrotated tile and give a helpful nudge
             let emptyIdx = board.findIndex(b => b === null);
             if (emptyIdx !== -1 && tiles.length > 0) {
                 showModal("Hinweis", `Es sind noch Kacheln im Vorrat. Tipp: Kacheln lassen sich durch mehrmaliges Anklicken im Vorrat oder auf dem Spielfeld um 90° drehen.`, "bg-indigo-600");
@@ -461,8 +458,8 @@
             }
         }
 
-        // Solve Puzzle helper (places correct solution on board)
         function solvePuzzle() {
+            saveStateToHistory();
             board = correctSolution.map(t => ({
                 id: t.id,
                 edges: [...t.edges],
@@ -475,7 +472,6 @@
             showModal("Gelöst", "Die korrekte Lösung wurde auf das Spielfeld übertragen!", "bg-amber-600");
         }
 
-        // Modal Handler
         function showModal(title, desc, colorClass) {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-desc').innerText = desc;
@@ -488,12 +484,10 @@
             document.getElementById('modal').classList.add('hidden');
         }
 
-        // Reset
         function resetGame() {
             initGame();
         }
 
-        // Run on load
         window.onload = function() {
             initGame();
         };
