@@ -41,7 +41,7 @@ li button{padding:3px 8px;font-size:12px}
 #mv{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}#mv button{padding:6px 0}
 @media (max-width:760px){#app{flex-direction:column}#panel{width:auto;border-left:0;border-top:1px solid var(--bd);max-height:48%}}
 </style></head><body data-s="classic"><div id="app">
-<main id="stage"><div id="bar"><button id="fs">⛶ Vollbild</button><button id="tp">Panel ein/aus</button><button id="stop">■ Stopp</button></div>
+<main id="stage"><div id="bar"><button id="fs">⛶ Vollbild</button><button id="tp">Panel ein/aus</button><button id="stop">■ Stopp</button><button id="vf">Vorderansicht</button><button id="vi">Isometrisch</button></div>
 <div id="scene"><div id="cube"></div></div><div id="status"></div></main>
 <aside id="panel">
 <h2>Algorithmus speichern</h2>
@@ -143,6 +143,9 @@ $('#styles').onclick=e=>{const b=e.target.closest('button');if(b)setS(b.dataset.
 $('#fs').onclick=async()=>{try{document.fullscreenElement?await document.exitFullscreen():await document.documentElement.requestFullscreen()}catch(e){document.body.classList.toggle('nopanel')}};
 $('#tp').onclick=()=>{document.body.classList.toggle('nopanel');size()};
 const view=()=>cube.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`;
+const goView=(a,b)=>{rx=a;ry=b;cube.style.transition='transform .5s ease';view();setTimeout(()=>cube.style.transition='',520)};
+$('#vf').onclick=()=>goView(0,0);
+$('#vi').onclick=()=>goView(-28,-38);
 let drag=null;
 sc.onpointerdown=e=>{drag=[e.clientX,e.clientY];sc.setPointerCapture(e.pointerId)};
 sc.onpointermove=e=>{if(!drag)return;ry+=(e.clientX-drag[0])*.5;rx=Math.max(-89,Math.min(89,rx-(e.clientY-drag[1])*.5));drag=[e.clientX,e.clientY];view()};
