@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rubik's Tangle – Kachelpuzzle mit Solver</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#14110c;--panel:#1d1912;--card:#2a241a;--line:#5a4a25;--gold:#d4a73a;--txt:#efe6d2;--mut:#a39880;--bad:#e5534b}
+:root[data-theme=papier]{--bg:#f1ead9;--panel:#fbf7ec;--card:#fffdf6;--line:#b9a36a;--gold:#8a6410;--txt:#2b2415;--mut:#6f6448}
+:root[data-theme=nacht]{--bg:#0d1420;--panel:#141d2e;--card:#1a2640;--line:#35517f;--gold:#7fb2ff;--txt:#e3ecfb;--mut:#8fa3c4}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,Segoe UI,sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font:600 2rem Georgia,serif;margin:0 0 4px;color:var(--gold)}
+.sub{color:var(--mut);margin:0 0 16px;max-width:62ch}
+.wrap{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+#board{display:grid;width:min(100%,520px);border:2px solid var(--gold);background:var(--panel);border-radius:8px;overflow:hidden}
+.cell{aspect-ratio:1;border:1px solid var(--line);cursor:pointer;position:relative}
+.cell.bad::after{content:"";position:absolute;inset:0;outline:3px solid var(--bad);outline-offset:-3px;pointer-events:none}
+.cell svg,.h svg{display:block;width:100%;height:100%}
+.side{flex:1;min-width:240px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+button,select{font:inherit;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--gold)}button:focus-visible,select:focus-visible,.cell:focus-visible,.h:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.main{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:600}
+#msg{min-height:3em;padding:10px 12px;border-left:3px solid var(--gold);background:var(--panel);border-radius:0 6px 6px 0;margin-bottom:12px}
+#hand{display:flex;flex-wrap:wrap;gap:8px}
+.h{width:66px;height:66px;border-radius:8px;cursor:pointer;border:1px solid var(--line);overflow:hidden}
+.h.sel{outline:3px solid var(--gold);transform:scale(1.07)}
+h2{font:600 1rem system-ui;margin:16px 0 8px;color:var(--mut)}
+ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
+</style></head><body><main>
+<h1>Rubik's Tangle</h1>
+<p class="sub">Nachbau des Kachelpuzzles von Ernő Rubik (um 1990): 24 verschiedene Kacheln plus eine doppelte, jede mit vier verschlungenen Seilen in Rot, Blau, Gelb und Grün. Kein Seil darf an einer Kante die Farbe wechseln.</p>
+<div class="wrap">
+<div id="board" aria-label="Spielfeld"></div>
+<div class="side">
+<div class="btns">
+<button class="main" id="bHint">Hinweis</button>
+<button class="main" id="bSolve">Lösen</button>
+<button id="bRot">Drehen (R)</button>
+</div>
+<div class="btns">
+<button id="bNew">Neu mischen</button>
+<select id="size" aria-label="Spielvariante"><option value="v1">5 × 5, Variante 1</option><option value="v2">5 × 5, Variante 2</option><option value="v3">5 × 5, Variante 3</option><option value="v4">5 × 5, Variante 4</option><option value="mini">3 × 3, Mini Tangle</option></select>
+<button id="bClear">Feld leeren</button>
+<button id="bTheme">Stil</button>
+<button id="bFull">Vollbild</button>
+</div>
+<div id="msg" role="status"></div>
+<h2 id="hl"></h2>
+<div id="hand"></div>
+<h2>Bedienung</h2>
+<ul><li>Kachel unten anklicken, ein zweiter Klick dreht sie (oder Taste R).</li><li>Dann ein Feld anklicken, um sie abzulegen.</li><li>Gelegte Kachel anklicken nimmt sie wieder auf; Rechtsklick dreht sie im Feld.</li><li>Der Solver behält deine gelegten Kacheln bei.</li><li>Die Buchstaben benennen die Kacheln, wie auf den Rückseiten des Originals.</li></ul>
+</div></div></main>
+<script>
+/*CORE*/
+const PERMS=[];for(let a=0;a<4;a++)for(let b=0;b<4;b++)if(b!=a)for(let c=0;c<4;c++)if(c!=a&&c!=b)for(let d=0;d<4;d++)if(d!=a&&d!=b&&d!=c)PERMS.push([a,b,c,d]);
+const ALL=[...Array(24).keys()];
+const SETS={v1:[...ALL,0],v2:[...ALL,6],v3:[...ALL,11],v4:[...ALL,22],mini:[23,12,13,8,21,10,5,4,19]};
+const ROPES=[[7,5],[0,3],[1,4],[2,6]];
+const rev=v=>(v&3)*4+(v>>2);
+let n=5,tiles=[],EC=[],IDX=[],DUP=[];
+function setup(key){const ids=SETS[key];n=key==='mini'?3:5;tiles=ids.map(i=>PERMS[i]);
+EC=tiles.map(p=>[0,1,2,3].map(r=>{const b=[];ROPES.forEach(([x,y],k)=>b[x]=b[y]=p[k]);const c=i=>b[((i-2*r)%8+8)%8];return[c(0)*4+c(1),c(2)*4+c(3),c(4)*4+c(5),c(6)*4+c(7)]}));
+IDX=[];for(let l=0;l<17;l++){IDX.push([]);for(let t=0;t<17;t++)IDX[l].push([])}
+EC.forEach((rs,t)=>rs.forEach((e,r)=>{for(const l of[e[3],16])for(const u of[e[0],16])IDX[l][u].push(t*4+r)}));
+DUP=ids.map((id,i)=>ids.indexOf(id)<i?ids.indexOf(id):-1)}
+const E=(t,r)=>EC[t][r];
+function solve(fixed){const N=n*n,g=fixed.slice(),used=new Array(tiles.length).fill(false);let nodes=0,over=false;
+fixed.forEach(c=>{if(c)used[c.t]=true});
+for(let i=0;i<N;i++){const c=g[i];if(!c)continue;const e=E(c.t,c.r);
+if(i%n<n-1&&g[i+1]&&e[1]!==rev(E(g[i+1].t,g[i+1].r)[3]))return{g:null};
+if(i<N-n&&g[i+n]&&e[2]!==rev(E(g[i+n].t,g[i+n].r)[0]))return{g:null}}
+const dfs=i=>{while(i<N&&g[i])i++;if(i===N)return true;const c=i%n,L=c?g[i-1]:null,T=i>=n?g[i-n]:null,R=c<n-1?g[i+1]:null,B=i<N-n?g[i+n]:null;
+const lk=L?rev(E(L.t,L.r)[1]):16,tk=T?rev(E(T.t,T.r)[2]):16;
+for(const v of IDX[lk][tk]){const t=v>>2,r=v&3;if(used[t])continue;if(DUP[t]>=0&&!used[DUP[t]])continue;
+if(++nodes>6e7){over=true;return false}
+const e=EC[t][r];if(R&&e[1]!==rev(E(R.t,R.r)[3]))continue;if(B&&e[2]!==rev(E(B.t,B.r)[0]))continue;
+g[i]={t,r};used[t]=true;if(dfs(i+1))return true;g[i]=null;used[t]=false;if(over)return false}return false};
+return dfs(0)?{g}:{g:null,over}}
+/*END*/
+const COL=['#d9473f','#3f7fd9','#f0c93a','#3da66a'];
+const PT=[[30,0],[70,0],[100,30],[100,70],[70,100],[30,100],[0,70],[0,30]],NV=[[0,1],[0,1],[-1,0],[-1,0],[0,-1],[0,-1],[1,0],[1,0]];
+let cells=[],rot=[],sel=null,timer=null,dead='';
+const $=s=>document.querySelector(s),say=m=>$('#msg').textContent=m,LET=t=>String.fromCharCode(65+t);
+function svg(t,r){const p=tiles[t];let o='';
+ROPES.forEach(([a,b],k)=>{const A=PT[a],B=PT[b],x=NV[a],y=NV[b],d=`M${A[0]} ${A[1]}C${A[0]+x[0]*40} ${A[1]+x[1]*40} ${B[0]+y[0]*40} ${B[1]+y[1]*40} ${B[0]} ${B[1]}`;
+o+=`<path d="${d}" stroke="rgba(0,0,0,.55)" stroke-width="15"/><path d="${d}" stroke="${COL[p[k]]}" stroke-width="10"/>`});
+return `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="var(--card)"/><g fill="none" transform="rotate(${90*r} 50 50)">${o}</g><text x="4" y="15" font-size="12" fill="var(--mut)">${LET(t)}</text></svg>`}
+function gen(){clearInterval(timer);timer=null;setup($('#size').value);const N=n*n,ord=tiles.map((_,i)=>i);
+cells=Array(N).fill(null);rot=tiles.map(()=>Math.floor(Math.random()*4));sel=null;
+say('Neu gemischt. Wähle eine Kachel und lege sie ab.');render()}
+function bad(){const b=new Set();cells.forEach((c,i)=>{if(!c)return;const e=E(c.t,c.r);
+if(i%n<n-1&&cells[i+1]&&e[1]!==rev(E(cells[i+1].t,cells[i+1].r)[3])){b.add(i);b.add(i+1)}
+if(i<n*n-n&&cells[i+n]&&e[2]!==rev(E(cells[i+n].t,cells[i+n].r)[0])){b.add(i);b.add(i+n)}});return b}
+function render(){const b=bad(),bo=$('#board');bo.style.gridTemplateColumns=`repeat(${n},1fr)`;
+bo.innerHTML=cells.map((c,i)=>`<div class="cell${b.has(i)?' bad':''}" data-i="${i}" tabindex="0">${c?svg(c.t,c.r):''}</div>`).join('');
+const used=new Set(cells.filter(Boolean).map(c=>c.t));
+$('#hand').innerHTML=tiles.map((_,t)=>used.has(t)?'':`<div class="h${sel===t?' sel':''}" data-t="${t}" tabindex="0">${svg(t,rot[t])}</div>`).join('');
+$('#hl').textContent=`Kacheln übrig: ${tiles.length-used.size}`;
+if(used.size===n*n&&!b.size)say('Geschafft! Alle Seile laufen durch.')}
+$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d)return;const i=+d.dataset.i,c=cells[i];
+if(sel===null){if(c){sel=c.t;rot[c.t]=c.r;cells[i]=null}}
+else{const t=sel;cells[i]={t,r:rot[t]};sel=c?c.t:null;if(c)rot[c.t]=c.r}
+render()});
+$('#board').addEventListener('contextmenu',e=>{const d=e.target.closest('.cell');if(!d)return;e.preventDefault();const c=cells[+d.dataset.i];if(c){c.r=(c.r+1)%4;render()}});
+$('#hand').addEventListener('click',e=>{const d=e.target.closest('.h');if(!d)return;const t=+d.dataset.t;
+if(sel===t)rot[t]=(rot[t]+1)%4;else sel=t;render()});
+function rotSel(){if(sel!==null){rot[sel]=(rot[sel]+1)%4;render()}}
+$('#bRot').onclick=rotSel;addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')rotSel()});
+function plan(cb){clearInterval(timer);timer=null;say('Rechne …');setTimeout(()=>{dead='';let r=solve(cells);
+if(!r.g&&!r.over){cells=Array(n*n).fill(null);sel=null;dead='Deine Anordnung führt in eine Sackgasse, das Feld wurde geleert. ';r=solve(cells)}
+if(!r.g){say('Das dauert zu lang. Mische bitte neu.');return}cb(r.g)},30)}
+$('#bHint').onclick=()=>plan(g=>{const i=cells.findIndex(x=>!x);if(i<0){say('Das Feld ist schon voll.');return}
+cells[i]={...g[i]};if(sel===g[i].t)sel=null;render();say(dead+`Hinweis: Kachel ${LET(g[i].t)} gehört in Reihe ${Math.floor(i/n)+1}, Spalte ${i%n+1}.`)});
+$('#bSolve').onclick=()=>plan(g=>{const q=[];cells.forEach((c,i)=>{if(!c)q.push(i)});sel=null;say(dead+'Lösung wird gelegt …');
+timer=setInterval(()=>{if(!q.length){clearInterval(timer);timer=null;render();say(dead+'Gelöst.');return}const i=q.shift();cells[i]={...g[i]};render()},110)});
+$('#bNew').onclick=gen;$('#size').onchange=gen;
+$('#bClear').onclick=()=>{clearInterval(timer);timer=null;cells=Array(n*n).fill(null);sel=null;say('Feld geleert.');render()};
+const TH=['','papier','nacht'];let ti=matchMedia('(prefers-color-scheme: light)').matches?1:0;
+const setTh=()=>{TH[ti]?document.documentElement.dataset.theme=TH[ti]:delete document.documentElement.dataset.theme;try{localStorage.setItem('tangle-th',ti)}catch(e){}};
+try{const s=localStorage.getItem('tangle-th');if(s!==null)ti=+s}catch(e){}
+$('#bTheme').onclick=()=>{ti=(ti+1)%3;setTh()};
+$('#bFull').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+setTh();gen();
+</script></body></html>
