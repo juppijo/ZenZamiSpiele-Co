@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rubik's Tangle - 1990 Classic Replica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Retro 1990s Box Art Theme & Textures */
+        .retro-card {
+            background: linear-gradient(145deg, #1e1b2e 0%, #0f0c1b 100%);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+
+        .tile-surface {
+            background: radial-gradient(circle at 30% 30%, #2a243d 0%, #151221 100%);
+            box-shadow: 
+                0 4px 10px rgba(0,0,0,0.5),
+                inset 0 1px 1px rgba(255,255,255,0.2),
+                inset 0 -2px 4px rgba(0,0,0,0.6);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .tile-surface:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 
+                0 8px 20px rgba(0,0,0,0.6),
+                0 0 12px rgba(244, 63, 94, 0.3),
+                inset 0 1px 1px rgba(255,255,255,0.3);
+        }
+
+        .tile-selected {
+            ring: 3px #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.6), 0 0 2px #fff !important;
+            transform: scale(1.05) !important;
+            border-color: #818cf8 !important;
+        }
+
+        .tile-svg {
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        .glow-green { filter: drop-shadow(0 0 6px #22c55e); }
+        .glow-red { filter: drop-shadow(0 0 6px #ef4444); }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between select-none overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-purple-950/20 to-slate-950">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sticky top-0 z-40 shadow-xl">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Logo & Brand -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 via-amber-500 to-indigo-600 p-0.5 shadow-lg shadow-rose-950/50 flex items-center justify-center">
+                    <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                        <svg class="w-6 h-6 text-rose-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-extrabold tracking-wider bg-gradient-to-r from-rose-400 via-amber-300 to-cyan-400 bg-clip-text text-transparent uppercase">RUBIK'S TANGLE</h1>
+                        <span class="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">1990 Classic</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Authentic 24-Permutation Woven Rope Puzzle</p>
+                </div>
+            </div>
+
+            <!-- Mode Switcher Toggle -->
+            <div class="bg-slate-950/80 p-1 rounded-xl border border-slate-800 flex items-center shadow-inner">
+                <button id="mode-5x5" onclick="setMode(5)" class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white">
+                    5x5 (25)
+                </button>
+                <button id="mode-4x4" onclick="setMode(4)" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 bg-indigo-600 text-white shadow-md">
+                    4x4 (16)
+                </button>
+                <button id="mode-3x3" onclick="setMode(3)" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white">
+                    3x3 (9)
+                </button>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex items-center gap-3">
+                <div class="bg-slate-950/70 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-xs">
+                    <span class="text-slate-400 font-medium">Timer:</span>
+                    <span id="timer-display" class="font-mono font-bold text-amber-400 text-sm">00:00</span>
+                </div>
+                <div class="bg-slate-950/70 border border-slate-800 px-3 py-1.5 rounded-lg flex items-center space-x-2 text-xs">
+                    <span class="text-slate-400 font-medium">Moves:</span>
+                    <span id="moves-display" class="font-mono font-bold text-emerald-400 text-sm">0</span>
+                </div>
+                <button onclick="undoLastMove()" title="Letzten Zug rückgängig machen" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition border border-slate-700/60 shadow-sm flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                    <span>Undo</span>
+                </button>
+                <button onclick="resetGame()" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold transition border border-slate-700/60 shadow-sm flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Playing Area -->
+    <main class="max-w-7xl mx-auto w-full flex-1 p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Tile Tray / Inventory (Left Panel) -->
+        <aside class="lg:col-span-4 flex flex-col gap-4 w-full">
+            <div class="retro-card border border-slate-800/80 rounded-2xl p-4 shadow-2xl flex flex-col h-[520px] lg:h-[650px]">
+                
+                <!-- Tray Header -->
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        <h2 class="font-bold text-sm tracking-wide text-slate-200 uppercase">Tile Tray (<span id="tray-count" class="text-indigo-400 font-mono">0</span>)</h2>
+                    </div>
+                    <span class="text-[11px] text-slate-400">Click = Select/Rotate</span>
+                </div>
+
+                <!-- Tray Grid Scroll Area -->
+                <div id="tile-tray" class="flex-1 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-3 gap-3 p-3 overflow-y-auto my-2 rounded-xl bg-slate-950/60 border border-slate-900 shadow-inner">
+                    <!-- Populated dynamically via JS -->
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+                    <button onclick="checkSolution()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.99] text-white font-bold py-2.5 px-4 rounded-xl shadow-lg transition text-xs tracking-wider uppercase flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Validate All Connections</span>
+                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="provideHint()" class="bg-indigo-950/60 border border-indigo-800/60 hover:bg-indigo-900/60 text-indigo-300 font-semibold py-2 px-3 rounded-xl transition text-xs flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>Smart Hint</span>
+                        </button>
+                        <button onclick="autoSolveStep()" class="bg-amber-950/60 border border-amber-800/60 hover:bg-amber-900/60 text-amber-300 font-semibold py-2 px-3 rounded-xl transition text-xs flex items-center justify-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            <span>Solve 1 Tile</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Board Grid Area (Right Panel) -->
+        <section class="lg:col-span-8 flex flex-col items-center justify-center w-full">
+            <div class="retro-card border border-slate-800/80 p-5 lg:p-6 rounded-2xl shadow-2xl flex flex-col items-center w-full max-w-[620px]">
+                
+                <!-- Status Banner -->
+                <div id="status-banner" class="w-full bg-slate-950/80 border border-slate-800/80 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 mb-4 text-center tracking-wide flex items-center justify-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                    <span id="status-text">Wähle eine Kachel aus dem Tray oder ein leeres Feld.</span>
+                </div>
+
+                <!-- Game Board Container -->
+                <div id="board-container" class="w-full aspect-square max-w-[520px] bg-slate-950/90 p-3 rounded-2xl border-2 border-slate-800/90 shadow-2xl flex items-center justify-center relative">
+                    <div id="game-board" class="grid gap-2.5 w-full h-full">
+                        <!-- Board cells generated dynamically via JS -->
+                    </div>
+                </div>
+
+                <!-- Legend & Mechanics Guide -->
+                <div class="mt-5 w-full pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-slate-300 uppercase text-[10px] tracking-wider">Rope Colors:</span>
+                        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-950"></div> <span class="text-[11px]">Red</span></div>
+                        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-950"></div> <span class="text-[11px]">Yellow</span></div>
+                        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-950"></div> <span class="text-[11px]">Blue</span></div>
+                        <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-950"></div> <span class="text-[11px]">Green</span></div>
+                    </div>
+                    <div class="text-[11px] text-slate-500 italic">
+                        Tip: Klick auf platzierte Kachel dreht sie um 90°
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- Custom Dialog Modal -->
+    <div id="modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col items-center text-center">
+            <div id="modal-icon" class="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 text-white bg-indigo-600 shadow-lg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3 id="modal-title" class="text-lg font-bold text-white mb-2">Notification</h3>
+            <p id="modal-desc" class="text-xs text-slate-300 mb-6 leading-relaxed">Message content goes here.</p>
+            <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition text-xs uppercase tracking-wider shadow-md">Verstanden</button>
+        </div>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        const COLORS = {
+            0: { hex: '#f43f5e', name: 'Red', highlight: '#fda4af' },
+            1: { hex: '#fbbf24', name: 'Yellow', highlight: '#fef08a' },
+            2: { hex: '#38bdf8', name: 'Blue', highlight: '#bae6fd' },
+            3: { hex: '#10b981', name: 'Green', highlight: '#a7f3d0' }
+        };
+
+        let GRID_SIZE = 4; // Standard auf 4x4 gesetzt
+        let board = [];
+        let trayTiles = [];
+        let selectedTrayIndex = null;
+        let moves = 0;
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let timerStarted = false;
+        let solutionBoard = [];
+        let moveHistory = []; // Verlauf für Undo-Funktion
+
+        function generatePermutations(arr) {
+            if (arr.length === 0) return [[]];
+            let result = [];
+            for (let i = 0; i < arr.length; i++) {
+                let rest = generatePermutations(arr.slice(0, i).concat(arr.slice(i + 1)));
+                for (let j = 0; j < rest.length; j++) {
+                    result.push([arr[i]].concat(rest[j]));
+                }
+            }
+            return result;
+        }
+
+        function createTileDatabase() {
+            let perms = generatePermutations([0, 1, 2, 3]);
+            let fullSet = perms.map((p, idx) => ({ id: idx, strandColors: p }));
+            fullSet.push({ id: 24, strandColors: [...perms[0]] });
+            return fullSet;
+        }
+
+        function initGame() {
+            moves = 0;
+            secondsElapsed = 0;
+            timerStarted = false;
+            selectedTrayIndex = null;
+            moveHistory = [];
+            clearInterval(timerInterval);
+            document.getElementById('moves-display').innerText = '0';
+            document.getElementById('timer-display').innerText = '00:00';
+
+            const totalTilesNeeded = GRID_SIZE * GRID_SIZE;
+            
+            generateValidSolution(totalTilesNeeded);
+
+            let rawSet = createTileDatabase().slice(0, totalTilesNeeded);
+            trayTiles = rawSet.map(t => {
+                let initialRot = Math.floor(Math.random() * 4);
+                return {
+                    id: t.id,
+                    strandColors: t.strandColors,
+                    rotation: initialRot
+                };
+            }).sort(() => Math.random() - 0.5);
+
+            board = Array(totalTilesNeeded).fill(null);
+
+            updateModeUI();
+            renderTray();
+            renderBoard();
+            updateStatus(`${GRID_SIZE}x${GRID_SIZE} Puzzle gestartet! Wähle eine Kachel.`);
+        }
+
+        function generateValidSolution(count) {
+            const allTiles = createTileDatabase();
+            solutionBoard = Array(count).fill(null);
+
+            for (let i = 0; i < count; i++) {
+                let tile = allTiles[i % allTiles.length];
+                solutionBoard[i] = {
+                    id: tile.id,
+                    strandColors: [...tile.strandColors],
+                    rotation: 0
+                };
+            }
+        }
+
+        function setMode(size) {
+            GRID_SIZE = size;
+            initGame();
+        }
+
+        function updateModeUI() {
+            const m5 = document.getElementById('mode-5x5');
+            const m4 = document.getElementById('mode-4x4');
+            const m3 = document.getElementById('mode-3x3');
+            
+            m5.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white";
+            m4.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white";
+            m3.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 text-slate-400 hover:text-white";
+
+            if (GRID_SIZE === 5) m5.className += " bg-indigo-600 text-white shadow-md";
+            else if (GRID_SIZE === 4) m4.className += " bg-indigo-600 text-white shadow-md";
+            else m3.className += " bg-indigo-600 text-white shadow-md";
+        }
+
+        function startTimer() {
+            if (!timerStarted) {
+                timerStarted = true;
+                timerInterval = setInterval(() => {
+                    secondsElapsed++;
+                    let m = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+                    let s = (secondsElapsed % 60).toString().padStart(2, '0');
+                    document.getElementById('timer-display').innerText = `${m}:${s}`;
+                }, 1000);
+            }
+        }
+
+        function recordStateForUndo() {
+            // Speichert einen tiefen Klon des aktuellen Zustands für Undo
+            moveHistory.push({
+                board: JSON.parse(JSON.stringify(board)),
+                trayTiles: JSON.parse(JSON.stringify(trayTiles)),
+                moves: moves
+            });
+        }
+
+        function undoLastMove() {
+            if (moveHistory.length === 0) {
+                updateStatus("Keine vorherigen Züge zum Rückgängigmachen vorhanden.");
+                return;
+            }
+            let prevState = moveHistory.pop();
+            board = prevState.board;
+            trayTiles = prevState.trayTiles;
+            moves = prevState.moves;
+            document.getElementById('moves-display').innerText = moves;
+            selectedTrayIndex = null;
+            renderTray();
+            renderBoard();
+            updateStatus("Letzter Zug wurde rückgängig gemacht.");
+        }
+
+        function incrementMoves() {
+            startTimer();
+            moves++;
+            document.getElementById('moves-display').innerText = moves;
+        }
+
+        function getTilePinColors(tile) {
+            let sc = tile.strandColors;
+            let basePins = {
+                N1: sc[0], W2: sc[0],
+                N2: sc[1], E1: sc[1],
+                E2: sc[2], S2: sc[2],
+                S1: sc[3], W1: sc[3]
+            };
+
+            let pinArray = [
+                basePins.N1, basePins.N2,
+                basePins.E1, basePins.E2,
+                basePins.S2, basePins.S1,
+                basePins.W2, basePins.W1
+            ];
+
+            let shift = (tile.rotation % 4) * 2;
+            let rotatedPins = pinArray.slice(8 - shift).concat(pinArray.slice(0, 8 - shift));
+
+            return {
+                N1: rotatedPins[0], N2: rotatedPins[1],
+                E1: rotatedPins[2], E2: rotatedPins[3],
+                S2: rotatedPins[4], S1: rotatedPins[5],
+                W2: rotatedPins[6], W1: rotatedPins[7]
+            };
+        }
+
+        function renderTray() {
+            const trayEl = document.getElementById('tile-tray');
+            trayEl.innerHTML = '';
+            document.getElementById('tray-count').innerText = trayTiles.length;
+
+            if (trayTiles.length === 0) {
+                trayEl.innerHTML = `<div class="col-span-full flex flex-col items-center justify-center py-10 text-slate-500 text-xs text-center font-medium">
+                    <svg class="w-8 h-8 text-emerald-500/40 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Alle Kacheln platziert!
+                </div>`;
+                return;
+            }
+
+            trayTiles.forEach((tile, index) => {
+                const isSelected = selectedTrayIndex === index;
+                const wrapper = document.createElement('div');
+                wrapper.className = `tile-surface rounded-xl p-1 cursor-pointer aspect-square relative flex items-center justify-center border-2 ${isSelected ? 'tile-selected' : 'border-slate-800'}`;
+                
+                wrapper.onclick = () => {
+                    if (selectedTrayIndex === index) {
+                        recordStateForUndo();
+                        tile.rotation = (tile.rotation + 1) % 4;
+                        incrementMoves();
+                        renderTray();
+                    } else {
+                        selectedTrayIndex = index;
+                        renderTray();
+                        updateStatus(`Kachel #${tile.id + 1} ausgewählt. Klicke auf ein Feld oder erneut zum Drehen.`);
+                    }
+                };
+
+                wrapper.appendChild(createTileSVG(tile));
+                trayEl.appendChild(wrapper);
+            });
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('game-board');
+            boardEl.innerHTML = '';
+            boardEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, minmax(0, 1fr))`;
+
+            let edgeValidation = validateBoardConnections();
+
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                const cellTile = board[i];
+                const cell = document.createElement('div');
+                
+                cell.className = `tile-surface rounded-xl border-2 aspect-square flex items-center justify-center relative cursor-pointer transition-all ${cellTile ? 'border-slate-700/80' : 'border-slate-800/60 border-dashed hover:border-indigo-500/50 bg-slate-950/40'}`;
+
+                cell.onclick = () => handleBoardCellClick(i);
+
+                if (cellTile) {
+                    let cellSVG = createTileSVG(cellTile, i, edgeValidation);
+                    cell.appendChild(cellSVG);
+                } else {
+                    cell.innerHTML = `<span class="text-slate-700 font-mono text-[11px] font-bold">${i + 1}</span>`;
+                }
+
+                boardEl.appendChild(cell);
+            }
+        }
+
+        function handleBoardCellClick(index) {
+            let cellTile = board[index];
+
+            if (cellTile) {
+                recordStateForUndo();
+                cellTile.rotation = (cellTile.rotation + 1) % 4;
+                incrementMoves();
+                renderBoard();
+                updateStatus(`Kachel auf Position ${index + 1} gedreht.`);
+            } else if (selectedTrayIndex !== null) {
+                recordStateForUndo();
+                board[index] = trayTiles[selectedTrayIndex];
+                trayTiles.splice(selectedTrayIndex, 1);
+                selectedTrayIndex = null;
+                incrementMoves();
+                renderTray();
+                renderBoard();
+                updateStatus(`Kachel auf Position ${index + 1} platziert.`);
+            }
+        }
+
+        function createTileSVG(tile, cellIndex = -1, validation = null) {
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("viewBox", "0 0 100 100");
+            svg.setAttribute("class", "w-full h-full tile-svg pointer-events-none");
+            svg.style.transform = `rotate(${tile.rotation * 90}deg)`;
+
+            svg.innerHTML = `
+                <defs>
+                    <filter id="rope-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="1.5" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.8"/>
+                    </filter>
+                    <linearGradient id="tile-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#241f35" />
+                        <stop offset="100%" stop-color="#120e1e" />
+                    </linearGradient>
+                </defs>
+                <rect x="2" y="2" width="96" height="96" rx="12" fill="url(#tile-bg)" stroke="#3b3352" stroke-width="2.5"/>
+            `;
+
+            const PINS = {
+                N1: { x: 35, y: 0 },
+                N2: { x: 65, y: 0 },
+                E1: { x: 100, y: 35 },
+                E2: { x: 100, y: 65 },
+                S2: { x: 65, y: 100 },
+                S1: { x: 35, y: 100 },
+                W2: { x: 0, y: 65 },
+                W1: { x: 0, y: 35 }
+            };
+
+            const strands = [
+                { start: PINS.N1, c1: {x: 35, y: 40}, c2: {x: 40, y: 65}, end: PINS.W2, color: COLORS[tile.strandColors[0]] },
+                { start: PINS.N2, c1: {x: 65, y: 35}, c2: {x: 65, y: 35}, end: PINS.E1, color: COLORS[tile.strandColors[1]] },
+                { start: PINS.E2, c1: {x: 65, y: 65}, c2: {x: 65, y: 65}, end: PINS.S2, color: COLORS[tile.strandColors[2]] },
+                { start: PINS.S1, c1: {x: 35, y: 65}, c2: {x: 35, y: 35}, end: PINS.W1, color: COLORS[tile.strandColors[3]] }
+            ];
+
+            strands.forEach(s => {
+                let d = `M ${s.start.x} ${s.start.y} C ${s.c1.x} ${s.c1.y}, ${s.c2.x} ${s.c2.y}, ${s.end.x} ${s.end.y}`;
+                
+                let shadowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                shadowPath.setAttribute("d", d);
+                shadowPath.setAttribute("fill", "none");
+                shadowPath.setAttribute("stroke", "#000000");
+                shadowPath.setAttribute("stroke-width", "14");
+                shadowPath.setAttribute("stroke-linecap", "square");
+                shadowPath.setAttribute("filter", "url(#rope-shadow)");
+                shadowPath.setAttribute("opacity", "0.6");
+                svg.appendChild(shadowPath);
+
+                let rimPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                rimPath.setAttribute("d", d);
+                rimPath.setAttribute("fill", "none");
+                rimPath.setAttribute("stroke", "#0f172a");
+                rimPath.setAttribute("stroke-width", "12");
+                rimPath.setAttribute("stroke-linecap", "square");
+                svg.appendChild(rimPath);
+
+                let bodyPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                bodyPath.setAttribute("d", d);
+                bodyPath.setAttribute("fill", "none");
+                bodyPath.setAttribute("stroke", s.color.hex);
+                bodyPath.setAttribute("stroke-width", "8.5");
+                bodyPath.setAttribute("stroke-linecap", "square");
+                svg.appendChild(bodyPath);
+
+                let hlPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                hlPath.setAttribute("d", d);
+                hlPath.setAttribute("fill", "none");
+                hlPath.setAttribute("stroke", s.color.highlight);
+                hlPath.setAttribute("stroke-width", "2.5");
+                hlPath.setAttribute("stroke-linecap", "round");
+                hlPath.setAttribute("opacity", "0.7");
+                svg.appendChild(hlPath);
+            });
+
+            if (cellIndex !== -1 && validation) {
+                const pinsList = [
+                    { key: 'N1', pt: PINS.N1, matchKey: 'N' },
+                    { key: 'N2', pt: PINS.N2, matchKey: 'N' },
+                    { key: 'E1', pt: PINS.E1, matchKey: 'E' },
+                    { key: 'E2', pt: PINS.E2, matchKey: 'E' },
+                    { key: 'S2', pt: PINS.S2, matchKey: 'S' },
+                    { key: 'S1', pt: PINS.S1, matchKey: 'S' },
+                    { key: 'W2', pt: PINS.W2, matchKey: 'W' },
+                    { key: 'W1', pt: PINS.W1, matchKey: 'W' }
+                ];
+
+                pinsList.forEach(p => {
+                    let status = validation[cellIndex] ? validation[cellIndex][p.matchKey] : null;
+                    if (status !== null) {
+                        let dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        dot.setAttribute("cx", p.pt.x);
+                        dot.setAttribute("cy", p.pt.y);
+                        dot.setAttribute("r", "4.5");
+                        dot.setAttribute("fill", status ? "#22c55e" : "#ef4444");
+                        dot.setAttribute("class", status ? "glow-green" : "glow-red");
+                        svg.appendChild(dot);
+                    }
+                });
+            }
+
+            return svg;
+        }
+
+        function validateBoardConnections() {
+            let validation = Array(GRID_SIZE * GRID_SIZE).fill(null).map(() => ({ N: null, E: null, S: null, W: null }));
+
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                if (!board[i]) continue;
+
+                let r = Math.floor(i / GRID_SIZE);
+                let c = i % GRID_SIZE;
+                let currentPins = getTilePinColors(board[i]);
+
+                if (r > 0) {
+                    let neighborIdx = (r - 1) * GRID_SIZE + c;
+                    if (board[neighborIdx]) {
+                        let neighborPins = getTilePinColors(board[neighborIdx]);
+                        let match = (currentPins.N1 === neighborPins.S1) && (currentPins.N2 === neighborPins.S2);
+                        validation[i].N = match;
+                        validation[neighborIdx].S = match;
+                    }
+                }
+
+                if (c < GRID_SIZE - 1) {
+                    let neighborIdx = r * GRID_SIZE + (c + 1);
+                    if (board[neighborIdx]) {
+                        let neighborPins = getTilePinColors(board[neighborIdx]);
+                        let match = (currentPins.E1 === neighborPins.W1) && (currentPins.E2 === neighborPins.W2);
+                        validation[i].E = match;
+                        validation[neighborIdx].W = match;
+                    }
+                }
+            }
+            return validation;
+        }
+
+        function checkSolution() {
+            let placedCount = board.filter(b => b !== null).length;
+            let totalNeeded = GRID_SIZE * GRID_SIZE;
+
+            if (placedCount < totalNeeded) {
+                showModal("Unvollständig", `Du hast ${placedCount} von ${totalNeeded} Kacheln platziert.`, "bg-amber-600");
+                return;
+            }
+
+            let validation = validateBoardConnections();
+            let allValid = true;
+
+            for (let i = 0; i < totalNeeded; i++) {
+                let v = validation[i];
+                let r = Math.floor(i / GRID_SIZE);
+                let c = i % GRID_SIZE;
+
+                if (r > 0 && v.N === false) allValid = false;
+                if (c < GRID_SIZE - 1 && v.E === false) allValid = false;
+                if (r < GRID_SIZE - 1 && v.S === false) allValid = false;
+                if (c > 0 && v.W === false) allValid = false;
+            }
+
+            renderBoard();
+
+            if (allValid) {
+                showModal("GELÖST! 🎉", `Herzlichen Glückwunsch! Du hast das ${GRID_SIZE}x${GRID_SIZE} Puzzle in ${moves} Zügen gelöst!`, "bg-emerald-600");
+            } else {
+                showModal("Falsche Verbindungen", `Einige Seile passen farblich noch nicht zusammen. Fehlerhafte Punkte sind rot markiert!`, "bg-rose-600");
+            }
+        }
+
+        function autoSolveStep() {
+            startTimer();
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                if (!board[i]) {
+                    recordStateForUndo();
+                    let solTile = solutionBoard[i];
+                    board[i] = {
+                        id: solTile.id,
+                        strandColors: [...solTile.strandColors],
+                        rotation: solTile.rotation
+                    };
+
+                    let trayIdx = trayTiles.findIndex(t => t.id === solTile.id);
+                    if (trayIdx !== -1) trayTiles.splice(trayIdx, 1);
+
+                    incrementMoves();
+                    renderTray();
+                    renderBoard();
+                    updateStatus(`Kachel automatisch auf Feld ${i + 1} gesetzt.`);
+                    return;
+                }
+            }
+            showModal("Voll", "Das Spielfeld ist bereits voll!", "bg-indigo-600");
+        }
+
+        function provideHint() {
+            let emptyIdx = board.findIndex(b => b === null);
+            if (emptyIdx !== -1) {
+                showModal("Hinweis", `Versuche es mit Feld #${emptyIdx + 1}. Achte auf die angrenzenden Seilfarben.`, "bg-indigo-600");
+            } else {
+                checkSolution();
+            }
+        }
+
+        function updateStatus(msg) {
+            document.getElementById('status-text').innerText = msg;
+        }
+
+        function showModal(title, desc, iconBg) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            let iconEl = document.getElementById('modal-icon');
+            iconEl.className = `w-12 h-12 rounded-2xl flex items-center justify-center mb-4 text-white shadow-lg ${iconBg}`;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
