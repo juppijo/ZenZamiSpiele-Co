@@ -40,7 +40,7 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 </div>
 <div class="btns">
 <button id="bNew">Neu mischen</button>
-<select id="size" aria-label="Spielvariante"><option value="v1">5 × 5, Variante 1</option><option value="v2">5 × 5, Variante 2</option><option value="v3">5 × 5, Variante 3</option><option value="v4">5 × 5, Variante 4</option><option value="mini">3 × 3, Mini Tangle</option></select>
+<select id="size" aria-label="Spielvariante"><option value="v1">5 × 5, Variante 1</option><option value="v2">5 × 5, Variante 2</option><option value="v3">5 × 5, Variante 3</option><option value="v4">5 × 5, Variante 4</option><option value="q4">4 × 4</option><option value="mini">3 × 3, Mini Tangle</option></select>
 <button id="bClear">Feld leeren</button>
 <button id="bTheme">Stil</button>
 <button id="bFull">Vollbild</button>
@@ -55,11 +55,11 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 /*CORE*/
 const PERMS=[];for(let a=0;a<4;a++)for(let b=0;b<4;b++)if(b!=a)for(let c=0;c<4;c++)if(c!=a&&c!=b)for(let d=0;d<4;d++)if(d!=a&&d!=b&&d!=c)PERMS.push([a,b,c,d]);
 const ALL=[...Array(24).keys()];
-const SETS={v1:[...ALL,0],v2:[...ALL,6],v3:[...ALL,11],v4:[...ALL,22],mini:[23,12,13,8,21,10,5,4,19]};
+const SETS={v1:[...ALL,0],v2:[...ALL,6],v3:[...ALL,11],v4:[...ALL,22],q4:[11,0,9,20,14,23,12,13,1,8,21,10,17,5,4,19],mini:[23,12,13,8,21,10,5,4,19]};
 const ROPES=[[7,5],[0,3],[1,4],[2,6]];
 const rev=v=>(v&3)*4+(v>>2);
 let n=5,tiles=[],EC=[],IDX=[],DUP=[];
-function setup(key){const ids=SETS[key];n=key==='mini'?3:5;tiles=ids.map(i=>PERMS[i]);
+function setup(key){const ids=SETS[key];n=key==='mini'?3:key==='q4'?4:5;tiles=ids.map(i=>PERMS[i]);
 EC=tiles.map(p=>[0,1,2,3].map(r=>{const b=[];ROPES.forEach(([x,y],k)=>b[x]=b[y]=p[k]);const c=i=>b[((i-2*r)%8+8)%8];return[c(0)*4+c(1),c(2)*4+c(3),c(4)*4+c(5),c(6)*4+c(7)]}));
 IDX=[];for(let l=0;l<17;l++){IDX.push([]);for(let t=0;t<17;t++)IDX[l].push([])}
 EC.forEach((rs,t)=>rs.forEach((e,r)=>{for(const l of[e[3],16])for(const u of[e[0],16])IDX[l][u].push(t*4+r)}));
