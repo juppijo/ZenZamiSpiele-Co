@@ -41,6 +41,14 @@
     {
       "n": "Jo6",
       "a": "R U' R' F' U2 F U F' U F R U2 R' U'"
+    },
+    {
+      "n": "Jo7",
+      "a": "F U' F' U' L' U L"
+    },
+    {
+      "n": "Jo8",
+      "a": "F' U F U R U' R'"
     }
   ]
 }
