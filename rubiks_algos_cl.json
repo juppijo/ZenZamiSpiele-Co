@@ -20,11 +20,27 @@
     },
     {
       "n": "Jo1",
-      "a": "R U2 R' U' R U' R' U2"
+      "a": "L' U'2 L U L' U L U2"
     },
     {
       "n": "Jo2",
-      "a": "L' U'2 L U L' U L U2"
+      "a": "R U2 R' U' R U' R' U2"
+    },
+    {
+      "n": "Jo3",
+      "a": "L' U R U' L U R' U'"
+    },
+    {
+      "n": "Jo4",
+      "a": "R U' L' U R' U' L U"
+    },
+    {
+      "n": "Jo5",
+      "a": "L' U L F U2 F' U' F U' F' L' U2 L U"
+    },
+    {
+      "n": "Jo6",
+      "a": "R U' R' F' U2 F U F' U F R U2 R' U'"
     }
   ]
 }
