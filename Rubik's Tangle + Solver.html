@@ -51,7 +51,10 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 <button id="bBLoad">Aus Browser laden</button>
 <button id="bFSave">Als Datei speichern</button>
 <button id="bFLoad">Datei laden</button>
+<button id="bText">Als Text</button>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
+<div id="txtBox" hidden style="flex-basis:100%"><textarea id="txt" aria-label="Spielstand als Text" spellcheck="false" style="width:100%;min-height:110px;font:12px monospace;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:8px"></textarea>
+<div class="btns" style="margin:8px 0 0"><button id="bCopy">Kopieren</button><button id="bTxtLoad">Text laden</button><button id="bTxtClose">Schließen</button></div></div>
 </div>
 <div id="msg" role="status"></div>
 <h2 id="hl"></h2>
@@ -142,9 +145,13 @@ $('#size').value=o.key;setup(o.key);cells=o.cells.map(c=>c&&{t:c.t,r:c.r});rot=o
 catch(e){say('Das ist kein gültiger Tangle-Spielstand.')}}
 $('#bBSave').onclick=()=>{try{localStorage.setItem('tangle-save',snap());say('Im Browser gespeichert ('+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr).')}catch(e){say('Der Browser-Speicher ist hier nicht verfügbar.')}};
 $('#bBLoad').onclick=()=>{let s=null;try{s=localStorage.getItem('tangle-save')}catch(e){say('Der Browser-Speicher ist hier nicht verfügbar.');return}if(!s)say('Im Browser ist noch kein Spielstand gespeichert.');else apply(s)};
-$('#bFSave').onclick=async()=>{try{const d=await claude.use('downloads');if(!d)throw{code:'unavailable'};await d.save({filename:'tangle-spielstand.json',data:snap()});say('Spielstand als Datei gespeichert.')}catch(e){say(e&&e.code==='declined'?'Speichern abgebrochen.':'Datei speichern ist hier nicht verfügbar.')}};
+$('#bFSave').onclick=async()=>{try{const d=await claude.use('downloads');if(!d)throw{code:'unavailable'};await d.save({filename:'tangle-spielstand.json',data:snap()});say('Spielstand als Datei gespeichert.')}catch(e){if(e&&e.code==='declined')say('Speichern abgebrochen.');else showText('Direktes Speichern ist hier nicht möglich. Kopiere den Text unten und speichere ihn in einer Datei, z. B. spielstand.json.')}};
 $('#bFLoad').onclick=()=>$('#fileIn').click();
 $('#fileIn').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)f.text().then(apply).catch(()=>say('Die Datei konnte nicht gelesen werden.'))};
-(async()=>{try{const d=await claude.use('downloads');if(!d)$('#bFSave').hidden=true}catch(e){$('#bFSave').hidden=true}})();
+function showText(m){$('#txtBox').hidden=false;const t=$('#txt');t.value=snap();t.focus();t.select();if(m)say(m)}
+$('#bText').onclick=()=>showText('Spielstand als Text. Zum Laden: gespeicherten Text einfügen und „Text laden“ wählen.');
+$('#bCopy').onclick=async()=>{const t=$('#txt');t.select();try{await navigator.clipboard.writeText(t.value);say('In die Zwischenablage kopiert.')}catch(e){try{document.execCommand('copy');say('In die Zwischenablage kopiert.')}catch(e2){say('Bitte den markierten Text mit Strg+C kopieren.')}}};
+$('#bTxtLoad').onclick=()=>apply($('#txt').value);
+$('#bTxtClose').onclick=()=>{$('#txtBox').hidden=true};
 setTh();gen();
 </script></body></html>
