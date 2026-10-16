@@ -37,6 +37,7 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 <button class="main" id="bHint">Hinweis</button>
 <button class="main" id="bSolve">Lösen</button>
 <button id="bRot">Drehen (R)</button>
+<button id="bUndo">Zurück (Z)</button>
 </div>
 <div class="btns">
 <button id="bNew">Neu mischen</button>
@@ -45,11 +46,18 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 <button id="bTheme">Stil</button>
 <button id="bFull">Vollbild</button>
 </div>
+<div class="btns">
+<button id="bBSave">Im Browser speichern</button>
+<button id="bBLoad">Aus Browser laden</button>
+<button id="bFSave">Als Datei speichern</button>
+<button id="bFLoad">Datei laden</button>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+</div>
 <div id="msg" role="status"></div>
 <h2 id="hl"></h2>
 <div id="hand"></div>
 <h2>Bedienung</h2>
-<ul><li>Kachel unten anklicken, ein zweiter Klick dreht sie (oder Taste R).</li><li>Dann ein Feld anklicken, um sie abzulegen.</li><li>Gelegte Kachel anklicken nimmt sie wieder auf; Rechtsklick dreht sie im Feld.</li><li>Der Solver behält deine gelegten Kacheln bei.</li><li>Die Buchstaben benennen die Kacheln, wie auf den Rückseiten des Originals.</li></ul>
+<ul><li>Kachel unten anklicken, ein zweiter Klick dreht sie (oder Taste R).</li><li>Dann ein Feld anklicken, um sie abzulegen.</li><li>Gelegte Kachel anklicken nimmt sie wieder auf; Rechtsklick dreht sie im Feld.</li><li>Zurück nimmt den letzten Zug zurück (auch Hinweis und Lösen), Taste Z.</li><li>Der Solver behält deine gelegten Kacheln bei.</li><li>Speichern legt den Spielstand im Browser oder als Datei (.json) ab; Laden stellt ihn samt Variante wieder her.</li><li>Die Buchstaben benennen die Kacheln, wie auf den Rückseiten des Originals.</li></ul>
 </div></div></main>
 <script>
 /*CORE*/
@@ -80,14 +88,14 @@ return dfs(0)?{g}:{g:null,over}}
 /*END*/
 const COL=['#d9473f','#3f7fd9','#f0c93a','#3da66a'];
 const PT=[[30,0],[70,0],[100,30],[100,70],[70,100],[30,100],[0,70],[0,30]],NV=[[0,1],[0,1],[-1,0],[-1,0],[0,-1],[0,-1],[1,0],[1,0]];
-let cells=[],rot=[],sel=null,timer=null,dead='';
+let cells=[],rot=[],sel=null,timer=null,dead='',hist=[];
 const $=s=>document.querySelector(s),say=m=>$('#msg').textContent=m,LET=t=>String.fromCharCode(65+t);
 function svg(t,r){const p=tiles[t];let o='';
 ROPES.forEach(([a,b],k)=>{const A=PT[a],B=PT[b],x=NV[a],y=NV[b],d=`M${A[0]} ${A[1]}C${A[0]+x[0]*40} ${A[1]+x[1]*40} ${B[0]+y[0]*40} ${B[1]+y[1]*40} ${B[0]} ${B[1]}`;
 o+=`<path d="${d}" stroke="rgba(0,0,0,.55)" stroke-width="15"/><path d="${d}" stroke="${COL[p[k]]}" stroke-width="10"/>`});
 return `<svg viewBox="0 0 100 100"><rect width="100" height="100" fill="var(--card)"/><g fill="none" transform="rotate(${90*r} 50 50)">${o}</g><text x="4" y="15" font-size="12" fill="var(--mut)">${LET(t)}</text></svg>`}
 function gen(){clearInterval(timer);timer=null;setup($('#size').value);const N=n*n,ord=tiles.map((_,i)=>i);
-cells=Array(N).fill(null);rot=tiles.map(()=>Math.floor(Math.random()*4));sel=null;
+cells=Array(N).fill(null);rot=tiles.map(()=>Math.floor(Math.random()*4));sel=null;hist=[];
 say('Neu gemischt. Wähle eine Kachel und lege sie ab.');render()}
 function bad(){const b=new Set();cells.forEach((c,i)=>{if(!c)return;const e=E(c.t,c.r);
 if(i%n<n-1&&cells[i+1]&&e[1]!==rev(E(cells[i+1].t,cells[i+1].r)[3])){b.add(i);b.add(i+1)}
@@ -98,28 +106,45 @@ const used=new Set(cells.filter(Boolean).map(c=>c.t));
 $('#hand').innerHTML=tiles.map((_,t)=>used.has(t)?'':`<div class="h${sel===t?' sel':''}" data-t="${t}" tabindex="0">${svg(t,rot[t])}</div>`).join('');
 $('#hl').textContent=`Kacheln übrig: ${tiles.length-used.size}`;
 if(used.size===n*n&&!b.size)say('Geschafft! Alle Seile laufen durch.')}
-$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d)return;const i=+d.dataset.i,c=cells[i];
+$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d)return;const i=+d.dataset.i,c=cells[i];save();
 if(sel===null){if(c){sel=c.t;rot[c.t]=c.r;cells[i]=null}}
 else{const t=sel;cells[i]={t,r:rot[t]};sel=c?c.t:null;if(c)rot[c.t]=c.r}
 render()});
-$('#board').addEventListener('contextmenu',e=>{const d=e.target.closest('.cell');if(!d)return;e.preventDefault();const c=cells[+d.dataset.i];if(c){c.r=(c.r+1)%4;render()}});
+$('#board').addEventListener('contextmenu',e=>{const d=e.target.closest('.cell');if(!d)return;e.preventDefault();const c=cells[+d.dataset.i];if(c){save();c.r=(c.r+1)%4;render()}});
 $('#hand').addEventListener('click',e=>{const d=e.target.closest('.h');if(!d)return;const t=+d.dataset.t;
 if(sel===t)rot[t]=(rot[t]+1)%4;else sel=t;render()});
 function rotSel(){if(sel!==null){rot[sel]=(rot[sel]+1)%4;render()}}
-$('#bRot').onclick=rotSel;addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')rotSel()});
-function plan(cb){clearInterval(timer);timer=null;say('Rechne …');setTimeout(()=>{dead='';let r=solve(cells);
+$('#bRot').onclick=rotSel;addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')rotSel();if(e.key==='z'||e.key==='Z')undo()});
+function plan(cb){clearInterval(timer);timer=null;save();say('Rechne …');setTimeout(()=>{dead='';let r=solve(cells);
 if(!r.g&&!r.over){cells=Array(n*n).fill(null);sel=null;dead='Deine Anordnung führt in eine Sackgasse, das Feld wurde geleert. ';r=solve(cells)}
 if(!r.g){say('Das dauert zu lang. Mische bitte neu.');return}cb(r.g)},30)}
 $('#bHint').onclick=()=>plan(g=>{const i=cells.findIndex(x=>!x);if(i<0){say('Das Feld ist schon voll.');return}
 cells[i]={...g[i]};if(sel===g[i].t)sel=null;render();say(dead+`Hinweis: Kachel ${LET(g[i].t)} gehört in Reihe ${Math.floor(i/n)+1}, Spalte ${i%n+1}.`)});
 $('#bSolve').onclick=()=>plan(g=>{const q=[];cells.forEach((c,i)=>{if(!c)q.push(i)});sel=null;say(dead+'Lösung wird gelegt …');
 timer=setInterval(()=>{if(!q.length){clearInterval(timer);timer=null;render();say(dead+'Gelöst.');return}const i=q.shift();cells[i]={...g[i]};render()},110)});
+function save(){const s=JSON.stringify({cells,rot,sel});if(hist[hist.length-1]!==s)hist.push(s);if(hist.length>200)hist.shift()}
+function undo(){clearInterval(timer);timer=null;const cur=JSON.stringify({cells,rot,sel});let s;do{s=hist.pop()}while(s&&s===cur);if(!s){say('Nichts zum Zurücknehmen.');return}const o=JSON.parse(s);cells=o.cells;rot=o.rot;sel=o.sel;render();say('Letzten Zug zurückgenommen.')}
+$('#bUndo').onclick=undo;
 $('#bNew').onclick=gen;$('#size').onchange=gen;
-$('#bClear').onclick=()=>{clearInterval(timer);timer=null;cells=Array(n*n).fill(null);sel=null;say('Feld geleert.');render()};
+$('#bClear').onclick=()=>{clearInterval(timer);timer=null;save();cells=Array(n*n).fill(null);sel=null;say('Feld geleert.');render()};
 const TH=['','papier','nacht'];let ti=matchMedia('(prefers-color-scheme: light)').matches?1:0;
 const setTh=()=>{TH[ti]?document.documentElement.dataset.theme=TH[ti]:delete document.documentElement.dataset.theme;try{localStorage.setItem('tangle-th',ti)}catch(e){}};
 try{const s=localStorage.getItem('tangle-th');if(s!==null)ti=+s}catch(e){}
 $('#bTheme').onclick=()=>{ti=(ti+1)%3;setTh()};
 $('#bFull').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+const snap=()=>JSON.stringify({game:'tangle',v:1,key:$('#size').value,cells,rot});
+function apply(txt){try{const o=JSON.parse(txt);if(!o||o.game!=='tangle'||!SETS[o.key])throw 0;
+const T=SETS[o.key].length,N=o.key==='mini'?9:o.key==='q4'?16:25;
+if(!Array.isArray(o.cells)||o.cells.length!==N||!Array.isArray(o.rot)||o.rot.length!==T||!o.rot.every(r=>Number.isInteger(r)&&r>=0&&r<4))throw 0;
+const seen=new Set();for(const c of o.cells){if(c===null)continue;if(!c||!Number.isInteger(c.t)||!Number.isInteger(c.r)||c.t<0||c.t>=T||c.r<0||c.r>3||seen.has(c.t))throw 0;seen.add(c.t)}
+clearInterval(timer);timer=null;if(o.key===$('#size').value)save();else hist=[];
+$('#size').value=o.key;setup(o.key);cells=o.cells.map(c=>c&&{t:c.t,r:c.r});rot=o.rot.slice();sel=null;render();say('Spielstand geladen.')}
+catch(e){say('Das ist kein gültiger Tangle-Spielstand.')}}
+$('#bBSave').onclick=()=>{try{localStorage.setItem('tangle-save',snap());say('Im Browser gespeichert ('+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr).')}catch(e){say('Der Browser-Speicher ist hier nicht verfügbar.')}};
+$('#bBLoad').onclick=()=>{let s=null;try{s=localStorage.getItem('tangle-save')}catch(e){say('Der Browser-Speicher ist hier nicht verfügbar.');return}if(!s)say('Im Browser ist noch kein Spielstand gespeichert.');else apply(s)};
+$('#bFSave').onclick=async()=>{try{const d=await claude.use('downloads');if(!d)throw{code:'unavailable'};await d.save({filename:'tangle-spielstand.json',data:snap()});say('Spielstand als Datei gespeichert.')}catch(e){say(e&&e.code==='declined'?'Speichern abgebrochen.':'Datei speichern ist hier nicht verfügbar.')}};
+$('#bFLoad').onclick=()=>$('#fileIn').click();
+$('#fileIn').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)f.text().then(apply).catch(()=>say('Die Datei konnte nicht gelesen werden.'))};
+(async()=>{try{const d=await claude.use('downloads');if(!d)$('#bFSave').hidden=true}catch(e){$('#bFSave').hidden=true}})();
 setTh();gen();
 </script></body></html>
