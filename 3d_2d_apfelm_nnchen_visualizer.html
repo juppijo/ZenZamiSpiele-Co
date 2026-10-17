@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apfelmännchen 2D & 3D Explorer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030712;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: #e2e8f0;
+        }
+
+        /* Glassmorphism Styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s ease;
+        }
+
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .glass-button:active {
+            transform: translateY(1px);
+        }
+
+        .mode-active {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(236, 72, 153, 0.4));
+            border-color: rgba(236, 72, 153, 0.6);
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Styling Range Inputs */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #a855f7;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+            transition: transform 0.1s ease, background 0.2s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #c084fc;
+        }
+
+        /* Smooth Transition for Panel Toggle */
+        #controls-sidebar {
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        }
+        #controls-sidebar.collapsed {
+            transform: translateX(-105%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #a855f7;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="select-none">
+
+    <!-- Canvas Container -->
+    <div id="canvas-container" class="w-full h-full absolute inset-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- Loading Screen Overlay -->
+    <div id="loading-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-500">
+        <div class="spinner mb-4"></div>
+        <h2 class="text-xl font-semibold text-purple-300 tracking-wide">Apfelmännchen wird geladen...</h2>
+        <p class="text-sm text-slate-400 mt-2">Berechne WebGL Shader</p>
+    </div>
+
+    <!-- Top Left Bar / Title + Toggle Sidebar Button -->
+    <div class="absolute top-4 left-4 z-20 flex items-center space-x-3">
+        <button id="toggle-sidebar-btn" title="Menü umschalten" class="glass-button p-3 rounded-xl text-white flex items-center justify-center">
+            <i data-lucide="sliders" class="w-5 h-5"></i>
+        </button>
+
+        <div class="glass-panel px-4 py-2 rounded-xl hidden sm:flex items-center space-x-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
+            <span id="app-title" class="font-bold text-sm tracking-wider uppercase bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent">
+                Apfelmännchen Explorer
+            </span>
+        </div>
+    </div>
+
+    <!-- Top Center: 2D / 3D Mode Switcher -->
+    <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 glass-panel p-1.5 rounded-2xl flex items-center space-x-1.5">
+        <button id="mode-2d-btn" class="glass-button px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all">
+            <i data-lucide="square" class="w-4 h-4"></i>
+            <span>2D Mandelbrot</span>
+        </button>
+        <button id="mode-3d-btn" class="glass-button px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-2 mode-active transition-all">
+            <i data-lucide="box" class="w-4 h-4"></i>
+            <span>3D Mandelbulb</span>
+        </button>
+    </div>
+
+    <!-- Top Right Quick Actions -->
+    <div class="absolute top-4 right-4 z-20 flex items-center space-x-2">
+        <!-- Play / Pause Animation -->
+        <button id="play-pause-btn" title="Animation Start/Stopp" class="glass-button p-3 rounded-xl text-white">
+            <i id="play-icon" data-lucide="play" class="w-5 h-5 hidden"></i>
+            <i id="pause-icon" data-lucide="pause" class="w-5 h-5"></i>
+        </button>
+
+        <!-- Reset Camera / Zoom -->
+        <button id="reset-btn" title="Ansicht Zurücksetzen" class="glass-button p-3 rounded-xl text-white">
+            <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+        </button>
+
+        <!-- Fullscreen Button -->
+        <button id="fullscreen-btn" title="Vollbildmodus" class="glass-button p-3 rounded-xl text-white">
+            <i id="fullscreen-icon" data-lucide="maximize" class="w-5 h-5"></i>
+            <i id="minimize-icon" data-lucide="minimize" class="w-5 h-5 hidden"></i>
+        </button>
+    </div>
+
+    <!-- Collapsible Controls Sidebar -->
+    <div id="controls-sidebar" class="absolute top-20 left-4 bottom-4 z-30 w-80 sm:w-88 glass-panel rounded-2xl flex flex-col overflow-hidden">
+        
+        <!-- Header -->
+        <div class="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="settings" class="w-5 h-5 text-purple-400"></i>
+                <h2 class="font-semibold text-sm tracking-wide">Fraktal Parameter</h2>
+            </div>
+            <button id="close-sidebar-btn" class="text-slate-400 hover:text-white transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Scrollable Control List -->
+        <div class="p-4 space-y-5 overflow-y-auto flex-1 text-xs">
+
+            <!-- Presets Section -->
+            <div>
+                <label class="block text-slate-300 font-medium mb-2 flex items-center space-x-1">
+                    <i data-lucide="bookmark" class="w-3.5 h-3.5 text-pink-400"></i>
+                    <span>Schnell-Vorlagen</span>
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="preset-btn glass-button py-2 px-3 rounded-lg text-slate-200 text-left hover:text-white" data-preset="classic">Klassisch</button>
+                    <button class="preset-btn glass-button py-2 px-3 rounded-lg text-slate-200 text-left hover:text-white" data-preset="alien">Alien Castle</button>
+                    <button class="preset-btn glass-button py-2 px-3 rounded-lg text-slate-200 text-left hover:text-white" data-preset="flower">Organic Bloom</button>
+                    <button class="preset-btn glass-button py-2 px-3 rounded-lg text-slate-200 text-left hover:text-white" data-preset="spikes">Hyper Spikes</button>
+                </div>
+            </div>
+
+            <hr class="border-white/10" />
+
+            <!-- Color Palette Selector -->
+            <div>
+                <label class="block text-slate-300 font-medium mb-2 flex items-center space-x-1">
+                    <i data-lucide="palette" class="w-3.5 h-3.5 text-purple-400"></i>
+                    <span>Farbschema / Palette</span>
+                </label>
+                <select id="colorScheme" class="w-full bg-slate-900/80 border border-white/15 rounded-lg p-2 text-slate-200 focus:outline-none focus:border-purple-500">
+                    <option value="0">Regenbogen / Rainbow</option>
+                    <option value="1">Cyberpunk Neon</option>
+                    <option value="2">Psychedelisch / Trippy</option>
+                    <option value="3">Königliches Gold</option>
+                    <option value="4">Ozean Tiefsee</option>
+                    <option value="5">Glühwürmchen / Magie</option>
+                </select>
+            </div>
+
+            <!-- Iterations (2D & 3D) -->
+            <div>
+                <div class="flex justify-between text-slate-300 mb-1">
+                    <span>Detailgrad (Iterationen)</span>
+                    <span id="iterationsVal" class="font-mono text-purple-400">64</span>
+                </div>
+                <input id="iterations" type="range" min="10" max="250" step="1" value="64" class="w-full">
+            </div>
+
+            <!-- 3D Only: Fractal Power -->
+            <div id="container-power">
+                <div class="flex justify-between text-slate-300 mb-1">
+                    <span>Mandelbulb Power (3D Potenz)</span>
+                    <span id="powerVal" class="font-mono text-purple-400">8.0</span>
+                </div>
+                <input id="power" type="range" min="2.0" max="14.0" step="0.1" value="8.0" class="w-full">
+            </div>
+
+            <!-- Color Shift / Cycle Speed -->
+            <div>
+                <div class="flex justify-between text-slate-300 mb-1">
+                    <span>Farbverschiebung / Speed</span>
+                    <span id="morphSpeedVal" class="font-mono text-purple-400">0.3</span>
+                </div>
+                <input id="morphSpeed" type="range" min="0.0" max="1.5" step="0.05" value="0.3" class="w-full">
+            </div>
+
+            <hr class="border-white/10" />
+
+            <!-- Lighting & Visuals (Glow, Saturation, AO, Specular) -->
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-slate-300 mb-1">
+                        <span>Glow / Aura Intensität</span>
+                        <span id="glowVal" class="font-mono text-purple-400">0.6</span>
+                    </div>
+                    <input id="glow" type="range" min="0.0" max="2.0" step="0.05" value="0.6" class="w-full">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-slate-300 mb-1">
+                        <span>Farbsättigung</span>
+                        <span id="saturationVal" class="font-mono text-purple-400">1.2</span>
+                    </div>
+                    <input id="saturation" type="range" min="0.0" max="2.5" step="0.1" value="1.2" class="w-full">
+                </div>
+
+                <div id="container-ao">
+                    <div class="flex justify-between text-slate-300 mb-1">
+                        <span>Schatten-Tiefe (AO)</span>
+                        <span id="aoVal" class="font-mono text-purple-400">0.7</span>
+                    </div>
+                    <input id="ao" type="range" min="0.0" max="2.0" step="0.1" value="0.7" class="w-full">
+                </div>
+
+                <div id="container-specular">
+                    <div class="flex justify-between text-slate-300 mb-1">
+                        <span>Glanzlicht (Specular)</span>
+                        <span id="specularVal" class="font-mono text-purple-400">1.0</span>
+                    </div>
+                    <input id="specular" type="range" min="0.0" max="2.0" step="0.1" value="1.0" class="w-full">
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer / Controls Hint -->
+        <div class="p-3 bg-black/30 border-t border-white/10 text-[11px] text-slate-400 text-center">
+            <span id="control-hint-text" class="inline-block">
+                <i data-lucide="mouse-pointer" class="w-3 h-3 inline mr-1"></i> Ziehen zum Drehen/Verschieben | Scrollen zum Zoomen
+            </span>
+        </div>
+    </div>
+
+    <!-- Mouse Interaction Navigation Overlay Help (Fades Out) -->
+    <div id="nav-hint" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10 glass-panel px-4 py-2 rounded-full text-xs text-slate-300 pointer-events-none transition-opacity duration-1000 flex items-center space-x-2">
+        <i data-lucide="compass" class="w-4 h-4 text-purple-400 animate-spin"></i>
+        <span id="nav-hint-span">Klicke oder scrolle, um das Apfelmännchen zu erkunden</span>
+    </div>
+
+    <!-- Shader Scripts & Application Logic -->
+    <script>
+        // --- Shared Vertex Shader ---
+        const vertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = vec4(position, 1.0);
+            }
+        `;
+
+        // --- Fragment Shader (Combined 2D Mandelbrot & 3D Mandelbulb Raymarching) ---
+        const fragmentShader = `
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            uniform int u_mode; // 0 = 2D Mandelbrot, 1 = 3D Mandelbulb
+
+            // 3D Uniforms
+            uniform vec3 u_cameraPos;
+            uniform vec3 u_cameraTarget;
+            uniform float u_power;
+
+            // 2D Uniforms
+            uniform vec2 u_offset2D;
+            uniform float u_zoom2D;
+
+            // General Controls
+            uniform int u_maxIterations;
+            uniform int u_colorScheme;
+            uniform float u_glow;
+            uniform float u_saturation;
+            uniform float u_ao;
+            uniform float u_specular;
+
+            varying vec2 vUv;
+
+            #define MAX_STEPS 128
+            #define SURF_DIST 0.0015
+            #define MAX_DIST 15.0
+
+            // --- COLOR SCHEMES GENERATOR ---
+            vec3 getColorScheme(float t, float trap) {
+                vec3 col = vec3(0.0);
+                
+                if (u_colorScheme == 0) { // Rainbow
+                    col = 0.5 + 0.5 * cos(6.28318 * (vec3(1.0) * trap * 2.0 + vec3(0.0, 0.33, 0.67) + u_time * 0.1));
+                } else if (u_colorScheme == 1) { // Cyberpunk Neon
+                    col = mix(vec3(0.1, 0.8, 0.9), vec3(0.9, 0.1, 0.6), sin(trap * 8.0 + u_time * 0.5) * 0.5 + 0.5);
+                } else if (u_colorScheme == 2) { // Psychedelic
+                    col = 0.5 + 0.5 * sin(vec3(3.0, 1.0, 5.0) * trap * 6.0 + u_time * 0.5);
+                } else if (u_colorScheme == 3) { // Royal Gold
+                    col = mix(vec3(0.15, 0.08, 0.02), vec3(1.0, 0.85, 0.35), pow(clamp(trap, 0.0, 1.0), 0.6));
+                } else if (u_colorScheme == 4) { // Ocean Deep
+                    col = mix(vec3(0.02, 0.1, 0.25), vec3(0.2, 0.9, 0.7), clamp(trap * 2.5, 0.0, 1.0));
+                } else if (u_colorScheme == 5) { // Firefly / Magic
+                    col = mix(vec3(0.1, 0.0, 0.2), vec3(0.9, 0.9, 0.2), sin(trap * 10.0 + u_time * 0.5) * 0.5 + 0.5);
+                }
+
+                // Apply Saturation
+                vec3 gray = vec3(dot(col, vec3(0.299, 0.587, 0.114)));
+                return mix(gray, col, u_saturation);
+            }
+
+            // --- 2D MANDELBROT ENGINE ---
+            vec4 render2DMandelbrot(vec2 uv) {
+                // Map screen coordinates to Complex Plane
+                vec2 c = (uv * 2.0 - 1.0) * vec2(u_resolution.x / u_resolution.y, 1.0);
+                c = c * u_zoom2D + u_offset2D;
+
+                vec2 z = vec2(0.0);
+                float iter = 0.0;
+                float maxIt = float(u_maxIterations);
+                float smoothIter = 0.0;
+
+                for (int i = 0; i < 500; i++) {
+                    if (float(i) >= maxIt) break;
+                    
+                    // z = z^2 + c
+                    z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+
+                    if (dot(z, z) > 4.0) {
+                        iter = float(i);
+                        break;
+                    }
+                }
+
+                if (iter >= maxIt - 1.0) {
+                    return vec4(vec3(0.01, 0.01, 0.03), 1.0); // Inside Mandelbrot Set
+                }
+
+                // Smooth Coloring
+                smoothIter = iter - log2(max(1.0, log(dot(z, z)) / 2.0));
+                float normTrap = smoothIter / maxIt;
+
+                vec3 col = getColorScheme(u_time, normTrap * 5.0);
+
+                // Add Glow Effect to edges
+                if (u_glow > 0.0) {
+                    float edgeGlow = pow(smoothIter / maxIt, 0.5) * u_glow;
+                    col += vec3(0.4, 0.2, 0.8) * edgeGlow;
+                }
+
+                return vec4(col, 1.0);
+            }
+
+            // --- 3D MANDELBULB ENGINE ---
+            float mandelbulbDE(vec3 pos, out float outTrap) {
+                vec3 z = pos;
+                float dr = 1.0;
+                float r = 0.0;
+                float trap = 1e10;
+
+                for (int i = 0; i < 30; i++) {
+                    if (i >= u_maxIterations) break;
+                    
+                    r = length(z);
+                    if (r > 4.0) break;
+
+                    trap = min(trap, r);
+
+                    float theta = acos(z.z / r);
+                    float phi = atan(z.y, z.x);
+                    dr = pow(r, u_power - 1.0) * u_power * dr + 1.0;
+
+                    float zr = pow(r, u_power);
+                    theta = theta * u_power;
+                    phi = phi * u_power;
+
+                    z = zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+                    z += pos;
+                }
+                
+                outTrap = trap;
+                return 0.5 * log(r) * r / dr;
+            }
+
+            float map(vec3 p, out float trap) {
+                return mandelbulbDE(p, trap);
+            }
+
+            vec3 calcNormal(vec3 p) {
+                float dummy;
+                float d = map(p, dummy);
+                vec2 e = vec2(0.001, 0.0);
+                vec3 n = d - vec3(
+                    map(p - e.xyy, dummy),
+                    map(p - e.yxy, dummy),
+                    map(p - e.yyx, dummy)
+                );
+                return normalize(n);
+            }
+
+            float calcAO(vec3 p, vec3 n) {
+                float occ = 0.0;
+                float sca = 1.0;
+                float dummy;
+                for(int i = 0; i < 5; i++) {
+                    float h = 0.01 + 0.08 * float(i);
+                    float d = map(p + h * n, dummy);
+                    occ += (h - d) * sca;
+                    sca *= 0.85;
+                }
+                return clamp(1.0 - 2.0 * occ * u_ao, 0.0, 1.0);
+            }
+
+            vec4 render3DMandelbulb(vec2 uv) {
+                vec2 st = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / u_resolution.y;
+
+                vec3 ro = u_cameraPos;
+                vec3 target = u_cameraTarget;
+                vec3 ww = normalize(target - ro);
+                vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
+                vec3 vv = normalize(cross(uu, ww));
+                vec3 rd = normalize(st.x * uu + st.y * vv + 1.5 * ww);
+
+                float dO = 0.0;
+                float trap = 0.0;
+                float minDistance = 1e10;
+
+                for (int i = 0; i < MAX_STEPS; i++) {
+                    vec3 p = ro + rd * dO;
+                    float dS = map(p, trap);
+                    
+                    minDistance = min(minDistance, dS);
+                    dO += dS;
+
+                    if (dS < SURF_DIST || dO > MAX_DIST) break;
+                }
+
+                vec3 col = vec3(0.0);
+
+                if (dO < MAX_DIST) {
+                    vec3 p = ro + rd * dO;
+                    vec3 n = calcNormal(p);
+                    
+                    vec3 lightPos = vec3(3.0 * sin(u_time * 0.3), 4.0, 3.0 * cos(u_time * 0.3));
+                    vec3 l = normalize(lightPos - p);
+                    
+                    float dif = clamp(dot(n, l), 0.1, 1.0);
+                    vec3 ref = reflect(-l, n);
+                    float spec = pow(clamp(dot(ref, -rd), 0.0, 1.0), 32.0) * u_specular;
+
+                    float ao = calcAO(p, n);
+                    vec3 baseColor = getColorScheme(dO, trap);
+
+                    col = baseColor * (dif * vec3(1.0, 0.95, 0.9) + 0.15) + vec3(spec);
+                    col *= ao;
+                    col = mix(col, vec3(0.03, 0.03, 0.06), 1.0 - exp(-0.02 * dO * dO));
+                } else {
+                    col = mix(vec3(0.02, 0.02, 0.05), vec3(0.08, 0.05, 0.12), st.y + 0.5);
+                }
+
+                if (u_glow > 0.0) {
+                    float glowFactor = exp(-minDistance * 12.0) * u_glow;
+                    vec3 glowColor = getColorScheme(u_time, 0.5);
+                    col += glowColor * glowFactor * 0.6;
+                }
+
+                // Gamma Correction
+                col = col / (col + vec3(1.0));
+                col = pow(col, vec3(0.4545));
+
+                return vec4(col, 1.0);
+            }
+
+            void main() {
+                if (u_mode == 0) {
+                    gl_FragColor = render2DMandelbrot(vUv);
+                } else {
+                    gl_FragColor = render3DMandelbulb(vUv);
+                }
+            }
+        `;
+
+        // --- Application State ---
+        const state = {
+            mode: 1, // 0 = 2D Mandelbrot, 1 = 3D Mandelbulb
+            power: 8.0,
+            maxIterations: 64,
+            colorScheme: 0,
+            glow: 0.6,
+            saturation: 1.2,
+            ao: 0.7,
+            specular: 1.0,
+            morphSpeed: 0.3,
+            isAnimating: true,
+            
+            // 3D Camera Orbit State
+            camRadius: 2.8,
+            camTheta: Math.PI / 4,
+            camPhi: Math.PI / 6,
+            target: new THREE.Vector3(0, 0, 0),
+
+            // 2D Camera State
+            offset2D: new THREE.Vector2(-0.5, 0.0),
+            zoom2D: 1.3
+        };
+
+        // Presets Configuration
+        const presets = {
+            classic: { power: 8.0, maxIterations: 64, colorScheme: 0, glow: 0.6, saturation: 1.2, ao: 0.7, specular: 1.0 },
+            alien: { power: 5.0, maxIterations: 90, colorScheme: 1, glow: 1.0, saturation: 1.5, ao: 1.0, specular: 1.5 },
+            flower: { power: 3.0, maxIterations: 50, colorScheme: 4, glow: 0.4, saturation: 1.1, ao: 0.5, specular: 0.8 },
+            spikes: { power: 11.0, maxIterations: 120, colorScheme: 2, glow: 0.8, saturation: 1.8, ao: 0.9, specular: 1.2 }
+        };
+
+        let scene, camera, renderer, material, mesh;
+        let isDragging = false;
+        let isRightClick = false;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        // Initialize WebGL & Three.js Canvas
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            material = new THREE.ShaderMaterial({
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
+                uniforms: {
+                    u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                    u_time: { value: 0 },
+                    u_mode: { value: state.mode },
+                    u_cameraPos: { value: new THREE.Vector3() },
+                    u_cameraTarget: { value: state.target },
+                    u_power: { value: state.power },
+                    u_offset2D: { value: state.offset2D },
+                    u_zoom2D: { value: state.zoom2D },
+                    u_maxIterations: { value: state.maxIterations },
+                    u_colorScheme: { value: state.colorScheme },
+                    u_glow: { value: state.glow },
+                    u_saturation: { value: state.saturation },
+                    u_ao: { value: state.ao },
+                    u_specular: { value: state.specular }
+                }
+            });
+
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            updateCameraPosition();
+            setupInteractionListeners(container);
+            setupUIEventListeners();
+
+            // Hide Loading Overlay
+            setTimeout(() => {
+                const overlay = document.getElementById('loading-overlay');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.remove(), 500);
+            }, 600);
+
+            // Fade out Navigation Hint
+            setTimeout(() => {
+                const hint = document.getElementById('nav-hint');
+                if (hint) hint.classList.add('opacity-0');
+            }, 6000);
+
+            animate(0);
+        }
+
+        function updateCameraPosition() {
+            const x = state.target.x + state.camRadius * Math.sin(state.camTheta) * Math.cos(state.camPhi);
+            const y = state.target.y + state.camRadius * Math.sin(state.camPhi);
+            const z = state.target.z + state.camRadius * Math.cos(state.camTheta) * Math.cos(state.camPhi);
+            
+            material.uniforms.u_cameraPos.value.set(x, y, z);
+            material.uniforms.u_cameraTarget.value.copy(state.target);
+            material.uniforms.u_offset2D.value.copy(state.offset2D);
+            material.uniforms.u_zoom2D.value = state.zoom2D;
+        }
+
+        // Mouse & Touch Interaction Setup
+        function setupInteractionListeners(container) {
+            
+            container.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                isRightClick = e.button === 2;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            // Double Click to Center in 2D Mode
+            container.addEventListener('dblclick', (e) => {
+                if (state.mode === 0) { // 2D Mode
+                    const rect = container.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 2.0 - 1.0;
+                    const y = -(((e.clientY - rect.top) / rect.height) * 2.0 - 1.0);
+                    const aspect = rect.width / rect.height;
+
+                    state.offset2D.x += x * aspect * state.zoom2D * 0.5;
+                    state.offset2D.y += y * state.zoom2D * 0.5;
+                    state.zoom2D *= 0.5; // Zoom in on double click
+                    updateCameraPosition();
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                if (state.mode === 0) {
+                    // 2D Pan Mode
+                    const aspect = window.innerWidth / window.innerHeight;
+                    state.offset2D.x -= (deltaX / window.innerWidth) * 2.0 * aspect * state.zoom2D;
+                    state.offset2D.y += (deltaY / window.innerHeight) * 2.0 * state.zoom2D;
+                } else {
+                    // 3D Orbit / Pan Mode
+                    if (isRightClick) {
+                        const panSpeed = 0.002 * state.camRadius;
+                        state.target.x -= deltaX * panSpeed;
+                        state.target.y += deltaY * panSpeed;
+                    } else {
+                        state.camTheta -= deltaX * 0.005;
+                        state.camPhi += deltaY * 0.005;
+
+                        const maxPhi = Math.PI / 2 - 0.01;
+                        state.camPhi = Math.max(-maxPhi, Math.min(maxPhi, state.camPhi));
+                    }
+                }
+
+                updateCameraPosition();
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+            container.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            // Smooth Wheel Zoom (both 2D & 3D)
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = e.deltaY * 0.0012;
+
+                if (state.mode === 0) { // 2D Zoom
+                    state.zoom2D = Math.max(0.00000001, state.zoom2D * (1.0 + zoomFactor));
+                } else { // 3D Zoom
+                    state.camRadius = Math.max(1.1, Math.min(10.0, state.camRadius + zoomFactor * state.camRadius));
+                }
+                updateCameraPosition();
+            }, { passive: false });
+
+            // Touch Gestures
+            let touchStartDist = 0;
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                } else if (e.touches.length === 2) {
+                    touchStartDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                }
+            });
+
+            container.addEventListener('touchmove', (e) => {
+                if (isDragging && e.touches.length === 1) {
+                    const deltaX = e.touches[0].clientX - previousMousePosition.x;
+                    const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+                    if (state.mode === 0) {
+                        const aspect = window.innerWidth / window.innerHeight;
+                        state.offset2D.x -= (deltaX / window.innerWidth) * 2.0 * aspect * state.zoom2D;
+                        state.offset2D.y += (deltaY / window.innerHeight) * 2.0 * state.zoom2D;
+                    } else {
+                        state.camTheta -= deltaX * 0.005;
+                        state.camPhi += deltaY * 0.005;
+                        state.camPhi = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, state.camPhi));
+                    }
+
+                    updateCameraPosition();
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                } else if (e.touches.length === 2) {
+                    const dist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const delta = (touchStartDist - dist) * 0.005;
+                    
+                    if (state.mode === 0) {
+                        state.zoom2D = Math.max(0.00000001, state.zoom2D * (1.0 + delta));
+                    } else {
+                        state.camRadius = Math.max(1.1, Math.min(10.0, state.camRadius + delta));
+                    }
+                    updateCameraPosition();
+                    touchStartDist = dist;
+                }
+            });
+
+            container.addEventListener('touchend', () => { isDragging = false; });
+
+            window.addEventListener('resize', () => {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                material.uniforms.u_resolution.value.set(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Setup Event Listeners for Control Panel
+        function setupUIEventListeners() {
+            // Sidebar Toggle
+            const sidebar = document.getElementById('controls-sidebar');
+            const toggleBtn = document.getElementById('toggle-sidebar-btn');
+            const closeBtn = document.getElementById('close-sidebar-btn');
+
+            const toggleSidebar = () => sidebar.classList.toggle('collapsed');
+            toggleBtn.addEventListener('click', toggleSidebar);
+            closeBtn.addEventListener('click', toggleSidebar);
+
+            // 2D / 3D Mode Toggle Buttons
+            const btn2D = document.getElementById('mode-2d-btn');
+            const btn3D = document.getElementById('mode-3d-btn');
+            const containerPower = document.getElementById('container-power');
+            const containerAO = document.getElementById('container-ao');
+            const containerSpecular = document.getElementById('container-specular');
+
+            const setMode = (mode) => {
+                state.mode = mode;
+                material.uniforms.u_mode.value = mode;
+
+                if (mode === 0) { // 2D Mode
+                    btn2D.classList.add('mode-active');
+                    btn3D.classList.remove('mode-active');
+                    containerPower.classList.add('hidden');
+                    containerAO.classList.add('hidden');
+                    containerSpecular.classList.add('hidden');
+                } else { // 3D Mode
+                    btn3D.classList.add('mode-active');
+                    btn2D.classList.remove('mode-active');
+                    containerPower.classList.remove('hidden');
+                    containerAO.classList.remove('hidden');
+                    containerSpecular.classList.remove('hidden');
+                }
+            };
+
+            btn2D.addEventListener('click', () => setMode(0));
+            btn3D.addEventListener('click', () => setMode(1));
+
+            // Bind Sliders to State & Uniforms
+            const bindControl = (id, prop, isFloat = true, uniformName = null) => {
+                const elem = document.getElementById(id);
+                const display = document.getElementById(id + 'Val');
+                if (!elem) return;
+
+                elem.addEventListener('input', (e) => {
+                    const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value);
+                    state[prop] = val;
+                    if (display) display.textContent = isFloat ? val.toFixed(1) : val;
+                    if (uniformName || prop in material.uniforms) {
+                        material.uniforms[uniformName || prop].value = val;
+                    }
+                });
+            };
+
+            bindControl('power', 'power', true, 'u_power');
+            bindControl('iterations', 'maxIterations', false, 'u_maxIterations');
+            bindControl('glow', 'glow', true, 'u_glow');
+            bindControl('saturation', 'saturation', true, 'u_saturation');
+            bindControl('ao', 'ao', true, 'u_ao');
+            bindControl('specular', 'specular', true, 'u_specular');
+            bindControl('morphSpeed', 'morphSpeed', true);
+
+            // Color Scheme Dropdown
+            document.getElementById('colorScheme').addEventListener('change', (e) => {
+                const val = parseInt(e.target.value);
+                state.colorScheme = val;
+                material.uniforms.u_colorScheme.value = val;
+            });
+
+            // Preset Buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const presetName = btn.getAttribute('data-preset');
+                    if (presets[presetName]) {
+                        applyPreset(presets[presetName]);
+                    }
+                });
+            });
+
+            // Play / Pause Animation Button
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+
+            playPauseBtn.addEventListener('click', () => {
+                state.isAnimating = !state.isAnimating;
+                playIcon.classList.toggle('hidden', state.isAnimating);
+                pauseIcon.classList.toggle('hidden', !state.isAnimating);
+            });
+
+            // Reset View Button
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                state.camRadius = 2.8;
+                state.camTheta = Math.PI / 4;
+                state.camPhi = Math.PI / 6;
+                state.target.set(0, 0, 0);
+                state.offset2D.set(-0.5, 0.0);
+                state.zoom2D = 1.3;
+                applyPreset(presets.classic);
+                updateCameraPosition();
+            });
+
+            // Fullscreen Toggle
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            const fullIcon = document.getElementById('fullscreen-icon');
+            const minIcon = document.getElementById('minimize-icon');
+
+            fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => console.log(err));
+                    fullIcon.classList.add('hidden');
+                    minIcon.classList.remove('hidden');
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                        fullIcon.classList.remove('hidden');
+                        minIcon.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        // Apply Preset Config
+        function applyPreset(p) {
+            Object.assign(state, p);
+
+            const updateUI = (id, val, isFloat = true) => {
+                const input = document.getElementById(id);
+                const display = document.getElementById(id + 'Val');
+                if (input) input.value = val;
+                if (display) display.textContent = isFloat ? val.toFixed(1) : val;
+            };
+
+            updateUI('power', p.power);
+            updateUI('iterations', p.maxIterations, false);
+            updateUI('glow', p.glow);
+            updateUI('saturation', p.saturation);
+            updateUI('ao', p.ao);
+            updateUI('specular', p.specular);
+
+            document.getElementById('colorScheme').value = p.colorScheme;
+
+            material.uniforms.u_power.value = p.power;
+            material.uniforms.u_maxIterations.value = p.maxIterations;
+            material.uniforms.u_colorScheme.value = p.colorScheme;
+            material.uniforms.u_glow.value = p.glow;
+            material.uniforms.u_saturation.value = p.saturation;
+            material.uniforms.u_ao.value = p.ao;
+            material.uniforms.u_specular.value = p.specular;
+        }
+
+        // Render Loop
+        let lastTime = 0;
+        function animate(currentTime) {
+            requestAnimationFrame(animate);
+
+            const delta = (currentTime - lastTime) * 0.001;
+            lastTime = currentTime;
+
+            if (state.isAnimating) {
+                material.uniforms.u_time.value += delta;
+
+                // Dynamic Morphing only in 3D Mode
+                if (state.mode === 1 && state.morphSpeed > 0) {
+                    const animatedPower = state.power + Math.sin(material.uniforms.u_time.value * state.morphSpeed * 1.5) * 0.75;
+                    material.uniforms.u_power.value = Math.max(2.0, animatedPower);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Startup Initialization
+        window.onload = () => {
+            lucide.createIcons();
+            init();
+        };
+    </script>
+</body>
+</html>

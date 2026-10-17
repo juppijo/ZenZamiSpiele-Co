@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>3D-Apfelmännchen</title>
+<style>
+:root{color-scheme:dark;--bg:#0b0a0f;--pn:rgba(18,15,24,.84);--gd:#e0b44c;--tx:#f1e8d2;--mu:#9a8f78;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden;font:14px system-ui,sans-serif;color:var(--tx)}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#p{position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));width:270px;max-width:calc(100vw - 20px);max-height:calc(100% - 100px);overflow:auto;background:var(--pn);backdrop-filter:blur(8px);border:1px solid #e0b44c55;border-radius:12px;padding:10px 12px}
+#p header{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--gd);font-weight:600}
+#p.c .b{display:none}
+button,select{background:#241c10;color:var(--gd);border:1px solid #e0b44c88;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+button:hover{background:#3a2c14}
+.r{display:grid;grid-template-columns:1fr auto;margin-top:8px;font-size:12.5px;color:var(--mu)}
+.r output{color:var(--gd)}
+input[type=range]{grid-column:1/3;width:100%;accent-color:var(--gd)}
+.k{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}
+#bar{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px}
+#h{position:fixed;right:12px;top:calc(12px + env(safe-area-inset-top,0px));color:var(--mu);font-size:11.5px;text-align:right;max-width:210px;pointer-events:none}
+#err{position:fixed;inset:40% 10% auto;color:#f88;text-align:center}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="p"><header><span>🍎 3D-Apfelmännchen</span><button id="tg">Regler ▾</button></header><div class="b" id="b"></div></div>
+<div id="h">Ziehen: drehen · Mausrad / Pinch: Zoom · Rechtsklick oder Shift: verschieben · Doppelklick: auf Punkt zoomen</div>
+<div id="bar"><button id="md">⇄ 2D</button><button id="rs">Zurücksetzen</button><button id="fs">⛶ Vollbild</button></div>
+<div id="err"></div>
+<script>
+const $=s=>document.querySelector(s),cv=$('#c'),gl=cv.getContext('webgl',{antialias:false});
+const VS='attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}';
+const FS=`precision highp float;
+uniform vec2 R;uniform vec3 ro,fw,rt,up;uniform float P,hue,spr,shn,glw;uniform int IT,ST,PAL,MODE,IT2;uniform vec3 c2;
+vec4 tr;
+float map(vec3 p){vec3 z=p;float dr=1.,r=0.;tr=vec4(abs(z),dot(z,z));
+ for(int i=0;i<24;i++){if(i>=IT)break;r=length(z);if(r>2.)break;
+  float th=acos(clamp(z.z/r,-1.,1.))*P,ph=atan(z.y,z.x)*P;
+  dr=pow(r,P-1.)*P*dr+1.;float zr=pow(r,P);
+  z=zr*vec3(sin(th)*cos(ph),sin(th)*sin(ph),cos(th))+p;
+  tr=min(tr,vec4(abs(z),dot(z,z)));}
+ return .5*log(r)*r/dr;}
+vec3 pal(float k){vec3 a=vec3(.5),b=vec3(.5),c=vec3(1.),d=vec3(0.,.33,.67);
+ if(PAL==1){d=vec3(0.,.1,.2);}
+ else if(PAL==2){a=vec3(.2,.5,.6);b=vec3(.3,.4,.4);d=vec3(.5,.6,.7);}
+ else if(PAL==3){a=vec3(.65,.5,.25);b=vec3(.4,.35,.2);c=vec3(1.,1.,.7);d=vec3(0.,.1,.25);}
+ else if(PAL==4){c=vec3(2.,1.,0.);d=vec3(.5,.2,.25);}
+ return a+b*cos(6.28318*(c*k+d+hue));}
+void main(){
+ vec2 uv=(gl_FragCoord.xy-.5*R)/R.y;
+ if(MODE==1){vec2 c=c2.xy+uv*c2.z*2.,z=vec2(0.);float n=0.;bool ins=true;
+  for(int i=0;i<1500;i++){if(i>=IT2)break;z=vec2(z.x*z.x-z.y*z.y,2.*z.x*z.y)+c;if(dot(z,z)>256.){ins=false;n=float(i);break;}}
+  vec3 o=vec3(.02,.015,.03);
+  if(!ins){float s=n+1.-log2(.5*log2(dot(z,z)));o=pal(s*.03*spr+.1);}
+  gl_FragColor=vec4(pow(o,vec3(.4545)),1.);return;}
+ vec3 rd=normalize(fw+uv.x*rt+uv.y*up);
+ vec3 bg=mix(vec3(.02,.015,.03),vec3(.09,.06,.12),uv.y+.5)+vec3(.05,.035,0.)*(1.-length(uv));
+ vec3 col=bg;float md=10.;
+ float b=dot(ro,rd),h=b*b-(dot(ro,ro)-2.25);
+ if(h>0.){
+  float sq=sqrt(h),t=max(0.,-b-sq),te=-b+sq,pix=1./R.y;bool hit=false;int n=0;
+  for(int i=0;i<300;i++){
+   if(i>=ST||t>te)break;n=i;
+   float d=map(ro+rd*t);md=min(md,abs(d));
+   if(d<pix*t*.6){hit=true;break;}
+   t+=d*.85;}
+  if(hit){
+   vec3 p=ro+rd*t;float e=max(pix*t*.8,1e-7);
+   vec3 nn=normalize(vec3(map(p+vec3(e,0,0))-map(p-vec3(e,0,0)),map(p+vec3(0,e,0))-map(p-vec3(0,e,0)),map(p+vec3(0,0,e))-map(p-vec3(0,0,e))));
+   map(p);vec4 T=tr;
+   float k=(.5*T.x+.3*T.y+.2*T.z)*spr+.2*T.w;
+   vec3 base=pal(k);
+   vec3 l=normalize(-fw+up*.8-rt*.6);
+   float dif=max(dot(nn,l),0.),ao=pow(1.-float(n)/float(ST),1.5);
+   float spc=pow(max(dot(reflect(-l,nn),-rd),0.),24.)*shn;
+   float rim=pow(1.-max(dot(nn,-rd),0.),3.);
+   col=base*(.12+.95*dif)*ao+spc*vec3(1.,.95,.85)+rim*pal(k+.4)*.35*shn;
+  } else col+=pal(.3)*glw*.5*exp(-md*16.);
+ }
+ col*=1.-.35*dot(uv,uv);
+ gl_FragColor=vec4(pow(max(col,0.),vec3(.4545)),1.);}`;
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(o);return o}
+let pg;try{pg=gl.createProgram();gl.attachShader(pg,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pg,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pg);gl.useProgram(pg)}catch(e){$('#err').textContent='WebGL-Fehler: '+e}
+const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const al=gl.getAttribLocation(pg,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+const U=n=>gl.getUniformLocation(pg,n);
+
+// Regler
+const C=[['pw','Potenz (Form)',2,16,.05,8],['it','Iterationen',3,24,1,10],['st','Raymarch-Schritte',40,300,5,140],['q','Auflösung',.3,1,.05,.6],['hue','Farbton',0,1,.01,0],['sp','Farbstreuung',.2,4,.05,1.5],['sh','Glanz',0,2,.05,.8],['gl','Leuchten',0,2,.05,.6],['spd','Drehtempo (3D)',0,1,.01,.15],['it2','Iterationen 2D',50,1500,10,300]];
+const V={pal:0,auto:true,anim:false,mode:0};
+let html='<div class="k">Darstellung <select id="mode"><option value="0">3D (Mandelbulb)</option><option value="1">Klassisch 2D</option></select></div><div class="k">Palette <select id="pal"><option value="0">Regenbogen</option><option value="1">Feuer</option><option value="2">Ozean</option><option value="3">Gold</option><option value="4">Neon</option></select></div>';
+for(const[i,l,mn,mx,st,v]of C){V[i]=v;html+=`<div class="r"><span>${l}</span><output id="o${i}">${v}</output><input type="range" id="s${i}" min="${mn}" max="${mx}" step="${st}" value="${v}"></div>`}
+html+='<label class="k"><input type="checkbox" id="auto" checked> Automatisch drehen</label><label class="k"><input type="checkbox" id="anim"> Potenz animieren (Morphing)</label>';
+$('#b').innerHTML=html;
+let dirty=1,busy=0,bt;
+for(const[i]of C)$('#s'+i).oninput=e=>{V[i]=+e.target.value;$('#o'+i).textContent=V[i];dirty=1};
+$('#pal').onchange=e=>{V.pal=+e.target.value;dirty=1};
+function setMode(m){V.mode=m;$('#mode').value=m;$('#md').textContent=m?'⇄ 3D':'⇄ 2D';$('#h').textContent=m?'Ziehen: verschieben · Mausrad / Pinch: Zoom zum Mauszeiger · Doppelklick: zentrieren und vergrößern':'Ziehen: drehen · Mausrad / Pinch: Zoom · Rechtsklick oder Shift: verschieben · Doppelklick: auf Punkt zoomen';tw=null;dirty=1}
+$('#mode').onchange=e=>setMode(+e.target.value);
+$('#auto').onchange=e=>V.auto=e.target.checked;$('#anim').onchange=e=>{V.anim=e.target.checked;dirty=1};
+$('#tg').onclick=()=>{const c=$('#p').classList.toggle('c');$('#tg').textContent=c?'Regler ▸':'Regler ▾'};
+$('#fs').onclick=()=>{const d=document,e=d.documentElement;(d.fullscreenElement||d.webkitFullscreenElement)?(d.exitFullscreen||d.webkitExitFullscreen).call(d):(e.requestFullscreen||e.webkitRequestFullscreen).call(e)};
+addEventListener('resize',()=>dirty=1);
+
+// Kamera
+const cam={yaw:.6,pitch:.35,dist:3.2,t:[0,0,0]};let tw=null,curP=8;
+const c2={x:-.5,y:0,s:1.4};
+function zoom2(f,px,py,ctr){const r=cv.getBoundingClientRect(),u=(px-r.left-r.width/2)/r.height,v=-(py-r.top-r.height/2)/r.height,ns=clamp(c2.s*f,2e-6,4);
+ if(ctr){c2.x+=u*2*c2.s;c2.y+=v*2*c2.s}else{c2.x+=u*2*(c2.s-ns);c2.y+=v*2*(c2.s-ns)}c2.s=ns;dirty=1}
+const nrm=v=>{const l=Math.hypot(...v);return v.map(x=>x/l)};
+function basis(){const cp=Math.cos(cam.pitch),o=[cam.t[0]+cam.dist*cp*Math.sin(cam.yaw),cam.t[1]+cam.dist*Math.sin(cam.pitch),cam.t[2]+cam.dist*cp*Math.cos(cam.yaw)];
+ const fw=nrm(o.map((x,i)=>cam.t[i]-x)),rt=nrm([-fw[2],0,fw[0]]),up=[fw[1]*rt[2]-fw[2]*rt[1],fw[2]*rt[0]-fw[0]*rt[2],fw[0]*rt[1]-fw[1]*rt[0]];return{o,fw,rt,up}}
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+function draw(ts){
+ const dpr=Math.min(devicePixelRatio||1,2),s=V.mode?(busy?.6:1):V.q*(busy?.55:1),w=Math.max(2,cv.clientWidth*dpr*s|0),h=Math.max(2,cv.clientHeight*dpr*s|0);
+ if(cv.width!=w||cv.height!=h){cv.width=w;cv.height=h;gl.viewport(0,0,w,h)}
+ curP=V.pw+(V.anim?2.5*Math.sin(ts*.0005):0);const B=basis();
+ gl.uniform2f(U('R'),w,h);gl.uniform3fv(U('ro'),B.o);gl.uniform3fv(U('fw'),B.fw);gl.uniform3fv(U('rt'),B.rt);gl.uniform3fv(U('up'),B.up);
+ gl.uniform1f(U('P'),curP);gl.uniform1f(U('hue'),V.hue);gl.uniform1f(U('spr'),V.sp);gl.uniform1f(U('shn'),V.sh);gl.uniform1f(U('glw'),V.gl);
+ gl.uniform1i(U('IT'),V.it);gl.uniform1i(U('ST'),V.st);gl.uniform1i(U('PAL'),V.pal);gl.uniform1i(U('MODE'),V.mode);gl.uniform1i(U('IT2'),V.it2);gl.uniform3f(U('c2'),c2.x,c2.y,c2.s);
+ gl.drawArrays(gl.TRIANGLE_STRIP,0,4)}
+let last=0;
+function frame(ts){const dt=Math.min((ts-last)/1000,.1);last=ts;
+ if(!V.mode&&V.auto&&!busy&&V.spd>0){cam.yaw+=dt*V.spd*2;dirty=1}
+ if(V.anim&&!V.mode)dirty=1;
+ if(tw){for(let k=0;k<3;k++)cam.t[k]+=(tw.t[k]-cam.t[k])*.12;cam.dist+=(tw.d-cam.dist)*.12;if(Math.abs(tw.d-cam.dist)<tw.d*.003)tw=null;dirty=1}
+ if(dirty){dirty=0;draw(ts)}requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+
+// Maus / Touch
+const ptr=new Map();let pd=0;const pdist=()=>{const a=[...ptr.values()];return Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])||1};
+const idle=()=>{clearTimeout(bt);bt=setTimeout(()=>{busy=0;dirty=1},180)};
+cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,[e.clientX,e.clientY]);busy=1;tw=null;cv.style.cursor='grabbing';if(ptr.size==2)pd=pdist()};
+cv.onpointermove=e=>{if(!ptr.has(e.pointerId))return;const o=ptr.get(e.pointerId),dx=e.clientX-o[0],dy=e.clientY-o[1];ptr.set(e.pointerId,[e.clientX,e.clientY]);
+ if(V.mode){const H=cv.clientHeight;if(ptr.size==2){const d=pdist(),a=[...ptr.values()];zoom2(pd/d,(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2);pd=d}else{c2.x-=dx/H*2*c2.s;c2.y+=dy/H*2*c2.s}}
+ else if(ptr.size==2){const d=pdist();cam.dist=clamp(cam.dist*pd/d,1e-4,12);pd=d}
+ else if(e.buttons&2||e.shiftKey){const B=basis(),k=cam.dist/cv.clientHeight;for(let i=0;i<3;i++)cam.t[i]+=(-B.rt[i]*dx+B.up[i]*dy)*k}
+ else{cam.yaw-=dx*.006;cam.pitch=clamp(cam.pitch+dy*.006,-1.5,1.5)}
+ dirty=1};
+cv.onpointerup=cv.onpointercancel=e=>{ptr.delete(e.pointerId);cv.style.cursor='grab';if(!ptr.size){idle()}};
+cv.oncontextmenu=e=>e.preventDefault();
+cv.addEventListener('wheel',e=>{e.preventDefault();if(V.mode)zoom2(Math.exp(e.deltaY*.0015),e.clientX,e.clientY);else cam.dist=clamp(cam.dist*Math.exp(e.deltaY*.0012),1e-4,12);tw=null;busy=1;idle();dirty=1},{passive:false});
+// Doppelklick: Oberflächenpunkt finden und hinzoomen
+function de(x,y,z){const px=x,py=y,pz=z,P=curP;let dr=1,r=0;for(let i=0;i<V.it;i++){r=Math.hypot(x,y,z);if(r>2)break;const th=Math.acos(clamp(z/r,-1,1))*P,ph=Math.atan2(y,x)*P;dr=Math.pow(r,P-1)*P*dr+1;const zr=Math.pow(r,P);x=zr*Math.sin(th)*Math.cos(ph)+px;y=zr*Math.sin(th)*Math.sin(ph)+py;z=zr*Math.cos(th)+pz}return .5*Math.log(r)*r/dr}
+cv.ondblclick=e=>{if(V.mode){zoom2(.35,e.clientX,e.clientY,true);return}const B=basis(),r=cv.getBoundingClientRect(),u=(e.clientX-r.left-r.width/2)/r.height,v=-(e.clientY-r.top-r.height/2)/r.height;
+ const rd=nrm(B.fw.map((f,i)=>f+u*B.rt[i]+v*B.up[i]));let t=0;
+ for(let i=0;i<250&&t<30;i++){const q=B.o.map((o,k)=>o+rd[k]*t),d=de(...q);if(d<t/r.height*.7+1e-7){tw={t:q,d:Math.max(1e-4,t*.4)};return}t+=d*.85}};
+$('#rs').onclick=()=>{cam.yaw=.6;cam.pitch=.35;cam.dist=3.2;cam.t=[0,0,0];c2.x=-.5;c2.y=0;c2.s=1.4;tw=null;dirty=1};
+$('#md').onclick=()=>setMode(V.mode?0:1);
+</script></body></html>
