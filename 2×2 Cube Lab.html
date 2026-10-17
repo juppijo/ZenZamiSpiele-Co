@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>2×2 Cube Lab</title>
+  <style>
+    :root{--bg:#f2f3f7;--pn:#fff;--tx:#1b1d27;--mu:#6b7080;--ac:#4f6bff;--bd:#dfe2ea;--U:#fff;--D:#ffd500;--F:#009b48;--B:#0046ad;--R:#b71234;--L:#ff5800;--in:#111;--rad:8px;--gap:3px;--s:90px;
+    box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+    @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161d;--pn:#1e212b;--tx:#eceef5;--mu:#9097a8;--bd:#2d3140}}
+    :root[data-theme="dark"]{--bg:#14161d;--pn:#1e212b;--tx:#eceef5;--mu:#9097a8;--bd:#2d3140}
+    body[data-s=neon]{--bg:#0a0a14;--pn:#12122a;--tx:#e8e8ff;--mu:#8a8ab8;--bd:#2a2a58;--ac:#ff2d6f;--U:#fff;--D:#fff200;--F:#00ff88;--B:#00b7ff;--R:#ff2d6f;--L:#ff9d00;--in:#05050a;--rad:14px;--glow:0 0 10px currentColor}
+    body[data-s=pastel]{--bg:#dfc6f6;--pn:#fff;--tx:#3d3340;--mu:#8c7f91;--bd:#eadfe6;--ac:#e58bb0;--U:#fff;--D:#fff3b0;--F:#b5ead7;--B:#a0c4ff;--R:#ffadad;--L:#ffd6a5;--in:#d8cfe0;--rad:18px;--gap:4px}
+    body[data-s=retro]{--bg:#2b2118;--pn:#3a2d20;--tx:#f3e3c3;--mu:#b9a47f;--bd:#55432f;--ac:#d9822b;--U:#f3e9d2;--D:#e8b923;--F:#4a8f5a;--B:#3a6ea5;--R:#c0392b;--L:#d9822b;--in:#1c140d;--rad:4px;--gap:2px}
+    body[data-s=mono]{--bg:#1a1a1a;--pn:#262626;--tx:#eee;--mu:#999;--bd:#3a3a3a;--ac:#bbb;--U:#f5f5f5;--D:#cfcfcf;--F:#9a9a9a;--B:#6a6a6a;--R:#444;--L:#2b2b2b;--in:#000;--rad:2px}
+    body[data-s=neon] .f::after{box-shadow:0 0 12px var(--c)}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+    #app{display:flex;height:100%}
+    #stage{position:relative;flex:1;min-width:0;display:flex;flex-direction:column}
+    #bar{display:flex;gap:8px;padding:10px;flex-wrap:wrap;z-index:2}
+    #scene{flex:1;display:grid;place-items:center;perspective:calc(var(--s)*16);touch-action:none;cursor:grab;min-height:0}
+    #cube{position:relative;width:0;height:0;transform-style:preserve-3d}
+    .c{position:absolute;left:calc(var(--s)/-2);top:calc(var(--s)/-2);width:var(--s);height:var(--s);transform-style:preserve-3d}
+    .f{position:absolute;inset:0;background:var(--in);backface-visibility:hidden}
+    .f::after{content:"";position:absolute;inset:var(--gap);background:var(--c);border-radius:var(--rad)}
+    #status{padding:8px 12px;color:var(--mu);text-align:center}
+    #panel{width:340px;max-width:100%;background:var(--pn);border-left:1px solid var(--bd);padding:14px;overflow-y:auto;box-sizing:border-box}
+    body.nopanel #panel{display:none}
+    h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--mu);margin:16px 0 8px}
+    h2:first-child{margin-top:0}
+    button,input,textarea{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:7px 11px}
+    button{cursor:pointer}button:hover{border-color:var(--ac)}
+    button.on,button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+    input,textarea{width:100%;box-sizing:border-box;margin-bottom:6px}
+    textarea{min-height:60px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+    .row{display:flex;gap:6px;flex-wrap:wrap}
+    #err{color:#e5484d;min-height:18px}
+    ul{list-style:none;margin:0;padding:0}
+    li{border:1px solid var(--bd);border-radius:8px;padding:8px;margin-bottom:6px}
+    li b{display:block}li code{display:block;color:var(--mu);font-size:12px;word-break:break-word;margin:2px 0 6px}
+    li button{padding:3px 8px;font-size:12px}
+    #mv{display:grid;grid-template-columns:repeat(9,1fr);gap:4px}#mv button{padding:6px 0}
+    @media (max-width:760px){#app{flex-direction:column}#panel{width:auto;border-left:0;border-top:1px solid var(--bd);max-height:48%}}
+  </style>
+</head>
+<body data-s="classic">
+  <div id="app">
+    <main id="stage">
+      <div id="bar"><b style="align-self:center;margin-right:6px">2×2 Würfel</b><button id="fs">⛶ Vollbild</button><button id="tp">Panel ein/aus</button><button id="stop">■ Stopp</button><button id="vf">Vorderansicht</button><button id="vi">Isometrisch</button></div>
+      <div id="scene">
+        <div id="cube"></div>
+      </div>
+      <div id="status"></div>
+    </main>
+    <aside id="panel">
+      <h2>Algorithmus speichern</h2>
+      <input id="nm" placeholder="Name"><textarea id="al" placeholder="Notation, z. B. R U R' U'"></textarea>
+      <div class="row"><button class="pri" id="rn">▶ Ausführen</button><button id="sv">Speichern</button></div>
+      <div id="err"></div>
+      <h2>Meine Algorithmen</h2>
+      <ul id="list"></ul>
+      <div class="row"><button id="fsave">💾 Als Datei speichern</button><button id="fload">📂 Datei laden</button><input id="ff" type="file" accept=".json,.txt,application/json" hidden></div>
+      <div id="info" style="color:var(--mu);min-height:18px;margin-top:6px"></div>
+      <textarea id="fb" hidden style="height:110px"></textarea>
+      <div class="row"><button id="fcp" hidden>Kopieren</button><button id="fim" hidden>Aus Text importieren</button></div>
+      <h2>Styles</h2>
+      <div class="row" id="styles"></div>
+      <h2>Steuerung</h2>
+      <div class="row" style="margin-bottom:8px"><button id="sc">Mischen</button><button id="rs">Zurücksetzen</button></div>
+      <label>Tempo <input id="sp" type="range" min="1" max="10" value="7"></label>
+      <div id="mv"></div>
+      <p style="color:var(--mu);font-size:12px">Würfel mit der Maus/Finger drehen. Notation: U D L R F B, Gesamtdrehungen x y z, ' = gegen den Uhrzeigersinn, 2 = doppelt. Tastatur: Buchstabe (+Shift für ').</p>
+    </aside>
+  </div>
+  <script>
+    (() => {
+      const $ = s => document.querySelector(s),
+        cube = $('#cube'),
+        sc = $('#scene');
+      let S = 90,
+        cubies = [],
+        queue = [],
+        busy = false,
+        count = 0,
+        speed = 370,
+        gen = 0,
+        rx = -28,
+        ry = -38;
+      const ST = (k, v) => {
+        try {
+          localStorage.setItem(k, JSON.stringify(v))
+        } catch (e) {}
+      };
+      const LD = (k, d) => {
+        try {
+          const v = localStorage.getItem(k);
+          return v == null ? d : JSON.parse(v)
+        } catch (e) {
+          return d
+        }
+      };
+      const I = () => [
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+      ];
+      const mul = (A, B) => A.map(r => [0, 1, 2, 3].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j] + r[3] * B[3][j]));
+      const rot = (a, d) => {
+        const t = d * Math.PI / 180,
+          c = Math.cos(t),
+          s = Math.sin(t);
+        return a == 'x' ? [
+          [1, 0, 0, 0],
+          [0, c, -s, 0],
+          [0, s, c, 0],
+          [0, 0, 0, 1]
+        ] : a == 'y' ? [
+          [c, 0, s, 0],
+          [0, 1, 0, 0],
+          [-s, 0, c, 0],
+          [0, 0, 0, 1]
+        ] : [
+          [c, -s, 0, 0],
+          [s, c, 0, 0],
+          [0, 0, 1, 0],
+          [0, 0, 0, 1]
+        ]
+      };
+      const css = M => {
+        const o = [];
+        for (let c = 0; c < 4; c++)
+          for (let r = 0; r < 4; r++) o.push(r < 3 && c == 3 ? (M[r][c] * S).toFixed(2) : M[r][c].toFixed(5));
+        return 'matrix3d(' + o.join(',') + ')'
+      };
+      const FD = [
+        ['F', '', (x, y, z) => z > 0],
+        ['B', 'rotateY(180deg)', (x, y, z) => z < 0],
+        ['R', 'rotateY(90deg)', x => x > 0],
+        ['L', 'rotateY(-90deg)', x => x < 0],
+        ['U', 'rotateX(90deg)', (x, y) => y < 0],
+        ['D', 'rotateX(-90deg)', (x, y) => y > 0]
+      ];
+      const render = () => cubies.forEach(c => c.el.style.transform = css(c.M));
+
+      function build() {
+        cube.innerHTML = '';
+        cubies = [];
+        for (const x of [-.5, .5])
+          for (const y of [-.5, .5])
+            for (const z of [-.5, .5]) {
+              const el = document.createElement('div');
+              el.className = 'c';
+              FD.forEach(([n, t, f]) => {
+                const d = document.createElement('div');
+                d.className = 'f';
+                d.style.transform = t + ' translateZ(calc(var(--s)/2))';
+                d.style.setProperty('--c', f(x, y, z) ? `var(--${n})` : 'var(--in)');
+                el.appendChild(d)
+              });
+              cube.appendChild(el);
+              const M = I();
+              M[0][3] = x;
+              M[1][3] = y;
+              M[2][3] = z;
+              cubies.push({
+                el,
+                M
+              })
+            }
+        render()
+      }
+      const MV = {
+        U: ['y', p => p.y < 0, -1],
+        D: ['y', p => p.y > 0, 1],
+        L: ['x', p => p.x < 0, -1],
+        R: ['x', p => p.x > 0, 1],
+        F: ['z', p => p.z > 0, 1],
+        B: ['z', p => p.z < 0, -1],
+        x: ['x', () => 1, 1],
+        y: ['y', () => 1, -1],
+        z: ['z', () => 1, 1]
+      };
+      const pos = c => ({
+        x: Math.sign(c.M[0][3]),
+        y: Math.sign(c.M[1][3]),
+        z: Math.sign(c.M[2][3])
+      });
+
+      function parse(t) {
+        const re = /([UDLRFBxyz])()([2'’]{0,2})/g;
+        if (t.replace(re, '').replace(/[\s(),.\[\]]/g, '')) return {
+          err: 'Ungültige Notation: ' + t.replace(re, '').replace(/[\s(),.\[\]]/g, '')[0]
+        };
+        const out = [];
+        let m;
+        re.lastIndex = 0;
+        while ((m = re.exec(t))) {
+          let k = m[1];
+          if (m[2]) {
+            if ('UDLRFB'.includes(k)) k = k.toLowerCase();
+            else return {
+              err: '„w“ nur bei U D L R F B'
+            }
+          }
+          let n = m[3].includes('2') ? 2 : 1;
+          if (/['’]/.test(m[3])) n = -n;
+          out.push([k, n])
+        }
+        return out.length ? {
+          moves: out
+        } : {
+          err: 'Keine Züge eingegeben'
+        }
+      }
+      const inv = a => a.slice().reverse().map(([k, n]) => [k, -n]);
+      const upd = () => $('#status').textContent = `Züge: ${count} · Warteschlange: ${queue.length}`;
+
+      function enqueue(l) {
+        queue.push(...l);
+        if (!busy) next();
+        upd()
+      }
+
+      function next() {
+        if (!queue.length) {
+          busy = false;
+          upd();
+          return
+        }
+        busy = true;
+        const g = gen,
+          [k, n] = queue.shift(),
+          [ax, sel, sg] = MV[k];
+        const set = cubies.filter(c => sel(pos(c))),
+          ang = sg * 90 * n,
+          dur = speed * (Math.abs(n) == 2 ? 1.5 : 1),
+          t0 = performance.now();
+        const step = now => {
+          if (g !== gen) return;
+          const p = Math.min(1, (now - t0) / dur),
+            e = p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2,
+            R = rot(ax, ang * e);
+          set.forEach(c => c.el.style.transform = css(mul(R, c.M)));
+          if (p < 1) requestAnimationFrame(step);
+          else {
+            const Rf = rot(ax, ang);
+            set.forEach(c => {
+              c.M = mul(Rf, c.M).map((r, i) => r.map((v, j) => j == 3 && i < 3 ? Math.round(v * 2) / 2 : Math.round(v)))
+            });
+            render();
+            count++;
+            upd();
+            next()
+          }
+        };
+        requestAnimationFrame(step)
+      }
+
+      function run(txt, rev) {
+        const r = parse(txt);
+        $('#err').textContent = r.err || '';
+        if (r.err) return;
+        enqueue(rev ? inv(r.moves) : r.moves)
+      }
+      let algs = LD('rc2_algs', null) || [{
+          n: 'Sexy Move',
+          a: "R U R' U'"
+        }, {
+          n: 'Sledgehammer',
+          a: "R' F R F'"
+        }, {
+          n: 'Sune',
+          a: "R U R' U R U2 R'"
+        }, {
+          n: 'Anti-Sune',
+          a: "R U2 R' U' R U' R'"
+        }, {
+          n: 'Y-Perm',
+          a: "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+        },
+        {
+          n: 'Jo1',
+          a: "L' U'2 L U L' U L U2"
+        },
+        {
+          n: 'Jo2',
+          a: "R U2 R' U' R U' R' U2"
+        },
+        {
+          n: 'Jo3',
+          a: "L' U R U' L U R' U'"
+        },
+        {
+          n: 'Jo4',
+          a: "R U' L' U R' U' L U"
+        },
+        {
+          n: 'Jo5',
+          a: "L' U L F U2 F' U' F U' F' L' U2 L U"
+        },
+        {
+          n: 'Jo6',
+          a: "R U' R' F' U2 F U F' U F R U2 R' U'"
+        },
+        {
+          n: 'Jo7',
+          a: "F U' F' U' L' U L"
+        },
+        {
+          n: 'Jo8',
+          a: "F' U F U R U' R'"
+        },
+        {
+          n: 'Jo9',
+          a: "R U R' U' R' F R F'"
+        },
+        {
+          n: 'Jo10',
+          a: "L' U' L U L F' L' F"
+        }
+      ];
+
+      function list() {
+        $('#list').innerHTML = algs.map((x, i) => `<li><b></b><code></code><div class="row"><button data-i="${i}" data-a="run">▶</button><button data-i="${i}" data-a="rev">⟲ rückwärts</button><button data-i="${i}" data-a="ed">Bearbeiten</button><button data-i="${i}" data-a="del">✕</button></div></li>`).join('');
+        [...$('#list').children].forEach((li, i) => {
+          li.querySelector('b').textContent = algs[i].n;
+          li.querySelector('code').textContent = algs[i].a
+        })
+      }
+      $('#list').onclick = e => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        const i = +b.dataset.i,
+          a = b.dataset.a;
+        if (a == 'run') run(algs[i].a);
+        else if (a == 'rev') run(algs[i].a, 1);
+        else if (a == 'ed') {
+          $('#nm').value = algs[i].n;
+          $('#al').value = algs[i].a
+        } else {
+          algs.splice(i, 1);
+          ST('rc2_algs', algs);
+          list()
+        }
+      };
+      $('#rn').onclick = () => run($('#al').value);
+      let dl = null;
+      (async () => {
+        try {
+          dl = await claude.use('downloads')
+        } catch (e) {}
+        if (!dl) $('#fsave').title = 'Datei-Speichern ist hier nicht verfügbar'
+      })();
+      $('#fsave').onclick = async () => {
+        const i = $('#info');
+        if (!algs.length) {
+          i.textContent = 'Keine Algorithmen zum Speichern vorhanden.';
+          return
+        }
+        const js = JSON.stringify({
+          format: 'rubik-algorithmen',
+          version: 1,
+          algorithms: algs
+        }, null, 2);
+        const fb = () => {
+          $('#fb').hidden = $('#fcp').hidden = $('#fim').hidden = false;
+          $('#fb').value = js;
+          i.textContent = 'Direkter Datei-Download ist hier nicht möglich: Text kopieren und als .json speichern. Zum Laden einfügen und „Aus Text importieren“ klicken.'
+        };
+        if (!dl) {
+          fb();
+          return
+        }
+        try {
+          await dl.save({
+            filename: 'rubik2x2-algorithmen.json',
+            data: js
+          });
+          i.textContent = 'Datei gespeichert.'
+        } catch (e) {
+          if (e && e.code == 'declined') i.textContent = '';
+          else fb()
+        }
+      };
+      $('#fload').onclick = () => $('#ff').click();
+      const imp = txt => {
+        try {
+          let d = JSON.parse(txt);
+          if (!Array.isArray(d)) d = d.algorithms;
+          if (!Array.isArray(d)) throw 0;
+          let ok = 0,
+            bad = 0;
+          d.forEach(x => {
+            const n = String((x && (x.n ?? x.name)) ?? '').trim(),
+              a = String((x && (x.a ?? x.algorithm)) ?? '').trim();
+            if (n && a && parse(a).moves) {
+              const j = algs.findIndex(y => y.n == n);
+              if (j >= 0) algs[j].a = a;
+              else algs.push({
+                n,
+                a
+              });
+              ok++
+            } else bad++
+          });
+          ST('rc2_algs', algs);
+          list();
+          $('#info').textContent = ok + ' Algorithmen geladen' + (bad ? ', ' + bad + ' ungültige übersprungen' : '') + '.'
+        } catch (x) {
+          $('#info').textContent = 'Datei konnte nicht gelesen werden (erwartet wird eine JSON-Datei).'
+        }
+      };
+      $('#ff').onchange = e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => imp(rd.result);
+        rd.readAsText(f);
+        e.target.value = ''
+      };
+      $('#fcp').onclick = async () => {
+        const t = $('#fb');
+        try {
+          await navigator.clipboard.writeText(t.value);
+          $('#info').textContent = 'In die Zwischenablage kopiert.'
+        } catch (e) {
+          t.select();
+          try {
+            document.execCommand('copy')
+          } catch (x) {}
+        }
+      };
+      $('#fim').onclick = () => imp($('#fb').value);
+      $('#sv').onclick = () => {
+        const a = $('#al').value.trim(),
+          r = parse(a);
+        $('#err').textContent = r.err || '';
+        if (r.err) return;
+        const n = $('#nm').value.trim() || 'Algorithmus ' + (algs.length + 1),
+          j = algs.findIndex(x => x.n == n);
+        if (j >= 0) algs[j].a = a;
+        else algs.push({
+          n,
+          a
+        });
+        ST('rc2_algs', algs);
+        list()
+      };
+      $('#sc').onclick = () => {
+        const fs = 'RUF';
+        let last = '',
+          o = [];
+        for (let i = 0; i < 15; i++) {
+          let k;
+          do k = fs[Math.random() * 3 | 0]; while (k == last);
+          last = k;
+          o.push([k, [1, -1, 2][Math.random() * 3 | 0]])
+        }
+        enqueue(o)
+      };
+      $('#rs').onclick = () => {
+        gen++;
+        queue = [];
+        busy = false;
+        count = 0;
+        build();
+        upd()
+      };
+      $('#stop').onclick = () => {
+        queue = [];
+        upd()
+      };
+      $('#sp').oninput = e => {
+        speed = 1000 - (e.target.value - 1) * 105;
+        ST('rc2_speed', +e.target.value)
+      };
+      const sv = LD('rc2_speed', 7);
+      $('#sp').value = sv;
+      speed = 1000 - (sv - 1) * 105;
+      $('#mv').innerHTML = ['U', 'D', 'L', 'R', 'F', 'B', 'x', 'y', 'z'].map(k => `<button data-k="${k}" data-n="1">${k}</button>`).join('') + ['U', 'D', 'L', 'R', 'F', 'B', 'x', 'y', 'z'].map(k => `<button data-k="${k}" data-n="-1">${k}'</button>`).join('');
+      $('#mv').onclick = e => {
+        const b = e.target.closest('button');
+        if (b) enqueue([
+          [b.dataset.k, +b.dataset.n]
+        ])
+      };
+      addEventListener('keydown', e => {
+        if (/INPUT|TEXTAREA/.test(e.target.tagName) || e.ctrlKey || e.metaKey) return;
+        const k = e.key.toLowerCase();
+        if (!'udlrfbxyz'.includes(k) || k.length > 1) return;
+        enqueue([
+          [k == 'm' || k == 'e' || k == 's' ? k.toUpperCase() : 'xyz'.includes(k) ? k : k.toUpperCase(), e.shiftKey ? -1 : 1]
+        ])
+      });
+      const STY = [
+        ['classic', 'Klassisch'],
+        ['neon', 'Neon'],
+        ['pastel', 'Pastell'],
+        ['retro', 'Retro'],
+        ['mono', 'Mono']
+      ];
+
+      function setS(s) {
+        document.body.dataset.s = s;
+        ST('rc2_style', s);
+        [...$('#styles').children].forEach(b => b.classList.toggle('on', b.dataset.s == s))
+      }
+      $('#styles').innerHTML = STY.map(([k, n]) => `<button data-s="${k}">${n}</button>`).join('');
+      $('#styles').onclick = e => {
+        const b = e.target.closest('button');
+        if (b) setS(b.dataset.s)
+      };
+      $('#fs').onclick = async () => {
+        try {
+          document.fullscreenElement ? await document.exitFullscreen() : await document.documentElement.requestFullscreen()
+        } catch (e) {
+          document.body.classList.toggle('nopanel')
+        }
+      };
+      $('#tp').onclick = () => {
+        document.body.classList.toggle('nopanel');
+        size()
+      };
+      const view = () => cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+      const goView = (a, b) => {
+        rx = a;
+        ry = b;
+        cube.style.transition = 'transform .5s ease';
+        view();
+        setTimeout(() => cube.style.transition = '', 520)
+      };
+      $('#vf').onclick = () => goView(0, 0);
+      $('#vi').onclick = () => goView(-28, -38);
+      let drag = null;
+      sc.onpointerdown = e => {
+        drag = [e.clientX, e.clientY];
+        sc.setPointerCapture(e.pointerId)
+      };
+      sc.onpointermove = e => {
+        if (!drag) return;
+        ry += (e.clientX - drag[0]) * .5;
+        rx = Math.max(-89, Math.min(89, rx - (e.clientY - drag[1]) * .5));
+        drag = [e.clientX, e.clientY];
+        view()
+      };
+      sc.onpointerup = sc.onpointercancel = () => drag = null;
+
+      function size() {
+        S = Math.max(36, Math.min(120, Math.min(sc.clientWidth, sc.clientHeight) / 3.6));
+        document.documentElement.style.setProperty('--s', S + 'px');
+        render()
+      }
+      addEventListener('resize', size);
+      build();
+      view();
+      list();
+      setS(LD('rc2_style', 'classic'));
+      upd();
+      size();
+    })();
+  </script>
+</body>
+</html>
