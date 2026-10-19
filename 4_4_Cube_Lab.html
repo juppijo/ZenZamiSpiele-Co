@@ -67,7 +67,7 @@
       <h2>Styles</h2>
       <div class="row" id="styles"></div>
       <h2>Steuerung</h2>
-      <div class="row" style="margin-bottom:8px"><button id="sc">Mischen</button><button id="rs">Zurücksetzen</button></div>
+      <div class="row" style="margin-bottom:8px"><button id="sc">Mischen</button><button id="rs2">Zurücksetzen</button></div>
       <label>Tempo <input id="sp" type="range" min="1" max="10" value="7"></label>
       <div class="row" style="margin:8px 0"><label>Schicht für Tasten <select id="ly">
             <option value="0">Außen (R)</option>
@@ -575,6 +575,14 @@
         build();
         upd()
       };
+      $('#rs2').onclick = () => {
+        gen++;
+        queue = [];
+        busy = false;
+        count = 0;
+        build();
+        upd()
+      };
       $('#stop').onclick = () => {
         queue = [];
         upd()
@@ -587,9 +595,7 @@
       $('#sp').value = sv;
       speed = 1000 - (sv - 1) * 105;
       const KK = ['U', 'D', 'L', 'R', 'F', 'B', 'M', 'E', 'S', 'x', 'y', 'z'];
-      $('#mv').innerHTML = KK.map(k => `<button data-k="${k}" data-n="1">${k}</button>`).join('') + KK.map(k => `<button data-k="${k}" data-n="-1">${k}'</button>`).join('') +
-        [...'UDLRFB'].map(k => `<button data-k="${k}:1" data-n="1">2${k}</button>`).join('') +
-        [...'UDLRFB'].map(k => `<button data-k="${k}:1" data-n="-1">2${k}'</button>`).join('');
+      $('#mv').innerHTML = KK.map(k => `<button data-k="${k}" data-n="1">${k}</button>`).join('') + KK.map(k => `<button data-k="${k}" data-n="-1">${k}'</button>`).join('') + [...'UDLRFB'].map(k => `<button data-k="${k}:1" data-n="1">2${k}</button>`).join('') + [...'UDLRFB'].map(k => `<button data-k="${k}:1" data-n="-1">2${k}'</button>`).join('');
       const mk = k => 'UDLRFB'.includes(k) ? k + ':' + $('#ly').value : k;
       $('#mv').onclick = e => {
         const b = e.target.closest('button');
