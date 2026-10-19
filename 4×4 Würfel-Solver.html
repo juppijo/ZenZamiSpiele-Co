@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>4×4 Würfel-Solver</title>
+<style>
+:root{--bg:#f5f5f7;--fg:#1d1d1f;--card:#fff;--bd:#c9c9d0;--ac:#2563eb;--bad:#d92d20;--ok:#16a34a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15161a;--fg:#ececf0;--card:#22242a;--bd:#454852;--ac:#60a5fa;--bad:#f97066;--ok:#4ade80}}
+:root[data-theme="dark"]{--bg:#15161a;--fg:#ececf0;--card:#22242a;--bd:#454852;--ac:#60a5fa;--bad:#f97066;--ok:#4ade80}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:1.3rem;margin:0 0 4px}
+p.s{margin:0 0 12px;font-size:.85rem;opacity:.75}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+#net{display:grid;grid-template-columns:repeat(16,1fr);gap:2px;touch-action:none;user-select:none}
+.t{aspect-ratio:1;border-radius:3px;border:1px solid rgba(0,0,0,.35);cursor:pointer}
+.e{aspect-ratio:1}
+.lbl{display:flex;justify-content:space-between;font-size:.7rem;opacity:.6;margin-top:6px}
+#pal{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.72rem;cursor:pointer;padding:4px;border-radius:10px;border:2px solid transparent;min-width:52px}
+.sw.on{border-color:var(--ac)}
+.sw i{width:30px;height:30px;border-radius:50%;border:1px solid rgba(0,0,0,.4);display:block}
+.sw.bad{color:var(--bad);font-weight:600}.sw.good{color:var(--ok)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+button.b{padding:9px 13px;border-radius:9px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font-size:.9rem;cursor:pointer}
+button.b.p{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
+button.b:disabled{opacity:.4}
+#msg{margin-top:10px;font-size:.9rem;min-height:1.2em}
+.bad{color:var(--bad)}.ok{color:var(--ok)}
+#sol{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.m{padding:4px 8px;border-radius:7px;border:1px solid var(--bd);font-family:ui-monospace,monospace;font-size:.85rem;cursor:pointer}
+.m.cur{background:var(--ac);color:#fff;border-color:var(--ac)}
+.m.done{opacity:.45}
+small{opacity:.7;display:block;margin-top:8px;line-height:1.4}
+</style>
+</head>
+<body>
+<main>
+<h1>4×4 Rubik’s Würfel – Solver</h1>
+<p class="s">Farbe wählen, dann die Felder im Netz anmalen (auch ziehen). Danach „Lösen“.</p>
+
+<div class="card">
+  <div id="pal"></div>
+  <div id="net"></div>
+  <div class="lbl"><span>Netz: oben U · Mitte L F R B · unten D</span><span id="cnt"></span></div>
+  <div class="row">
+    <button class="b p" id="solve">Lösen</button>
+    <button class="b" id="scr">Mischen (6 Züge)</button>
+    <button class="b" id="rst">Gelöster Würfel</button>
+    <button class="b" id="clr">Leeren</button>
+    <button class="b" id="th">Hell/Dunkel</button>
+  </div>
+  <div id="msg"></div>
+</div>
+
+<div class="card" id="solcard" hidden>
+  <strong id="solt"></strong>
+  <div id="sol"></div>
+  <div class="row">
+    <button class="b" id="first">⏮</button>
+    <button class="b" id="prev">◀ Zurück</button>
+    <button class="b p" id="next">Weiter ▶</button>
+    <button class="b" id="play">Auto-Play</button>
+  </div>
+  <small>2R = zweite Schicht von rechts, 2U = zweite von oben, 2F = zweite von vorn. ’ = gegen den Uhrzeigersinn, 2 = halbe Drehung. Drehrichtung immer mit Blick auf die jeweilige Seite. Der Würfel wird nicht umorientiert (die Ecke hinten-links-unten bleibt fix).</small>
+</div>
+
+<div class="card"><small style="margin:0">Hinweis: Der Solver sucht beidseitig (Meet-in-the-Middle) im Browser und findet Lösungen bis etwa 10 Züge. Für komplett durchgemischte 4×4-Würfel braucht man die Reduktionsmethode – das ist mit dieser Suche nicht machbar. Es wird das Standard-Farbschema angenommen: Weiß–Gelb, Rot–Orange, Blau–Grün liegen sich gegenüber.</small></div>
+</main>
+
+<script>
+const COLS=[['W','Weiß','#ffffff'],['Y','Gelb','#ffd500'],['R','Rot','#d32f2f'],['O','Orange','#ff8c00'],['B','Blau','#1565c0'],['G','Grün','#2e9e44']];
+// Seiten: 0 U, 1 R, 2 F, 3 D, 4 L, 5 B   Farben: 0W 1Y 2R 3O 4B 5G (Gegenüber = i^1)
+const SOLVED_FACE=[0,2,5,1,3,4];
+const OFF=[[0,4],[4,8],[4,4],[8,4],[4,0],[4,12]];
+const FN='UR FDL B'.replace(' ','').split('');
+
+// ---- Geometrie ----
+function P(f,r,c){const a=2*c-3,b=2*r-3;
+ switch(f){case 0:return[[a,3,b],[0,1,0]];case 1:return[[3,-b,-a],[1,0,0]];case 2:return[[a,-b,3],[0,0,1]];
+ case 3:return[[a,-3,-b],[0,-1,0]];case 4:return[[-3,-b,a],[-1,0,0]];default:return[[-a,-b,-3],[0,0,-1]];}}
+const pos=[],nrm=[],idx=new Map(),K=(p,n)=>p.join(',')+'|'+n.join(',');
+for(let f=0;f<6;f++)for(let r=0;r<4;r++)for(let c=0;c<4;c++){const[p,n]=P(f,r,c);idx.set(K(p,n),pos.length);pos.push(p);nrm.push(n);}
+function rot(v,a,t){v=v.slice();const b=(a+1)%3,c=(a+2)%3;for(let i=0;i<t;i++){const vb=v[b],vc=v[c];v[b]=vc;v[c]=-vb;}return v.map(x=>x||0);}
+// Züge: m = a*6 + slice*3 + (t-1)  (slice 0 = außen, 1 = innen)
+const perms=[];
+for(let m=0;m<18;m++){const a=m/6|0,sl=(m/3|0)%2,t=m%3+1,co=sl?1:3,p=[];
+ for(let i=0;i<96;i++){p.push(pos[i][a]===co?idx.get(K(rot(pos[i],a,t),rot(nrm[i],a,t))):i);}
+ perms.push(p);}
+const ap=(s,m)=>{const n=new Uint8Array(96),p=perms[m];for(let i=0;i<96;i++)n[p[i]]=s[i];return n;};
+const inv=m=>m-m%3+(2-m%3);
+const mname=m=>{const L='RUF'[m/6|0],sl=(m/3|0)%2;return(sl?'2':'')+L+['',"2","’"][m%3];};
+
+// ---- Zustand / UI ----
+let cube=solvedCube(),sel=0,sol=null,states=[],step=0,timer=null;
+function solvedCube(){const s=new Uint8Array(96);for(let i=0;i<96;i++)s[i]=SOLVED_FACE[i>>4];return s;}
+const $=id=>document.getElementById(id);
+const net=$('net'),tiles=[];
+for(let r=0;r<12;r++)for(let c=0;c<16;c++){
+ let el=document.createElement('div');el.className='e';
+ for(let f=0;f<6;f++){const[fr,fc]=OFF[f];if(r>=fr&&r<fr+4&&c>=fc&&c<fc+4){
+  el=document.createElement('button');el.className='t';el.dataset.i=f*16+(r-fr)*4+(c-fc);el.title=FN[f];tiles[el.dataset.i]=el;}}
+ net.appendChild(el);}
+const pal=$('pal');
+COLS.forEach((c,i)=>{const d=document.createElement('div');d.className='sw';d.innerHTML=`<i style="background:${c[2]}"></i><span>${c[1]}</span><span class="n"></span>`;d.onclick=()=>{sel=i;draw();};pal.appendChild(d);});
+
+function draw(s){
+ s=s||cube;
+ for(let i=0;i<96;i++)tiles[i].style.background=s[i]<6?COLS[s[i]][2]:'transparent';
+ const cn=[0,0,0,0,0,0];let empty=0;for(let i=0;i<96;i++)s[i]<6?cn[s[i]]++:empty++;
+ [...pal.children].forEach((d,i)=>{d.classList.toggle('on',i===sel);d.classList.toggle('bad',cn[i]!==16);d.classList.toggle('good',cn[i]===16);d.querySelector('.n').textContent=cn[i]+'/16';});
+ $('cnt').textContent=empty?empty+' leer':'';
+}
+function msg(t,c){const m=$('msg');m.textContent=t;m.className=c||'';}
+function resetSol(){sol=null;$('solcard').hidden=true;clearInterval(timer);timer=null;$('play').textContent='Auto-Play';}
+
+let down=false;
+function paint(el){if(!el||!el.dataset||el.dataset.i===undefined)return;cube[el.dataset.i]=sel;resetSol();draw();msg('');}
+net.addEventListener('pointerdown',e=>{down=true;paint(e.target.closest('.t'));e.preventDefault();});
+addEventListener('pointerup',()=>down=false);
+net.addEventListener('pointermove',e=>{if(down)paint(document.elementFromPoint(e.clientX,e.clientY));});
+
+$('rst').onclick=()=>{cube=solvedCube();resetSol();draw();msg('');};
+$('clr').onclick=()=>{cube=new Uint8Array(96).fill(6);resetSol();draw();msg('');};
+$('scr').onclick=()=>{let s=solvedCube(),last=-1;for(let i=0;i<6;i++){let m;do m=Math.random()*18|0;while(last>=0&&(m/3|0)===(last/3|0));s=ap(s,m);last=m;}cube=s;resetSol();draw();msg('Gemischt – jetzt „Lösen“ drücken.');};
+$('th').onclick=()=>{const r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark';};
+
+// ---- Validierung ----
+function validate(){
+ const cn=[0,0,0,0,0,0];let empty=0;for(const v of cube)v<6?cn[v]++:empty++;
+ if(empty)return empty+' Felder sind noch nicht angemalt.';
+ const bad=cn.map((n,i)=>n!==16?`${COLS[i][1]}: ${n}`:null).filter(Boolean);
+ if(bad.length)return'Jede Farbe muss genau 16-mal vorkommen. Abweichungen – '+bad.join(', ')+'.';
+ const g=goal();if(typeof g==='string')return g;
+ return null;
+}
+function goal(){
+ const c=(n)=>cube[idx.get(K([-3,-3,-3],n))];
+ const cL=c([-1,0,0]),cD=c([0,-1,0]),cB=c([0,0,-1]);
+ if(new Set([cL>>1,cD>>1,cB>>1]).size<3)return'Die Ecke hinten-links-unten (L/D/B) hat zwei gegenüberliegende Farben – unmöglich. Bitte Farben prüfen.';
+ const fc=[cD^1,cL^1,cB^1,cD,cL,cB],s=new Uint8Array(96);
+ for(let i=0;i<96;i++)s[i]=fc[i>>4];return s;
+}
+
+// ---- Suche (bidirektional) ----
+const key=s=>String.fromCharCode.apply(null,s);
+function search(start,goal){
+ const kS=key(start),kG=key(goal);if(kS===kG)return[];
+ const F=new Map([[kS,'']]),B=new Map([[kG,'']]);let fr=[[start,'']],br=[[goal,'']];
+ const fin=(f,b)=>[...f].map(c=>c.charCodeAt(0)-65).concat([...b].reverse().map(c=>inv(c.charCodeAt(0)-65)));
+ while(F.size+B.size<1400000){
+  const fw=fr.length<=br.length,fro=fw?fr:br,mine=fw?F:B,oth=fw?B:F,nf=[];
+  for(const[s,p]of fro){const last=p?p.charCodeAt(p.length-1)-65:-1;
+   for(let m=0;m<18;m++){if(last>=0&&(m/3|0)===(last/3|0))continue;
+    const n=ap(s,m),k=key(n);if(mine.has(k))continue;
+    const np=p+String.fromCharCode(65+m),o=oth.get(k);
+    if(o!==undefined)return fw?fin(np,o):fin(o,np);
+    mine.set(k,np);nf.push([n,np]);}}
+  if(!nf.length)break;if(fw)fr=nf;else br=nf;}
+ return null;
+}
+
+$('solve').onclick=()=>{
+ resetSol();const e=validate();if(e){msg(e,'bad');return;}
+ msg('Suche läuft …');$('solve').disabled=true;
+ setTimeout(()=>{
+  const res=search(cube,goal());$('solve').disabled=false;
+  if(res===null){msg('Keine Lösung innerhalb des Suchlimits (ca. 10 Züge) gefunden. Entweder ist der Würfel stärker verdreht oder der Zustand ist nicht lösbar (z. B. vertauschte Farben).','bad');return;}
+  if(!res.length){msg('Der Würfel ist bereits gelöst. ✔','ok');return;}
+  sol=res;states=[cube];for(const m of res)states.push(ap(states[states.length-1],m));step=0;
+  msg('Lösung gefunden: '+res.length+' Züge.','ok');showSol();
+ },30);
+};
+
+function showSol(){
+ $('solcard').hidden=false;$('solt').textContent='Lösung ('+sol.length+' Züge) – Schritt '+step+' / '+sol.length;
+ const box=$('sol');box.innerHTML='';
+ sol.forEach((m,i)=>{const b=document.createElement('span');b.className='m'+(i<step?' done':'')+(i===step?' cur':'');b.textContent=mname(m);b.onclick=()=>{step=i;showSol();};box.appendChild(b);});
+ draw(states[step]);
+ $('prev').disabled=$('first').disabled=step===0;$('next').disabled=step===sol.length;
+}
+$('next').onclick=()=>{if(step<sol.length){step++;showSol();}};
+$('prev').onclick=()=>{if(step>0){step--;showSol();}};
+$('first').onclick=()=>{step=0;showSol();};
+$('play').onclick=()=>{
+ if(timer){clearInterval(timer);timer=null;$('play').textContent='Auto-Play';return;}
+ if(step>=sol.length)step=0;showSol();$('play').textContent='Stopp';
+ timer=setInterval(()=>{if(step>=sol.length){clearInterval(timer);timer=null;$('play').textContent='Auto-Play';return;}step++;showSol();},700);
+};
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4x4 Rubik's Cube Solver - 2D Farb-Eingabe</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome für Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cubeWhite: '#FFFFFF',
+                        cubeYellow: '#FFD700',
+                        cubeRed: '#DC2626',
+                        cubeOrange: '#FF7F00',
+                        cubeBlue: '#2563EB',
+                        cubeGreen: '#16A34A',
+                        cubeEmpty: '#334155'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Verhindert Textauswahl beim Ziehen/Malen über die Felder */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Subtile Animation für hervorgehobene Elemente */
+        .color-palette-btn {
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .color-palette-btn:hover {
+            transform: translateY(-2px);
+        }
+        .color-palette-btn.active {
+            transform: scale(1.08);
+            ring: 4px solid white;
+        }
+        /* Grid Layout für das Würfelnetz */
+        .cube-net-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+        }
+        /* Spielfeld Kacheln */
+        .tile {
+            transition: background-color 0.1s ease, border-color 0.1s ease;
+        }
+        .tile:hover {
+            filter: brightness(1.2);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans no-select pb-12">
+
+    <!-- Header -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700 sticky top-0 z-50 py-4 px-6 mb-6 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-lg text-white shadow-md">
+                    <i class="fa-solid fa-cube text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide text-white">4x4 Rubik's Cube Solver</h1>
+                    <p class="text-xs text-slate-400">2D-Abwicklungsnetz & State-Eingabe</p>
+                </div>
+            </div>
+
+            <!-- Validierungs-Badge -->
+            <div id="validationBadge" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all duration-300 bg-amber-500/10 border-amber-500/30 text-amber-400">
+                <i id="validationIcon" class="fa-solid fa-triangle-exclamation"></i>
+                <span id="validationText">Prüfe Farbverteilung...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col lg:flex-row gap-8">
+
+        <!-- Linke Seite: Steuerung, Palette, Status -->
+        <section class="w-full lg:w-80 flex flex-col gap-6 order-2 lg:order-1">
+
+            <!-- Farbauswahl-Palette -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700/80 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-palette text-indigo-400"></i> Aktive Malfarbe
+                </h2>
+                
+                <div class="grid grid-cols-3 gap-3 mb-4" id="colorPalette">
+                    <!-- Paletten-Buttons werden dynamisch gerendert -->
+                </div>
+
+                <div class="text-xs text-slate-400 bg-slate-900/60 p-3 rounded-lg border border-slate-700/50">
+                    <p class="mb-1"><i class="fa-solid fa-mouse text-indigo-400 mr-1"></i> <b>Linksklick / Ziehen:</b> Feld anmalen</p>
+                    <p><i class="fa-solid fa-rotate text-indigo-400 mr-1"></i> <b>Rechtsklick:</b> Nächste Farbe durchwechseln</p>
+                </div>
+            </div>
+
+            <!-- Farb-Zähler & Validierung -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700/80 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center justify-between">
+                    <span><i class="fa-solid fa-chart-pie text-indigo-400"></i> Farb-Zähler</span>
+                    <span class="text-xs normal-case text-slate-500">(Ziel: 16 pro Farbe)</span>
+                </h2>
+
+                <div class="space-y-2.5" id="colorCounters">
+                    <!-- Farbzähler-Balken dynamisch -->
+                </div>
+            </div>
+
+            <!-- Aktionen & Preset Buttons -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700/80 shadow-xl space-y-3">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-indigo-400"></i> Schnell-Aktionen
+                </h2>
+
+                <button onclick="setSolvedState()" class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-left"></i> Gelösten Zustand laden
+                </button>
+
+                <button onclick="clearAllTiles()" class="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-slate-200 font-medium rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-eraser"></i> Alle Felder leeren
+                </button>
+
+                <div class="pt-2 border-t border-slate-700 flex gap-2">
+                    <button onclick="exportState()" class="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-950 border border-slate-700 text-xs font-semibold text-slate-300 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> Exportieren
+                    </button>
+                    <button onclick="importStatePrompt()" class="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-950 border border-slate-700 text-xs font-semibold text-slate-300 rounded-lg transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-upload"></i> Importieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Export/Facelet String Anzeige -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700/80 shadow-xl">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span><i class="fa-solid fa-code text-indigo-400"></i> State Repräsentation</span>
+                    <button onclick="copyFaceletString()" class="text-xs text-indigo-400 hover:text-indigo-300"><i class="fa-solid fa-copy"></i> Kopieren</button>
+                </h2>
+                <textarea id="faceletStringOutput" readonly rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs font-mono text-slate-300 resize-none focus:outline-none focus:border-indigo-500" placeholder="Facelet String erscheint hier..."></textarea>
+            </div>
+
+        </section>
+
+        <!-- Rechte Seite: Das 2D-Abwicklungsnetz (Cross Layout) -->
+        <section class="flex-1 order-1 lg:order-2 flex flex-col items-center">
+            
+            <div class="bg-slate-800/60 border border-slate-700/80 p-4 sm:p-8 rounded-3xl shadow-2xl overflow-x-auto w-full flex justify-center">
+                
+                <!-- Abwicklungsnetz Grid Layout (3 Spalten x 3 Zeilen) -->
+                <div class="grid grid-cols-3 gap-4 sm:gap-6 min-w-[340px] max-w-[680px]">
+
+                    <!-- Obere Zeile: Leerraum | U (Up) | Leerraum -->
+                    <div></div>
+                    <div id="face-U" class="face-container bg-slate-900/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-400">Oben (U)</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">White</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 sm:gap-1.5" data-face="U"></div>
+                    </div>
+                    <div></div>
+
+                    <!-- Mittlere Zeile: L (Left) | F (Front) | R (Right) -->
+                    <div id="face-L" class="face-container bg-slate-900/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-400">Links (L)</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Orange</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 sm:gap-1.5" data-face="L"></div>
+                    </div>
+
+                    <div id="face-F" class="face-container bg-slate-900/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-400">Vorne (F)</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Green</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 sm:gap-1.5" data-face="F"></div>
+                    </div>
+
+                    <div id="face-R" class="face-container bg-slate-900/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-400">Rechts (R)</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Red</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 sm:gap-1.5" data-face="R"></div>
+                    </div>
+
+                    <!-- Untere Zeile: B (Back) | D (Down) | Leerraum (oder Standard Kreuz B unter D/F) -->
+                    <div id="face-B" class="face-container bg-slate-900/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-400">Hinten (B)</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Blue</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 sm:gap-1.5" data-face="B"></div>
+                    </div>
+
+                    <div id="face-D" class="face-container bg-slate-900/90 p-3 rounded-2xl border border-slate-700/80 shadow-md">
+                        <div class="flex justify-between items-center mb-2 px-1">
+                            <span class="font-bold text-xs uppercase tracking-wider text-slate-400">Unten (D)</span>
+                            <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-mono">Yellow</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 sm:gap-1.5" data-face="D"></div>
+                    </div>
+                    <div></div>
+
+                </div>
+            </div>
+
+            <!-- Solver Vorschau / Ausführung -->
+            <div class="mt-6 w-full max-w-2xl bg-slate-800 rounded-2xl p-5 border border-slate-700/80 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-bold text-slate-200 text-sm">Solver-Status</h3>
+                    <p id="solverStatusSub" class="text-xs text-slate-400">Gib zuerst den vollständigen Zustand des Würfels ein.</p>
+                </div>
+                <button id="solveBtn" disabled onclick="solveCube()" class="w-full sm:w-auto px-6 py-3 bg-slate-700 text-slate-400 cursor-not-allowed font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Würfel Lösen
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // --- 1. FARB- DEFINITIONEN ---
+        const COLORS = {
+            W: { name: 'Weiß', hex: '#FFFFFF', code: 'W', textDark: true },
+            Y: { name: 'Gelb', hex: '#FFD700', code: 'Y', textDark: true },
+            R: { name: 'Rot', hex: '#DC2626', code: 'R', textDark: false },
+            O: { name: 'Orange', hex: '#FF7F00', code: 'O', textDark: false },
+            B: { name: 'Blau', hex: '#2563EB', code: 'B', textDark: false },
+            G: { name: 'Grün', hex: '#16A34A', code: 'G', textDark: false },
+            E: { name: 'Leer', hex: '#334155', code: 'E', textDark: false } // Empty Tile
+        };
+
+        const COLOR_KEYS = ['W', 'Y', 'R', 'O', 'B', 'G'];
+
+        // Standard Gelöster Zustand (U=W, D=Y, F=G, B=B, L=O, R=R)
+        const SOLVED_FACES = {
+            U: 'W',
+            D: 'Y',
+            F: 'G',
+            B: 'B',
+            L: 'O',
+            R: 'R'
+        };
+
+        const FACES = ['U', 'L', 'F', 'R', 'B', 'D'];
+
+        // Aktuell ausgewählte Malfarbe
+        let activeColor = 'W';
+
+        // Würfel-Zustands-Speicher: 6 Seiten, je 16 Felder (0-15)
+        let cubeState = {
+            U: Array(16).fill('E'),
+            L: Array(16).fill('E'),
+            F: Array(16).fill('E'),
+            R: Array(16).fill('E'),
+            B: Array(16).fill('E'),
+            D: Array(16).fill('E')
+        };
+
+        let isMouseDown = false;
+
+        // --- 2. INITIALISIERUNG ---
+        window.addEventListener('DOMContentLoaded', () => {
+            renderPalette();
+            buildNetGrids();
+            setSolvedState(); // Startet im gelösten Zustand
+            setupMouseListeners();
+        });
+
+        // Event-Listener für das Ziehen mit gedrückter Maustaste
+        function setupMouseListeners() {
+            document.addEventListener('mousedown', () => isMouseDown = true);
+            document.addEventListener('mouseup', () => isMouseDown = false);
+            
+            // Kontextmenü auf Würfelfeldern verhindern für Rechtsklick-Wechsel
+            document.querySelectorAll('.face-container').forEach(container => {
+                container.addEventListener('contextmenu', e => e.preventDefault());
+            });
+        }
+
+        // --- 3. RENDERING DER BENUTZEROBERFLÄCHE ---
+
+        // Rendert die 6 Farbauswahl-Buttons
+        function renderPalette() {
+            const paletteEl = document.getElementById('colorPalette');
+            paletteEl.innerHTML = '';
+
+            COLOR_KEYS.forEach(key => {
+                const c = COLORS[key];
+                const isActive = key === activeColor;
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `color-palette-btn p-3 rounded-xl border flex flex-col items-center justify-center gap-1 shadow-md transition-all ${
+                    isActive ? 'ring-2 ring-indigo-400 border-white scale-105' : 'border-slate-700 hover:border-slate-500'
+                }`;
+                btn.style.backgroundColor = c.hex;
+                btn.onclick = () => setActiveColor(key);
+
+                const label = document.createElement('span');
+                label.className = `text-xs font-extrabold ${c.textDark ? 'text-slate-900' : 'text-white'}`;
+                label.innerText = c.name;
+
+                btn.appendChild(label);
+                paletteEl.appendChild(btn);
+            });
+        }
+
+        function setActiveColor(colorKey) {
+            activeColor = colorKey;
+            renderPalette();
+        }
+
+        // Generiert die 16 Kacheln pro Seite im 2D-Netz
+        function buildNetGrids() {
+            FACES.forEach(face => {
+                const gridContainer = document.querySelector(`[data-face="${face}"]`);
+                gridContainer.innerHTML = '';
+
+                for (let i = 0; i < 16; i++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile aspect-square rounded-md border border-black/30 shadow-inner flex items-center justify-center text-[10px] font-mono select-none transition-transform active:scale-90';
+                    tile.dataset.face = face;
+                    tile.dataset.index = i;
+
+                    // Click & Drag Events zum Anmalen
+                    tile.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) { // Linksklick
+                            paintTile(face, i, activeColor);
+                        } else if (e.button === 2) { // Rechtsklick: Farbe weiterdrehen
+                            cycleTileColor(face, i);
+                        }
+                    });
+
+                    tile.addEventListener('mouseenter', () => {
+                        if (isMouseDown) {
+                            paintTile(face, i, activeColor);
+                        }
+                    });
+
+                    gridContainer.appendChild(tile);
+                }
+            });
+        }
+
+        // --- 4. INTERAKTIONEN & MALEN ---
+
+        function paintTile(face, index, colorKey) {
+            cubeState[face][index] = colorKey;
+            updateTileDOM(face, index);
+            validateState();
+        }
+
+        function cycleTileColor(face, index) {
+            const currentColor = cubeState[face][index];
+            let nextIndex = COLOR_KEYS.indexOf(currentColor) + 1;
+            if (nextIndex >= COLOR_KEYS.length) nextIndex = 0;
+            
+            const nextColor = COLOR_KEYS[nextIndex];
+            paintTile(face, index, nextColor);
+        }
+
+        function updateTileDOM(face, index) {
+            const colorKey = cubeState[face][index];
+            const colorInfo = COLORS[colorKey] || COLORS.E;
+            const tile = document.querySelector(`[data-face="${face}"] [data-index="${index}"]`);
+
+            if (tile) {
+                tile.style.backgroundColor = colorInfo.hex;
+                tile.style.borderColor = colorKey === 'E' ? '#475569' : 'rgba(0,0,0,0.3)';
+            }
+        }
+
+        function updateAllDOMTiles() {
+            FACES.forEach(face => {
+                for (let i = 0; i < 16; i++) {
+                    updateTileDOM(face, i);
+                }
+            });
+        }
+
+        // --- 5. PRESETS & HILFSFUNKTIONEN ---
+
+        function setSolvedState() {
+            FACES.forEach(face => {
+                cubeState[face] = Array(16).fill(SOLVED_FACES[face]);
+            });
+            updateAllDOMTiles();
+            validateState();
+        }
+
+        function clearAllTiles() {
+            FACES.forEach(face => {
+                cubeState[face] = Array(16).fill('E');
+            });
+            updateAllDOMTiles();
+            validateState();
+        }
+
+        // --- 6. VALIDIERUNG & ZÄHLER ---
+
+        function validateState() {
+            const counts = { W: 0, Y: 0, R: 0, O: 0, B: 0, G: 0, E: 0 };
+
+            // Zähle Vorkommen jeder Farbe
+            FACES.forEach(face => {
+                cubeState[face].forEach(color => {
+                    if (counts[color] !== undefined) counts[color]++;
+                    else counts.E++;
+                });
+            });
+
+            // Farbzähler im UI aktualisieren
+            renderCounters(counts);
+
+            // Prüfe auf Vollständigkeit (Exakt 16 pro Farbe)
+            const isCountValid = COLOR_KEYS.every(key => counts[key] === 16);
+            const hasEmpty = counts.E > 0;
+
+            const badge = document.getElementById('validationBadge');
+            const badgeIcon = document.getElementById('validationIcon');
+            const badgeText = document.getElementById('validationText');
+            const solveBtn = document.getElementById('solveBtn');
+            const solverStatusSub = document.getElementById('solverStatusSub');
+
+            if (isCountValid) {
+                // Gültig
+                badge.className = "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all duration-300 bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-emerald-500/10 shadow-lg";
+                badgeIcon.className = "fa-solid fa-circle-check";
+                badgeText.innerText = "Gültiger Zustand (Exakt 16 pro Farbe)";
+
+                solveBtn.disabled = false;
+                solveBtn.className = "w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 transform hover:scale-105";
+                solverStatusSub.innerText = "Der Zustand ist bereit für die Berechnung des Lösungswegs.";
+            } else {
+                // Ungültig
+                badge.className = "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all duration-300 bg-amber-500/10 border-amber-500/30 text-amber-400";
+                badgeIcon.className = "fa-solid fa-triangle-exclamation";
+
+                if (hasEmpty) {
+                    badgeText.innerText = `Ungültig: noch ${counts.E} leere Felder`;
+                } else {
+                    badgeText.innerText = "Ungültig: Abweichung bei Farb-Anzahl";
+                }
+
+                solveBtn.disabled = true;
+                solveBtn.className = "w-full sm:w-auto px-6 py-3 bg-slate-700 text-slate-400 cursor-not-allowed font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2";
+                solverStatusSub.innerText = "Gib erst für jede der 6 Farben exakt 16 Felder ein.";
+            }
+
+            // Facelet String aktualisieren
+            updateFaceletOutput();
+        }
+
+        function renderCounters(counts) {
+            const container = document.getElementById('colorCounters');
+            container.innerHTML = '';
+
+            COLOR_KEYS.forEach(key => {
+                const c = COLORS[key];
+                const count = counts[key] || 0;
+                const isTarget = count === 16;
+                const percent = Math.min(100, Math.round((count / 16) * 100));
+
+                const row = document.createElement('div');
+                row.className = "flex items-center gap-3 text-xs";
+
+                row.innerHTML = `
+                    <div class="w-3 h-3 rounded-full border border-black/30" style="background-color: ${c.hex}"></div>
+                    <span class="w-14 font-medium text-slate-300">${c.name}</span>
+                    <div class="flex-1 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-700">
+                        <div class="h-full transition-all duration-300 ${isTarget ? 'bg-emerald-500' : (count > 16 ? 'bg-rose-500' : 'bg-indigo-500')}" style="width: ${percent}%"></div>
+                    </div>
+                    <span class="w-8 text-right font-mono font-bold ${isTarget ? 'text-emerald-400' : (count > 16 ? 'text-rose-400' : 'text-slate-400')}">${count}/16</span>
+                `;
+
+                container.appendChild(row);
+            });
+        }
+
+        // --- 7. FACELET STRING / EXPORT / IMPORT ---
+
+        function generateFaceletString() {
+            // Standard-Reihenfolge der Faces: U, R, F, D, L, B
+            const order = ['U', 'R', 'F', 'D', 'L', 'B'];
+            let str = '';
+            order.forEach(f => {
+                str += cubeState[f].join('');
+            });
+            return str;
+        }
+
+        function updateFaceletOutput() {
+            const textarea = document.getElementById('faceletStringOutput');
+            textarea.value = generateFaceletString();
+        }
+
+        function copyFaceletString() {
+            const textarea = document.getElementById('faceletStringOutput');
+            textarea.select();
+            document.execCommand('copy');
+            
+            // Kleines Feedback
+            const btn = event.currentTarget;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> Kopiert!`;
+            setTimeout(() => btn.innerHTML = originalHTML, 1500);
+        }
+
+        function exportState() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(cubeState, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "4x4_rubiks_cube_state.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importStatePrompt() {
+            const input = prompt("Füge hier den gespeicherten Facelet-String oder den JSON-Zustand ein:");
+            if (!input) return;
+
+            try {
+                // Versuch 1: JSON
+                if (input.trim().startsWith('{')) {
+                    const parsed = JSON.parse(input);
+                    if (parsed.U && parsed.F && parsed.R) {
+                        cubeState = parsed;
+                        updateAllDOMTiles();
+                        validateState();
+                        return;
+                    }
+                }
+
+                // Versuch 2: 96-Zeichen Facelet String (U, R, F, D, L, B)
+                const cleanStr = input.trim().toUpperCase().replace(/[^WYROGBE]/g, '');
+                if (cleanStr.length === 96) {
+                    const order = ['U', 'R', 'F', 'D', 'L', 'B'];
+                    for (let i = 0; i < order.length; i++) {
+                        const face = order[i];
+                        cubeState[face] = cleanStr.slice(i * 16, (i + 1) * 16).split('');
+                    }
+                    updateAllDOMTiles();
+                    validateState();
+                } else {
+                    alert("Ungültiges Format. Der String muss exakt 96 Farbcodes (W, Y, R, O, B, G) lang sein.");
+                }
+            } catch (err) {
+                alert("Fehler beim Importieren der Daten.");
+            }
+        }
+
+        // --- 8. DUMMY SOLVER BERECHNUNG ---
+
+        function solveCube() {
+            const solveBtn = document.getElementById('solveBtn');
+            solveBtn.disabled = true;
+            solveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Berechne Lösung...`;
+
+            setTimeout(() => {
+                alert("Solver-Algorithmus bereit!\n\nDein eingegebener 4x4-Zustand ist gültig und kann jetzt an ein Reduktions-Solver-Backend übergeben werden.\n\nFacelet-Code:\n" + generateFaceletString());
+                solveBtn.disabled = false;
+                solveBtn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Würfel Lösen`;
+            }, 800);
+        }
+    </script>
+</body>
+</html>
