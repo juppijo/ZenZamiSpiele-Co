@@ -1,0 +1,170 @@
+{
+  "format": "rubik-algorithmen",
+  "version": 1,
+  "algorithms": [
+    {
+      "n": "OLL · Sexy Move",
+      "a": "R U R' U'"
+    },
+    {
+      "n": "OLL · Sledgehammer",
+      "a": "R' F R F'"
+    },
+    {
+      "n": "OLL · Sune",
+      "a": "R U R' U R U2 R'"
+    },
+    {
+      "n": "OLL · Anti-Sune",
+      "a": "R U2 R' U' R U' R'"
+    },
+    {
+      "n": "OLL · Linie/Kreuz",
+      "a": "F R U R' U' F'"
+    },
+    {
+      "n": "OLL · Sexy + Sledgehammer",
+      "a": "R U R' U' R' F R F'"
+    },
+    {
+      "n": "OLL · Ecke drehen (2× oder 4×)",
+      "a": "R' D' R D"
+    },
+    {
+      "n": "PLL · T-Perm",
+      "a": "R U R' U' R' F R2 U' R' U' R U R' F'"
+    },
+    {
+      "n": "PLL · Y-Perm",
+      "a": "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+    },
+    {
+      "n": "PLL · Jb-Perm",
+      "a": "R U R' F' R U R' U' R' F R2 U' R' U'"
+    },
+    {
+      "n": "PLL · Ua-Perm",
+      "a": "R U' R U R U R U' R' U' R2"
+    },
+    {
+      "n": "PLL · Ub-Perm",
+      "a": "R2 U R U R' U' R' U' R' U R'"
+    },
+    {
+      "n": "PLL · Aa-Perm",
+      "a": "x R' U R' D2 R U' R' D2 R2 x'"
+    },
+    {
+      "n": "PLL · Ab-Perm",
+      "a": "x R2 D2 R U R' D2 R U' R x'"
+    },
+    {
+      "n": "PLL · H-Perm",
+      "a": "R2 U2 R U2 R2 U2 R2 U2 R U2 R2"
+    },
+    {
+      "n": "Anfänger · Kante rechts einfügen",
+      "a": "U R U' R' U' F' U F"
+    },
+    {
+      "n": "Anfänger · Kante links einfügen",
+      "a": "U' L' U L U F U' F'"
+    },
+    {
+      "n": "4×4 · OLL-Parity (nur 2 innere Kanten flippen)",
+      "a": "2R' U2 2L F2 2L' F2 2R2 U2 2R U2 2R' U2 F2 2R2 F2"
+    },
+    {
+      "n": "4×4 · OLL-Parity (schnell, verändert auch Ecken)",
+      "a": "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 Rw' U2 Rw U2 Rw' U2 Rw'"
+    },
+    {
+      "n": "4×4 · PLL-Parity (gegenüberliegende Kanten)",
+      "a": "2R2 U2 2R2 Uw2 2R2 2U2"
+    },
+    {
+      "n": "4×4 · PLL-Parity (benachbarte Kanten)",
+      "a": "R' U R U' 2R2 U2 2R2 Uw2 2R2 2U2 U R' U' R"
+    },
+    {
+      "n": "Muster · Außenschicht-Schachbrett",
+      "a": "R2 L2 U2 D2 F2 B2"
+    },
+    {
+      "n": "Muster · Mittelschichten",
+      "a": "M2 E2 S2"
+    },
+    {
+      "n": "Jo1",
+      "a": "L' U'2 L U L' U L U2"
+    },
+    {
+      "n": "Jo2",
+      "a": "R U2 R' U' R U' R' U2"
+    },
+    {
+      "n": "Jo3",
+      "a": "L' U R U' L U R' U'"
+    },
+    {
+      "n": "Jo4",
+      "a": "R U' L' U R' U' L U"
+    },
+    {
+      "n": "Jo5",
+      "a": "L' U L F U2 F' U' F U' F' L' U2 L U"
+    },
+    {
+      "n": "Jo6",
+      "a": "R U' R' F' U2 F U F' U F R U2 R' U'"
+    },
+    {
+      "n": "Jo7",
+      "a": "F U' F' U' L' U L"
+    },
+    {
+      "n": "Jo8",
+      "a": "F' U F U R U' R'"
+    },
+    {
+      "n": "Jo9",
+      "a": "R U R' U' R' F R F'"
+    },
+    {
+      "n": "Jo10",
+      "a": "L' U' L U L F' L' F"
+    },
+    {
+      "n": "Jo1B",
+      "a": "2Lw' 2Uw'2 2Lw 2Uw 2Lw' 2Uw 2Lw 2Uw2"
+    },
+    {
+      "n": "Jo2B",
+      "a": "2Rw 2Uw2 2Rw' 2Uw' 2Rw 2Uw' 2Rw' 2Uw2"
+    },
+    {
+      "n": "Jo3B",
+      "a": "2Lw' 2Uw 2Rw 2Uw' 2Lw 2Uw 2Rw' 2Uw'"
+    },
+    {
+      "n": "Jo4B",
+      "a": "2Rw 2Uw' 2Lw' 2Uw 2Rw' 2Uw' 2Lw 2Uw"
+    },
+    {
+      "n": "Weißes Center ausrichten",
+      "a": "Rw U 2R'"
+    },
+    {
+      "n": "Jo_1",
+      "a": "3Rw' F 2Rw 2L' U F U' F'"
+    },
+    {
+      "n": "Jo_2",
+      "a": "R U R' F R' F' R U F' U F R U2 R'"
+    },
+    {
+      "n": "L1",
+      "a": "2U R 2U 2R’ 2U’ 2R2 2U2 2R’ 2U2 2R 2F2 2R’ 2F2 2R’ F’ 2R’ 2F’ 2R F 2R 2F L R 2F’ R’ 2U R 2F R’ 2U’ L’ 2F R’ 2U2 R 2F’ R’ 2U2 R L R 2F2 R’ 2U2 R 2F2 R’ 2U2 L’ D 2L2 2R 2F2 2R’ 2F2 2L2 D’ 2U2 R2 2U2 R2 2F R2 2U2 R2 2F’ 2U 2L’ R 2F’ R’ 2U’ R 2F R’ 2U 2L 2U D’ B D 2F’ D’ B’ D 2F B’ D B 2U2 B’ D’ B 2U2 F’ 2U F U2 F’ 2U’ F U’ F’ U’ 2F2 U F U’ 2F2 U’ 2F2 U F2 U’ 2F2 U F’ U2 F’ 2D2 F U2 F’ 2D2 B U B’ 2D2 B U’ B’ 2D2 L2 B D2 B’ 2U2 B D2 B’ 2U2 L2 F2 L D2 L’ 2U2 L D2 L’ 2U2 F2 L U 2F U’ F U 2F’ U’ F’ L’ R 2U2 R’ U2 R 2U2 R’ U2 R F 2U F’ U’ F 2U’ F’ U R2 D’ R U2 R’ D R U2 B U B’ D2 B U’ B’ D2 U’ L’ U R U’ L U R’ F2 R F’ L2 F2 R’ F L2 F2 R F’ L2 F2 R’ F L2"
+    }
+  ]
+}

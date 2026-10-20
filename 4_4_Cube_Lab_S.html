@@ -64,6 +64,11 @@
       <div id="info" style="color:var(--mu);min-height:18px;margin-top:6px"></div>
       <textarea id="fb" hidden style="height:110px"></textarea>
       <div class="row"><button id="fcp" hidden>Kopieren</button><button id="fim" hidden>Aus Text importieren</button></div>
+      <h2>Würfelzustand</h2>
+      <div class="row"><button id="stsave">💾 Zustand speichern</button><button id="stload">📂 Zustand laden</button><input id="stf" type="file" accept=".json,.txt,application/json" hidden></div>
+      <div class="row" style="margin-top:6px"><button id="stshow">Als Text anzeigen</button><button id="stcp">Kopieren</button><button id="stim">Aus Text laden</button></div>
+      <textarea id="stx" placeholder='{"U":["W",…16 Felder],"L":[…],"F":[…],"R":[…],"B":[…],"D":[…]}' style="height:110px;margin-top:6px"></textarea>
+      <div id="stinfo" style="color:var(--mu);min-height:18px"></div>
       <h2>Styles</h2>
       <div class="row" id="styles"></div>
       <h2>Steuerung</h2>
@@ -151,6 +156,23 @@
         ['D', 'rotateX(-90deg)', (x, y) => y > 1]
       ];
       const render = () => cubies.forEach(c => c.el.style.transform = css(c.M));
+      // Zustand: Farbbuchstaben <-> Flächen, Normalen, Index (Zeile*4+Spalte, Standard-Netz)
+      const CL = {U: 'W', D: 'Y', F: 'G', B: 'B', R: 'R', L: 'O'},
+        CV = {W: 'U', Y: 'D', G: 'F', B: 'B', R: 'R', O: 'L'},
+        NV = {F: [0, 0, 1], B: [0, 0, -1], R: [1, 0, 0], L: [-1, 0, 0], U: [0, -1, 0], D: [0, 1, 0]},
+        IDX = {
+          U: (x, y, z) => z * 4 + x,
+          D: (x, y, z) => (3 - z) * 4 + x,
+          F: (x, y, z) => y * 4 + x,
+          B: (x, y, z) => y * 4 + 3 - x,
+          R: (x, y, z) => y * 4 + 3 - z,
+          L: (x, y, z) => y * 4 + z
+        },
+        faceOf = v => v[0] == 1 ? 'R' : v[0] == -1 ? 'L' : v[1] == -1 ? 'U' : v[1] == 1 ? 'D' : v[2] == 1 ? 'F' : 'B',
+        setCol = (t, l) => {
+          t.col = l;
+          t.d.style.setProperty('--c', `var(--${CV[l]})`)
+        };
 
       function build() {
         cube.innerHTML = '';
@@ -161,10 +183,16 @@
               if (Math.abs(x) < 1 && Math.abs(y) < 1 && Math.abs(z) < 1) continue;
               const el = document.createElement('div');
               el.className = 'c';
+              const st = [];
               FD.forEach(([n, t, f]) => {
                 const d = document.createElement('div');
                 d.className = 'f';
                 d.style.transform = t + ' translateZ(calc(var(--s)/2))';
+                if (f(x, y, z)) st.push({
+                  d,
+                  n,
+                  col: CL[n]
+                });
                 d.style.setProperty('--c', f(x, y, z) ? `var(--${n})` : 'var(--in)');
                 el.appendChild(d)
               });
@@ -175,7 +203,8 @@
               M[2][3] = z;
               cubies.push({
                 el,
-                M
+                M,
+                st
               })
             }
         render()
@@ -544,6 +573,115 @@
         }
       };
       $('#fim').onclick = () => imp($('#fb').value);
+
+      // ===== Würfelzustand speichern / laden =====
+      const sinfo = t => $('#stinfo').textContent = t;
+
+      function getState() {
+        const s = {U: [], L: [], F: [], R: [], B: [], D: []};
+        cubies.forEach(c => {
+          const p = pos(c);
+          c.st.forEach(t => {
+            const v = NV[t.n],
+              w = [0, 1, 2].map(r => Math.round(c.M[r][0] * v[0] + c.M[r][1] * v[1] + c.M[r][2] * v[2])),
+              f = faceOf(w);
+            s[f][IDX[f](p.x, p.y, p.z)] = t.col
+          })
+        });
+        return s
+      }
+      const stateJSON = () => JSON.stringify(getState(), null, 2);
+
+      function readState(txt) {
+        let d = JSON.parse(txt);
+        if (d && d.state) d = d.state;
+        const out = {};
+        for (const f of 'ULFRBD') {
+          const a = d && d[f];
+          if (!Array.isArray(a) || a.length != 16) throw new Error('Fläche ' + f + ': 16 Einträge erwartet');
+          out[f] = a.map(v => {
+            const l = String(v).trim().toUpperCase();
+            if (!CV[l]) throw new Error('Ungültige Farbe „' + v + '“ auf Fläche ' + f + ' (erlaubt: W Y G B R O)');
+            return l
+          })
+        }
+        return out
+      }
+
+      function applyState(s) {
+        gen++;
+        queue = [];
+        busy = false;
+        count = 0;
+        hist = [];
+        build();
+        cubies.forEach(c => {
+          const p = pos(c);
+          c.st.forEach(t => setCol(t, s[t.n][IDX[t.n](p.x, p.y, p.z)]))
+        });
+        $('#sol').value = '';
+        upd()
+      }
+
+      function loadStateText(txt) {
+        try {
+          const s = readState(txt),
+            n = {};
+          applyState(s);
+          for (const f in s) s[f].forEach(l => n[l] = (n[l] || 0) + 1);
+          const odd = Object.keys(CV).filter(l => (n[l] || 0) != 16);
+          sinfo('Zustand geladen.' + (odd.length ? ' Hinweis: Nicht jede Farbe kommt genau 16× vor (' + odd.map(l => l + ':' + (n[l] || 0)).join(', ') + ') – der Würfel ist evtl. nicht lösbar.' : ''))
+        } catch (e) {
+          sinfo(e instanceof SyntaxError ? 'Kein gültiges JSON.' : (e.message || 'Zustand konnte nicht gelesen werden.'))
+        }
+      }
+      $('#stshow').onclick = () => {
+        if (busy || queue.length) return sinfo('Bitte warten, bis die Animation fertig ist …');
+        $('#stx').value = stateJSON();
+        sinfo('Aktueller Zustand als Text.')
+      };
+      $('#stcp').onclick = async () => {
+        const t = $('#stx');
+        if (!t.value.trim()) t.value = stateJSON();
+        try {
+          await navigator.clipboard.writeText(t.value);
+          sinfo('In die Zwischenablage kopiert.')
+        } catch (e) {
+          t.select();
+          try {
+            document.execCommand('copy');
+            sinfo('Kopiert.')
+          } catch (x) {}
+        }
+      };
+      $('#stim').onclick = () => loadStateText($('#stx').value);
+      $('#stsave').onclick = async () => {
+        if (busy || queue.length) return sinfo('Bitte warten, bis die Animation fertig ist …');
+        const js = stateJSON();
+        $('#stx').value = js;
+        if (!dl) return sinfo('Direkter Datei-Download ist hier nicht möglich: Text unten kopieren und als .json speichern.');
+        try {
+          await dl.save({
+            filename: 'rubik4x4-zustand.json',
+            data: js
+          });
+          sinfo('Zustand als Datei gespeichert.')
+        } catch (e) {
+          sinfo(e && e.code == 'declined' ? '' : 'Datei-Speichern nicht möglich: Text unten kopieren und als .json speichern.')
+        }
+      };
+      $('#stload').onclick = () => $('#stf').click();
+      $('#stf').onchange = e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          $('#stx').value = rd.result;
+          loadStateText(rd.result)
+        };
+        rd.readAsText(f);
+        e.target.value = ''
+      };
       $('#sv').onclick = () => {
         const a = $('#al').value.trim(),
           r = parse(a);
