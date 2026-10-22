@@ -16,6 +16,7 @@ h1{font:600 2rem Georgia,serif;margin:0 0 4px;color:var(--gold)}
 #board svg{display:block;width:100%;height:auto}
 .cell{cursor:pointer}
 .cell:focus-visible{outline:none}.cell:focus-visible polygon{stroke:var(--gold)!important;stroke-width:3!important}
+.cell.fix{cursor:default}.cell.fix polygon{stroke:var(--gold)!important;stroke-width:3!important}
 .cell.bad polygon{stroke:var(--bad)!important;stroke-width:3.5!important}
 .side{flex:1;min-width:250px}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
@@ -45,15 +46,26 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 <button id="bNew">Neu mischen</button>
 <select id="size" aria-label="Spielvariante"><option value="3">Seite 3, 9 Kacheln</option><option value="4" selected>Seite 4, 16 Kacheln</option><option value="5">Seite 5, 25 Kacheln</option><option value="tree">Tannenbaum, alle 30 Kacheln</option></select>
 <label style="display:flex;align-items:center;gap:6px;color:var(--mut)"><input type="checkbox" id="all"> alle 30 zur Auswahl</label>
+<label style="display:flex;align-items:center;gap:6px;color:var(--mut)"><input type="checkbox" id="uniq"> Rätsel mit Vorgaben</label>
 <button id="bClear">Feld leeren</button>
 <button id="bTheme">Stil</button>
 <button id="bFull">Vollbild</button>
+</div>
+<div class="btns">
+<button id="bBSave">Im Browser speichern</button>
+<button id="bBLoad">Aus Browser laden</button>
+<button id="bFSave">Als Datei speichern</button>
+<button id="bFLoad">Datei laden</button>
+<button id="bText">Als Text</button>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+<div id="txtBox" hidden style="flex-basis:100%"><textarea id="txt" aria-label="Spielstand als Text" spellcheck="false" style="width:100%;min-height:110px;font:12px monospace;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:8px"></textarea>
+<div class="btns" style="margin:8px 0 0"><button id="bCopy">Kopieren</button><button id="bTxtLoad">Text laden</button><button id="bTxtClose">Schließen</button></div></div>
 </div>
 <div id="msg" role="status"></div>
 <h2 id="hl"></h2>
 <div id="hand"></div>
 <h2>Bedienung</h2>
-<ul><li>Kachel unten anklicken, ein zweiter Klick dreht sie um 120° (oder Taste R).</li><li>Dann ein Dreieck im Feld anklicken, um sie abzulegen.</li><li>Gelegte Kachel anklicken nimmt sie wieder auf; Rechtsklick dreht sie im Feld.</li><li>Auf den ▼-Feldern steht die Kachel auf dem Kopf, die Farbregel bleibt dieselbe.</li><li>Rot umrandete Felder haben eine Kante, an der die Farben nicht passen.</li><li>Zurück nimmt den letzten Zug zurück (auch Hinweis und Lösen).</li><li>Der Solver behält deine gelegten Kacheln bei, wenn sie zu einer Lösung führen.</li><li>Tannenbaum: Krone aus 25 Dreiecken plus Stamm aus 5 Kacheln (▼ ▲ ▼ ▲ ▼) in einer Reihe unter der Basis, alle 30 Kacheln werden gelegt. Die drei ▼ liegen mit einer Kante an der Krone an.</li><li>„alle 30 zur Auswahl“ legt bei den kleineren Feldern alle 30 Kacheln bereit, du suchst die passenden selbst aus.</li></ul>
+<ul><li>Kachel unten anklicken, ein zweiter Klick dreht sie um 120° (oder Taste R).</li><li>Dann ein Dreieck im Feld anklicken, um sie abzulegen.</li><li>Gelegte Kachel anklicken nimmt sie wieder auf; Rechtsklick dreht sie im Feld.</li><li>Auf den ▼-Feldern steht die Kachel auf dem Kopf, die Farbregel bleibt dieselbe.</li><li>Rot umrandete Felder haben eine Kante, an der die Farben nicht passen.</li><li>Zurück nimmt den letzten Zug zurück (auch Hinweis und Lösen).</li><li>Der Solver behält deine gelegten Kacheln bei, wenn sie zu einer Lösung führen.</li><li>Tannenbaum: Krone aus 25 Dreiecken plus Stamm aus 5 Kacheln (▼ ▲ ▼ ▲ ▼) in einer Reihe unter der Basis, alle 30 Kacheln werden gelegt. Die drei ▼ liegen mit einer Kante an der Krone an.</li><li>„alle 30 zur Auswahl“ legt bei den kleineren Feldern alle 30 Kacheln bereit, du suchst die passenden selbst aus.</li><li>„Rätsel mit Vorgaben“: Einige Kacheln liegen goldumrandet fest, damit es genau eine Lösung gibt. Hinweis und Lösen zeigen diese Lösung.</li><li>Speichern geht im Browser oder als JSON-Datei, „Als Text“ zeigt den Spielstand zum Kopieren. Laden stellt Feld, Kachelsatz und Vorgaben wieder her.</li></ul>
 </div></div></main>
 <script>
 /*CORE*/
@@ -85,6 +97,17 @@ for(const t of order){if(used[t])continue;for(let r=0;r<3;r++){if(++nodes>limit)
 if(!ok(i,EC[t][r]))continue;g[i]={t,r};used[t]=true;if(dfs())return true;g[i]=null;used[t]=false;if(over)return false}}return false};
 return dfs()?{g}:{g:null,over}}
 function solveR(EC,NB,fixed){for(let k=0;k<40;k++){const r=solve(EC,NB,fixed,4e4,true);if(r.g||!r.over)return r}return{g:null,over:true}}
+function count(EC,NB,fixed,limit,max){const N=fixed.length,T=EC.length,g=fixed.slice(),used=Array(T).fill(false);let nodes=0,found=0,over=false;
+const ok=(i,e)=>{for(let s=0;s<3;s++){const j=NB[i][s];if(j>=0&&g[j]&&e[s]!==rev(EC[g[j].t][g[j].r][s]))return false}return true};
+fixed.forEach(c=>{if(c)used[c.t]=true});
+for(let i=0;i<N;i++)if(g[i]&&!ok(i,EC[g[i].t][g[i].r]))return 0;
+const dfs=()=>{let bi=-1,bl=null;for(let q=0;q<N;q++)if(!g[q]){const l=[];for(let t=0;t<T;t++)if(!used[t])for(let r=0;r<3;r++)if(ok(q,EC[t][r]))l.push([t,r]);
+if(!bl||l.length<bl.length){bl=l;bi=q}if(!l.length)return false}
+if(bi<0){found++;return found>=max}
+for(const [t,r] of bl){if(++nodes>limit){over=true;return true}g[bi]={t,r};used[t]=true;const d=dfs();g[bi]=null;used[t]=false;if(d)return true}return false};
+dfs();return over&&found<max?null:found}
+function mkPuzzle(EC,NB,sol){const N=sol.length,fx=sol.map(c=>({t:c.t,r:c.r,f:true}));
+for(const i of shuf([...Array(N).keys()])){const keep=fx[i];fx[i]=null;if(count(EC,NB,fx,3e5,2)!==1)fx[i]=keep}return fx}
 /*END*/
 const COL=['#d9473f','#3f7fd9','#f0c93a'],TRI='50,0 100,'+H+' 0,'+H,LBL='ABCDEFGHIJKLMNOPQRSTUVWXYZ1234';
 let LAY,N=16,TC=[],PID=[],EC=[],NB=[],POS=[],cells=[],rot=[],sel=null,timer=null,dead='',hist=[];
@@ -101,11 +124,12 @@ else{const pec=mkEC(POOL);let sol=null;for(let k=0;k<60&&!sol;k++){const e=solve
 if(!sol){say('Es konnte kein Puzzle erzeugt werden. Bitte nochmal „Neu mischen“.');return}
 PID=shuf(sol.map(c=>c.t))}
 TC=PID.map(i=>POOL[i]);EC=mkEC(TC);cells=Array(N).fill(null);rot=TC.map(()=>Math.floor(Math.random()*3));sel=null;hist=[];
+if($('#uniq').checked){say('Erzeuge Rätsel …');render();setTimeout(()=>{const s=solveR(EC,NB,cells);if(s.g){cells=mkPuzzle(EC,NB,s.g);say(`Rätsel mit ${cells.filter(Boolean).length} Vorgaben (goldumrandet) und genau einer Lösung.`)}else say('Das Rätsel konnte nicht erzeugt werden. Bitte nochmal „Neu mischen“.');render()},30);return}
 say('Neu gemischt. Wähle eine Kachel und lege sie ab.');render()}
 function bad(){const b=new Set();cells.forEach((c,i)=>{if(!c)return;const e=EC[c.t][c.r];
 for(let s=0;s<3;s++){const j=NB[i][s];if(j>i&&cells[j]&&e[s]!==rev(EC[cells[j].t][cells[j].r][s])){b.add(i);b.add(j)}}});return b}
 function cellSvg(c,i,b){const p=POS[i];
-return `<g class="cell${b.has(i)?' bad':''}" data-i="${i}" transform="translate(${p.x} ${p.y})" tabindex="0"><g transform="${p.down?'rotate(180 50 '+H/2+')':''}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(${c?'--card':'--panel'});stroke:var(--line);stroke-width:1"/>${c?ropes(TC[c.t],c.r):''}</g>${c?`<text x="50" y="${p.down?15:80}" text-anchor="middle" font-size="11" style="fill:var(--mut)">${LET(c.t)}</text>`:''}</g>`}
+return `<g class="cell${b.has(i)?' bad':''}${c&&c.f?' fix':''}" data-i="${i}" transform="translate(${p.x} ${p.y})" tabindex="0"><g transform="${p.down?'rotate(180 50 '+H/2+')':''}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(${c?'--card':'--panel'});stroke:var(--line);stroke-width:1"/>${c?ropes(TC[c.t],c.r):''}</g>${c?`<text x="50" y="${p.down?15:80}" text-anchor="middle" font-size="11" style="fill:var(--mut)">${LET(c.t)}</text>`:''}</g>`}
 function render(){const b=bad();
 const a=[],z=[];cells.forEach((c,i)=>(b.has(i)?z:a).push(cellSvg(c,i,b)));
 $('#board').innerHTML=`<svg viewBox="-4 -4 ${LAY.G*100+8} ${LAY.G*H+8}">${a.join('')}${z.join('')}</svg>`;
@@ -113,18 +137,18 @@ const used=new Set(cells.filter(Boolean).map(c=>c.t));
 $('#hand').innerHTML=TC.map((col,t)=>used.has(t)?'':`<div class="h${sel===t?' sel':''}" data-t="${t}" tabindex="0"><svg viewBox="-3 -3 106 ${H+6}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(--card);stroke:var(--line)"/>${ropes(col,rot[t])}<text x="50" y="80" text-anchor="middle" font-size="11" style="fill:var(--mut)">${LET(t)}</text></svg></div>`).join('');
 $('#hl').textContent=`Kacheln übrig: ${TC.length-used.size}`;
 if(used.size===N&&!b.size)say('Geschafft! Alle Seile laufen durch.')}
-$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d)return;const i=+d.dataset.i,c=cells[i];save();
+$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d)return;const i=+d.dataset.i,c=cells[i];if(c&&c.f){say('Diese Kachel ist vorgegeben.');return}save();
 if(sel===null){if(c){sel=c.t;rot[c.t]=c.r;cells[i]=null}}
 else{const t=sel;cells[i]={t,r:rot[t]};sel=c?c.t:null;if(c)rot[c.t]=c.r}
 render()});
-$('#board').addEventListener('contextmenu',e=>{const d=e.target.closest('.cell');if(!d)return;e.preventDefault();const c=cells[+d.dataset.i];if(c){save();c.r=(c.r+1)%3;render()}});
+$('#board').addEventListener('contextmenu',e=>{const d=e.target.closest('.cell');if(!d)return;e.preventDefault();const c=cells[+d.dataset.i];if(c&&!c.f){save();c.r=(c.r+1)%3;render()}});
 $('#hand').addEventListener('click',e=>{const d=e.target.closest('.h');if(!d)return;const t=+d.dataset.t;
 if(sel===t)rot[t]=(rot[t]+1)%3;else sel=t;render()});
 document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const d=e.target.closest&&e.target.closest('.cell,.h');if(d){e.preventDefault();d.dispatchEvent(new MouseEvent('click',{bubbles:true}))}});
 function rotSel(){if(sel!==null){rot[sel]=(rot[sel]+1)%3;render()}}
 $('#bRot').onclick=rotSel;addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')rotSel();if(e.key==='z'||e.key==='Z')undo()});
 function plan(cb){clearInterval(timer);timer=null;save();say('Rechne …');setTimeout(()=>{dead='';let r=solveR(EC,NB,cells);
-if(!r.g&&!r.over){cells=Array(N).fill(null);sel=null;dead='Deine Anordnung führt in eine Sackgasse, das Feld wurde geleert. ';r=solveR(EC,NB,cells)}
+if(!r.g&&!r.over){cells=cells.map(c=>c&&c.f?c:null);sel=null;dead='Deine Anordnung führt in eine Sackgasse, das Feld wurde geleert. ';r=solveR(EC,NB,cells)}
 if(!r.g){say('Das dauert zu lang. Mische bitte neu.');return}cb(r.g)},30)}
 $('#bHint').onclick=()=>plan(g=>{const i=cells.findIndex(x=>!x);if(i<0){say('Das Feld ist schon voll.');return}
 cells[i]={...g[i]};if(sel===g[i].t)sel=null;render();const p=POS[i];say(dead+`Hinweis: Kachel ${LET(g[i].t)} gehört in Reihe ${p.r+1}, Dreieck ${p.k+1} (${p.down?'▼':'▲'}).`)});
@@ -134,11 +158,30 @@ function save(){const s=JSON.stringify({cells,rot,sel});if(hist[hist.length-1]!=
 function undo(){clearInterval(timer);timer=null;const cur=JSON.stringify({cells,rot,sel});let s;do{s=hist.pop()}while(s&&s===cur);if(!s){say('Nichts zum Zurücknehmen.');return}const o=JSON.parse(s);cells=o.cells;rot=o.rot;sel=o.sel;render();say('Letzten Zug zurückgenommen.')}
 $('#bUndo').onclick=undo;
 $('#bNew').onclick=gen;$('#size').onchange=gen;$('#all').onchange=gen;
-$('#bClear').onclick=()=>{clearInterval(timer);timer=null;save();cells=Array(N).fill(null);sel=null;say('Feld geleert.');render()};
+$('#bClear').onclick=()=>{clearInterval(timer);timer=null;save();cells=cells.map(c=>c&&c.f?c:null);sel=null;say('Feld geleert.');render()};
 const TH=['','papier','nacht'];let ti=matchMedia('(prefers-color-scheme: light)').matches?1:0;
 const setTh=()=>{TH[ti]?document.documentElement.dataset.theme=TH[ti]:delete document.documentElement.dataset.theme;try{localStorage.setItem('dtangle-th',ti)}catch(e){}};
 try{const s=localStorage.getItem('dtangle-th');if(s!==null)ti=+s}catch(e){}
 $('#bTheme').onclick=()=>{ti=(ti+1)%3;setTh()};
 $('#bFull').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+const snap=()=>JSON.stringify({game:'dreieck-tangle',v:1,key:$('#size').value,all:$('#all').checked,pid:PID,cells,rot});
+function apply(txt){try{const o=JSON.parse(txt);if(!o||o.game!=='dreieck-tangle'||!['3','4','5','tree'].includes(o.key))throw 0;
+const lay=layout(o.key),M=lay.cells.length,P=o.pid;
+if(!Array.isArray(P)||!P.every(i=>Number.isInteger(i)&&i>=0&&i<POOL.length)||new Set(P).size!==P.length||P.length<M||(o.key==='tree'&&P.length!==M))throw 0;
+const T=P.length;if(!Array.isArray(o.cells)||o.cells.length!==M||!Array.isArray(o.rot)||o.rot.length!==T||!o.rot.every(r=>Number.isInteger(r)&&r>=0&&r<3))throw 0;
+const seen=new Set();for(const c of o.cells){if(c===null)continue;if(!c||!Number.isInteger(c.t)||!Number.isInteger(c.r)||c.t<0||c.t>=T||c.r<0||c.r>2||seen.has(c.t))throw 0;seen.add(c.t)}
+clearInterval(timer);timer=null;hist=[];$('#size').value=o.key;$('#all').checked=!!o.all||o.key==='tree';$('#all').disabled=o.key==='tree';
+LAY=lay;N=M;NB=mkNB(lay.cells);mkPos();PID=P.slice();TC=PID.map(i=>POOL[i]);EC=mkEC(TC);cells=o.cells.map(c=>c&&(c.f?{t:c.t,r:c.r,f:true}:{t:c.t,r:c.r}));rot=o.rot.slice();sel=null;render();say('Spielstand geladen.')}
+catch(e){say('Das ist kein gültiger Dreieck-Tangle-Spielstand.')}}
+$('#bBSave').onclick=()=>{try{localStorage.setItem('dtangle-save',snap());say('Im Browser gespeichert ('+new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr).')}catch(e){say('Der Browser-Speicher ist hier nicht verfügbar.')}};
+$('#bBLoad').onclick=()=>{let s=null;try{s=localStorage.getItem('dtangle-save')}catch(e){say('Der Browser-Speicher ist hier nicht verfügbar.');return}if(!s)say('Im Browser ist noch kein Spielstand gespeichert.');else apply(s)};
+$('#bFSave').onclick=async()=>{try{const d=await claude.use('downloads');if(!d)throw{code:'unavailable'};await d.save({filename:'dreieck-tangle-spielstand.json',data:snap()});say('Spielstand als Datei gespeichert.')}catch(e){if(e&&e.code==='declined')say('Speichern abgebrochen.');else showText('Direktes Speichern ist hier nicht möglich. Kopiere den Text unten und speichere ihn in einer Datei, z. B. spielstand.json.')}};
+$('#bFLoad').onclick=()=>$('#fileIn').click();
+$('#fileIn').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)f.text().then(apply).catch(()=>say('Die Datei konnte nicht gelesen werden.'))};
+function showText(m){$('#txtBox').hidden=false;const t=$('#txt');t.value=snap();t.focus();t.select();if(m)say(m)}
+$('#bText').onclick=()=>showText('Spielstand als Text. Zum Laden: gespeicherten Text einfügen und „Text laden“ wählen.');
+$('#bCopy').onclick=async()=>{const t=$('#txt');t.select();try{await navigator.clipboard.writeText(t.value);say('In die Zwischenablage kopiert.')}catch(e){try{document.execCommand('copy');say('In die Zwischenablage kopiert.')}catch(e2){say('Bitte den markierten Text mit Strg+C kopieren.')}}};
+$('#bTxtLoad').onclick=()=>apply($('#txt').value);
+$('#bTxtClose').onclick=()=>{$('#txtBox').hidden=true};
 setTh();gen();
 </script></body></html>
