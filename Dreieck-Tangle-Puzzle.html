@@ -45,6 +45,9 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 <div class="btns">
 <button id="bNew">Neu mischen</button>
 <select id="size" aria-label="Spielvariante"><option value="3">Seite 3, 9 Kacheln</option><option value="4" selected>Seite 4, 16 Kacheln</option><option value="5">Seite 5, 25 Kacheln</option><option value="tree">Tannenbaum, alle 30 Kacheln</option></select>
+</div>
+<details id="set" style="margin-bottom:12px"><summary style="cursor:pointer;color:var(--mut);padding:4px 0 10px">Einstellungen</summary>
+<div class="btns">
 <label style="display:flex;align-items:center;gap:6px;color:var(--mut)"><input type="checkbox" id="all"> alle 30 zur Auswahl</label>
 <label style="display:flex;align-items:center;gap:6px;color:var(--mut)"><input type="checkbox" id="uniq"> Rätsel mit Vorgaben</label>
 <button id="bClear">Feld leeren</button>
@@ -61,6 +64,7 @@ ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
 <div id="txtBox" hidden style="flex-basis:100%"><textarea id="txt" aria-label="Spielstand als Text" spellcheck="false" style="width:100%;min-height:110px;font:12px monospace;background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:8px"></textarea>
 <div class="btns" style="margin:8px 0 0"><button id="bCopy">Kopieren</button><button id="bTxtLoad">Text laden</button><button id="bTxtClose">Schließen</button></div></div>
 </div>
+</details>
 <div id="msg" role="status"></div>
 <h2 id="hl"></h2>
 <div id="hand"></div>
