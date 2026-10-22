@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dreieck-Tangle – Dreieckspuzzle mit Solver</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#14110c;--panel:#1d1912;--card:#2a241a;--line:#5a4a25;--gold:#d4a73a;--txt:#efe6d2;--mut:#a39880;--bad:#e5534b}
+:root[data-theme=papier]{--bg:#f1ead9;--panel:#fbf7ec;--card:#fffdf6;--line:#b9a36a;--gold:#8a6410;--txt:#2b2415;--mut:#6f6448}
+:root[data-theme=nacht]{--bg:#0d1420;--panel:#141d2e;--card:#1a2640;--line:#35517f;--gold:#7fb2ff;--txt:#e3ecfb;--mut:#8fa3c4}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,Segoe UI,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font:600 2rem Georgia,serif;margin:0 0 4px;color:var(--gold)}
+.sub{color:var(--mut);margin:0 0 16px;max-width:66ch}
+.wrap{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+#board{width:min(100%,560px)}
+#board svg{display:block;width:100%;height:auto}
+.cell{cursor:pointer}
+.cell:focus-visible{outline:none}.cell:focus-visible polygon{stroke:var(--gold)!important;stroke-width:3!important}
+.cell.bad polygon{stroke:var(--bad)!important;stroke-width:3.5!important}
+.side{flex:1;min-width:250px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+button,select{font:inherit;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--gold)}button:focus-visible,select:focus-visible,.h:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.main{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:600}
+#msg{min-height:3em;padding:10px 12px;border-left:3px solid var(--gold);background:var(--panel);border-radius:0 6px 6px 0;margin-bottom:12px}
+#hand{display:flex;flex-wrap:wrap;gap:8px}
+.h{width:80px;border-radius:8px;cursor:pointer;overflow:hidden}
+.h svg{display:block;width:100%;height:auto}
+.h.sel{outline:3px solid var(--gold);transform:scale(1.08)}
+h2{font:600 1rem system-ui;margin:16px 0 8px;color:var(--mut)}
+ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
+</style></head><body><main>
+<h1>Dreieck-Tangle</h1>
+<p class="sub">Dreieckige Variante des Kachelpuzzles Rubik's Tangle: Jede Kachel ist ein Dreieck mit drei verschlungenen Seilen in Rot, Blau und Gelb, an jeder Kante liegen zwei Seilenden. Beim Zusammenlegen müssen die Enden an jeder gemeinsamen Kante dieselbe Farbe haben, kein Seil darf die Farbe wechseln.</p>
+<div class="wrap">
+<div id="board" aria-label="Spielfeld"></div>
+<div class="side">
+<div class="btns">
+<button class="main" id="bHint">Hinweis</button>
+<button class="main" id="bSolve">Lösen</button>
+<button id="bRot">Drehen (R)</button>
+<button id="bUndo">Zurück (Z)</button>
+</div>
+<div class="btns">
+<button id="bNew">Neu mischen</button>
+<select id="size" aria-label="Spielvariante"><option value="3">Seite 3, 9 Kacheln</option><option value="4" selected>Seite 4, 16 Kacheln</option><option value="5">Seite 5, 25 Kacheln</option><option value="tree">Tannenbaum, alle 30 Kacheln</option></select>
+<label style="display:flex;align-items:center;gap:6px;color:var(--mut)"><input type="checkbox" id="all"> alle 30 zur Auswahl</label>
+<button id="bClear">Feld leeren</button>
+<button id="bTheme">Stil</button>
+<button id="bFull">Vollbild</button>
+</div>
+<div id="msg" role="status"></div>
+<h2 id="hl"></h2>
+<div id="hand"></div>
+<h2>Bedienung</h2>
+<ul><li>Kachel unten anklicken, ein zweiter Klick dreht sie um 120° (oder Taste R).</li><li>Dann ein Dreieck im Feld anklicken, um sie abzulegen.</li><li>Gelegte Kachel anklicken nimmt sie wieder auf; Rechtsklick dreht sie im Feld.</li><li>Auf den ▼-Feldern steht die Kachel auf dem Kopf, die Farbregel bleibt dieselbe.</li><li>Rot umrandete Felder haben eine Kante, an der die Farben nicht passen.</li><li>Zurück nimmt den letzten Zug zurück (auch Hinweis und Lösen).</li><li>Der Solver behält deine gelegten Kacheln bei, wenn sie zu einer Lösung führen.</li><li>Tannenbaum: Krone aus 25 Dreiecken plus Stamm aus 5 Kacheln (▼ ▲ ▼ ▲ ▼) in einer Reihe unter der Basis, alle 30 Kacheln werden gelegt. Die drei ▼ liegen mit einer Kante an der Krone an.</li><li>„alle 30 zur Auswahl“ legt bei den kleineren Feldern alle 30 Kacheln bereit, du suchst die passenden selbst aus.</li></ul>
+</div></div></main>
+<script>
+/*CORE*/
+const PT=[],CT=[],H=86.6,V=[[50,0],[100,H],[0,H]],G=[50,H*2/3];
+for(let e=0;e<3;e++){const a=V[e],b=V[(e+1)%3];PT.push([a[0]+(b[0]-a[0])/3,a[1]+(b[1]-a[1])/3],[a[0]+(b[0]-a[0])*2/3,a[1]+(b[1]-a[1])*2/3]);
+const m=[(a[0]+b[0])/2,(a[1]+b[1])/2],d=[G[0]-m[0],G[1]-m[1]],l=Math.hypot(d[0],d[1]);CT.push([d[0]/l*38,d[1]/l*38])}
+const POOL=(()=>{const seen=new Set(),out=[];
+const rec=(a,c)=>{if(a.length===6){const key=[0,2,4].map(s=>a.slice(s).concat(a.slice(0,s)).join('')).sort()[0];if(seen.has(key))return;seen.add(key);
+out.push(key.split('').map(Number));return}
+for(let k=0;k<3;k++)if(c[k]<2){c[k]++;a.push(k);rec(a,c);a.pop();c[k]--}};
+rec([],[0,0,0]);return out})();
+const rev=v=>(v%3)*3+((v/3)|0);
+const EDGE=(col,r)=>{const c=j=>col[(j-2*r+12)%6];return[0,1,2].map(e=>c(2*e)*3+c(2*e+1))};
+const mkEC=cols=>cols.map(col=>[0,1,2].map(r=>EDGE(col,r)));
+function layout(key){const c=[];if(key==='tree'){c.push([5,3],[5,4],[5,5],[5,6],[5,7]);for(let r=0;r<5;r++)for(let k=0;k<=2*r;k++)c.push([r,k]);return{G:6,cells:c}}
+const m=+key;for(let r=0;r<m;r++)for(let k=0;k<=2*r;k++)c.push([r,k]);return{G:m,cells:c}}
+function mkNB(cells){const ix=new Map(cells.map(([r,k],i)=>[r+','+k,i]));
+return cells.map(([r,k])=>(k%2===0?[[r,k+1],[r+1,k+1],[r,k-1]]:[[r,k-1],[r-1,k-1],[r,k+1]]).map(([y,x])=>ix.has(y+','+x)?ix.get(y+','+x):-1))}
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+function solve(EC,NB,fixed,limit,rnd){const N=fixed.length,T=EC.length,g=fixed.slice(),used=Array(T).fill(false),order=[...Array(T).keys()];let nodes=0,over=false,bw0=-1;if(rnd)shuf(order);
+const ok=(i,e)=>{for(let s=0;s<3;s++){const j=NB[i][s];if(j>=0&&g[j]&&e[s]!==rev(EC[g[j].t][g[j].r][s]))return false}return true};
+fixed.forEach(c=>{if(c)used[c.t]=true});
+for(let i=0;i<N;i++)if(g[i]&&!ok(i,EC[g[i].t][g[i].r]))return{g:null};
+const dfs=()=>{let bi=-1,bc=1e9;bw0=-1;for(let q=0;q<N;q++)if(!g[q]){let w=0;for(let s=0;s<3;s++)if(NB[q][s]>=0&&g[NB[q][s]])w++;
+if(!w&&bi>=0)continue;let c=0;for(let t=0;t<T&&c<bc;t++)if(!used[t])for(let r=0;r<3;r++)if(ok(q,EC[t][r]))c++;
+if(c<bc||(c===bc&&w>0&&bw0<w)){bc=c;bi=q;bw0=w}if(c===0)return false}
+if(bi<0)return true;const i=bi;
+for(const t of order){if(used[t])continue;for(let r=0;r<3;r++){if(++nodes>limit){over=true;return false}
+if(!ok(i,EC[t][r]))continue;g[i]={t,r};used[t]=true;if(dfs())return true;g[i]=null;used[t]=false;if(over)return false}}return false};
+return dfs()?{g}:{g:null,over}}
+function solveR(EC,NB,fixed){for(let k=0;k<40;k++){const r=solve(EC,NB,fixed,4e4,true);if(r.g||!r.over)return r}return{g:null,over:true}}
+/*END*/
+const COL=['#d9473f','#3f7fd9','#f0c93a'],TRI='50,0 100,'+H+' 0,'+H,LBL='ABCDEFGHIJKLMNOPQRSTUVWXYZ1234';
+let LAY,N=16,TC=[],PID=[],EC=[],NB=[],POS=[],cells=[],rot=[],sel=null,timer=null,dead='',hist=[];
+const $=s=>document.querySelector(s),say=m=>$('#msg').textContent=m,LET=t=>LBL[PID[t]];
+function ropes(col,r){const cl=j=>col[(j-2*r+12)%6];let o='';
+for(let k=0;k<3;k++){const js=[0,1,2,3,4,5].filter(j=>cl(j)===k),A=PT[js[0]],B=PT[js[1]],a=CT[js[0]>>1],b=CT[js[1]>>1],
+d=`M${A[0]} ${A[1]}C${A[0]+a[0]} ${A[1]+a[1]} ${B[0]+b[0]} ${B[1]+b[1]} ${B[0]} ${B[1]}`;
+o+=`<path d="${d}" fill="none" stroke="rgba(0,0,0,.55)" stroke-width="13"/><path d="${d}" fill="none" stroke="${COL[k]}" stroke-width="8.5"/>`}return o}
+function mkPos(){POS=LAY.cells.map(([r,k])=>({r,k,down:k%2===1,x:(LAY.G-1-r)*50+(k>>1)*100+(k%2?50:0),y:r*H}))}
+function gen(){clearInterval(timer);timer=null;const key=$('#size').value,tree=key==='tree';$('#all').disabled=tree;if(tree)$('#all').checked=true;
+LAY=layout(key);N=LAY.cells.length;NB=mkNB(LAY.cells);mkPos();
+if($('#all').checked&&!tree)PID=shuf([...POOL.keys()]);
+else{const pec=mkEC(POOL);let sol=null;for(let k=0;k<60&&!sol;k++){const e=solve(pec,NB,Array(N).fill(null),tree?1e6:2e5,true);if(e.g)sol=e.g}
+if(!sol){say('Es konnte kein Puzzle erzeugt werden. Bitte nochmal „Neu mischen“.');return}
+PID=shuf(sol.map(c=>c.t))}
+TC=PID.map(i=>POOL[i]);EC=mkEC(TC);cells=Array(N).fill(null);rot=TC.map(()=>Math.floor(Math.random()*3));sel=null;hist=[];
+say('Neu gemischt. Wähle eine Kachel und lege sie ab.');render()}
+function bad(){const b=new Set();cells.forEach((c,i)=>{if(!c)return;const e=EC[c.t][c.r];
+for(let s=0;s<3;s++){const j=NB[i][s];if(j>i&&cells[j]&&e[s]!==rev(EC[cells[j].t][cells[j].r][s])){b.add(i);b.add(j)}}});return b}
+function cellSvg(c,i,b){const p=POS[i];
+return `<g class="cell${b.has(i)?' bad':''}" data-i="${i}" transform="translate(${p.x} ${p.y})" tabindex="0"><g transform="${p.down?'rotate(180 50 '+H/2+')':''}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(${c?'--card':'--panel'});stroke:var(--line);stroke-width:1"/>${c?ropes(TC[c.t],c.r):''}</g>${c?`<text x="50" y="${p.down?15:80}" text-anchor="middle" font-size="11" style="fill:var(--mut)">${LET(c.t)}</text>`:''}</g>`}
+function render(){const b=bad();
+const a=[],z=[];cells.forEach((c,i)=>(b.has(i)?z:a).push(cellSvg(c,i,b)));
+$('#board').innerHTML=`<svg viewBox="-4 -4 ${LAY.G*100+8} ${LAY.G*H+8}">${a.join('')}${z.join('')}</svg>`;
+const used=new Set(cells.filter(Boolean).map(c=>c.t));
+$('#hand').innerHTML=TC.map((col,t)=>used.has(t)?'':`<div class="h${sel===t?' sel':''}" data-t="${t}" tabindex="0"><svg viewBox="-3 -3 106 ${H+6}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(--card);stroke:var(--line)"/>${ropes(col,rot[t])}<text x="50" y="80" text-anchor="middle" font-size="11" style="fill:var(--mut)">${LET(t)}</text></svg></div>`).join('');
+$('#hl').textContent=`Kacheln übrig: ${TC.length-used.size}`;
+if(used.size===N&&!b.size)say('Geschafft! Alle Seile laufen durch.')}
+$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d)return;const i=+d.dataset.i,c=cells[i];save();
+if(sel===null){if(c){sel=c.t;rot[c.t]=c.r;cells[i]=null}}
+else{const t=sel;cells[i]={t,r:rot[t]};sel=c?c.t:null;if(c)rot[c.t]=c.r}
+render()});
+$('#board').addEventListener('contextmenu',e=>{const d=e.target.closest('.cell');if(!d)return;e.preventDefault();const c=cells[+d.dataset.i];if(c){save();c.r=(c.r+1)%3;render()}});
+$('#hand').addEventListener('click',e=>{const d=e.target.closest('.h');if(!d)return;const t=+d.dataset.t;
+if(sel===t)rot[t]=(rot[t]+1)%3;else sel=t;render()});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const d=e.target.closest&&e.target.closest('.cell,.h');if(d){e.preventDefault();d.dispatchEvent(new MouseEvent('click',{bubbles:true}))}});
+function rotSel(){if(sel!==null){rot[sel]=(rot[sel]+1)%3;render()}}
+$('#bRot').onclick=rotSel;addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')rotSel();if(e.key==='z'||e.key==='Z')undo()});
+function plan(cb){clearInterval(timer);timer=null;save();say('Rechne …');setTimeout(()=>{dead='';let r=solveR(EC,NB,cells);
+if(!r.g&&!r.over){cells=Array(N).fill(null);sel=null;dead='Deine Anordnung führt in eine Sackgasse, das Feld wurde geleert. ';r=solveR(EC,NB,cells)}
+if(!r.g){say('Das dauert zu lang. Mische bitte neu.');return}cb(r.g)},30)}
+$('#bHint').onclick=()=>plan(g=>{const i=cells.findIndex(x=>!x);if(i<0){say('Das Feld ist schon voll.');return}
+cells[i]={...g[i]};if(sel===g[i].t)sel=null;render();const p=POS[i];say(dead+`Hinweis: Kachel ${LET(g[i].t)} gehört in Reihe ${p.r+1}, Dreieck ${p.k+1} (${p.down?'▼':'▲'}).`)});
+$('#bSolve').onclick=()=>plan(g=>{const q=[];cells.forEach((c,i)=>{if(!c)q.push(i)});sel=null;say(dead+'Lösung wird gelegt …');
+timer=setInterval(()=>{if(!q.length){clearInterval(timer);timer=null;render();say(dead+'Gelöst.');return}const i=q.shift();cells[i]={...g[i]};render()},110)});
+function save(){const s=JSON.stringify({cells,rot,sel});if(hist[hist.length-1]!==s)hist.push(s);if(hist.length>200)hist.shift()}
+function undo(){clearInterval(timer);timer=null;const cur=JSON.stringify({cells,rot,sel});let s;do{s=hist.pop()}while(s&&s===cur);if(!s){say('Nichts zum Zurücknehmen.');return}const o=JSON.parse(s);cells=o.cells;rot=o.rot;sel=o.sel;render();say('Letzten Zug zurückgenommen.')}
+$('#bUndo').onclick=undo;
+$('#bNew').onclick=gen;$('#size').onchange=gen;$('#all').onchange=gen;
+$('#bClear').onclick=()=>{clearInterval(timer);timer=null;save();cells=Array(N).fill(null);sel=null;say('Feld geleert.');render()};
+const TH=['','papier','nacht'];let ti=matchMedia('(prefers-color-scheme: light)').matches?1:0;
+const setTh=()=>{TH[ti]?document.documentElement.dataset.theme=TH[ti]:delete document.documentElement.dataset.theme;try{localStorage.setItem('dtangle-th',ti)}catch(e){}};
+try{const s=localStorage.getItem('dtangle-th');if(s!==null)ti=+s}catch(e){}
+$('#bTheme').onclick=()=>{ti=(ti+1)%3;setTh()};
+$('#bFull').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+setTh();gen();
+</script></body></html>
