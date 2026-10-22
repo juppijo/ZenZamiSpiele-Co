@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dreieck-Duell – Legespiel für zwei</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#14110c;--panel:#1d1912;--card:#2a241a;--line:#5a4a25;--gold:#d4a73a;--p2:#5aa9ff;--txt:#efe6d2;--mut:#a39880}
+:root[data-theme=papier]{--bg:#f1ead9;--panel:#fbf7ec;--card:#fffdf6;--line:#b9a36a;--gold:#8a6410;--p2:#1f6fd1;--txt:#2b2415;--mut:#6f6448}
+:root[data-theme=nacht]{--bg:#0d1420;--panel:#141d2e;--card:#1a2640;--line:#35517f;--gold:#ffc857;--p2:#7fb2ff;--txt:#e3ecfb;--mut:#8fa3c4}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,Segoe UI,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font:600 2rem Georgia,serif;margin:0 0 4px;color:var(--gold)}
+.sub{color:var(--mut);margin:0 0 16px;max-width:66ch}
+.wrap{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+#board{width:min(100%,560px)}#board svg{display:block;width:100%;height:auto}
+.cell.ok{cursor:pointer}
+.side{flex:1;min-width:250px}
+#score{display:flex;gap:10px;margin-bottom:12px}
+.pl{flex:1;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:2px solid var(--line);border-radius:8px;background:var(--panel)}
+.pl.on{border-color:var(--c);box-shadow:0 0 0 2px var(--c) inset}.pl b{font-size:1.5rem;color:var(--c)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+button,select{font:inherit;color:var(--txt);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--gold)}button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button.main{background:var(--gold);color:var(--bg);border-color:var(--gold);font-weight:600}
+#msg{min-height:3em;padding:10px 12px;border-left:3px solid var(--gold);background:var(--panel);border-radius:0 6px 6px 0;margin-bottom:12px}
+#offer{display:flex;flex-wrap:wrap;gap:10px}
+.h{width:88px;border-radius:8px;cursor:pointer;overflow:hidden}.h svg{display:block;width:100%;height:auto}
+.h.sel{outline:3px solid var(--gold);transform:scale(1.08)}
+h2{font:600 1rem system-ui;margin:16px 0 8px;color:var(--mut)}
+ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
+</style></head><body><main>
+<h1>Dreieck-Duell</h1>
+<p class="sub">Zwei Spieler legen abwechselnd Dreieckskacheln an. Die Seile müssen an jeder gemeinsamen Kante in der Farbe übereinstimmen. Wer am Ende die meisten Punkte hat, gewinnt.</p>
+<div class="wrap">
+<div id="board" aria-label="Spielfeld"></div>
+<div class="side">
+<div id="score"></div>
+<div class="btns">
+<button class="main" id="bNew">Neues Spiel</button>
+<select id="size" aria-label="Feldgröße"><option value="3">Seite 3, 9 Felder</option><option value="4" selected>Seite 4, 16 Felder</option><option value="5">Seite 5, 25 Felder</option></select>
+<select id="vs" aria-label="Gegner"><option value="h">2 Spieler am Gerät</option><option value="cpu">gegen Computer</option></select>
+</div>
+<div class="btns"><button id="bRot">Drehen (R)</button><button id="bTheme">Stil</button><button id="bFull">Vollbild</button></div>
+<div id="msg" role="status"></div>
+<h2 id="hl"></h2>
+<div id="offer"></div>
+<h2>Regeln</h2>
+<ul><li>Du wählst eine der offenen Kacheln (zweiter Klick oder R dreht sie) und legst sie auf einen goldenen Punkt.</li><li>Eine Kachel muss mindestens eine liegende Kachel berühren, und an allen berührten Kanten müssen beide Seilenden dieselbe Farbe haben.</li><li>Punkte gibt es für jede berührte Nachbarkachel, also 1 bis 3 pro Zug. Felder mit drei Nachbarn sind begehrt, aber schwer zu füllen.</li><li>Passt keine offene Kachel, wird das Angebot neu gezogen. Das Spiel endet, wenn das Feld voll ist oder nichts mehr passt.</li><li>Der Rand zeigt, wer die Kachel gelegt hat: Gold für Spieler 1, Blau für Spieler 2.</li></ul>
+</div></div></main>
+<script>
+const PT=[],CT=[],H=86.6,V=[[50,0],[100,H],[0,H]],G=[50,H*2/3];
+for(let e=0;e<3;e++){const a=V[e],b=V[(e+1)%3];PT.push([a[0]+(b[0]-a[0])/3,a[1]+(b[1]-a[1])/3],[a[0]+(b[0]-a[0])*2/3,a[1]+(b[1]-a[1])*2/3]);
+const m=[(a[0]+b[0])/2,(a[1]+b[1])/2],d=[G[0]-m[0],G[1]-m[1]],l=Math.hypot(d[0],d[1]);CT.push([d[0]/l*38,d[1]/l*38])}
+const POOL=(()=>{const seen=new Set(),out=[];
+const rec=(a,c)=>{if(a.length===6){const key=[0,2,4].map(s=>a.slice(s).concat(a.slice(0,s)).join('')).sort()[0];if(seen.has(key))return;seen.add(key);out.push(key.split('').map(Number));return}
+for(let k=0;k<3;k++)if(c[k]<2){c[k]++;a.push(k);rec(a,c);a.pop();c[k]--}};
+rec([],[0,0,0]);return out})();
+const rev=v=>(v%3)*3+((v/3)|0);
+const EDGE=(col,r)=>{const c=j=>col[(j-2*r+12)%6];return[0,1,2].map(e=>c(2*e)*3+c(2*e+1))};
+const EC=POOL.map(col=>[0,1,2].map(r=>EDGE(col,r)));
+function mkNB(cells){const ix=new Map(cells.map(([r,k],i)=>[r+','+k,i]));
+return cells.map(([r,k])=>(k%2===0?[[r,k+1],[r+1,k+1],[r,k-1]]:[[r,k-1],[r-1,k-1],[r,k+1]]).map(([y,x])=>ix.has(y+','+x)?ix.get(y+','+x):-1))}
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const COL=['#d9473f','#3f7fd9','#f0c93a'],TRI='50,0 100,'+H+' 0,'+H;
+let LAY,N,NB,POS,cells,bag,offer,sel,score,turn,over,vs,busy,gid=0;
+const $=s=>document.querySelector(s),say=m=>$('#msg').textContent=m,name=p=>p===1&&vs==='cpu'?'Computer':'Spieler '+(p+1);
+function ropes(col,r){const cl=j=>col[(j-2*r+12)%6];let o='';
+for(let k=0;k<3;k++){const js=[0,1,2,3,4,5].filter(j=>cl(j)===k),A=PT[js[0]],B=PT[js[1]],a=CT[js[0]>>1],b=CT[js[1]>>1],
+d=`M${A[0]} ${A[1]}C${A[0]+a[0]} ${A[1]+a[1]} ${B[0]+b[0]} ${B[1]+b[1]} ${B[0]} ${B[1]}`;
+o+=`<path d="${d}" fill="none" stroke="rgba(0,0,0,.55)" stroke-width="13"/><path d="${d}" fill="none" stroke="${COL[k]}" stroke-width="8.5"/>`}return o}
+function legal(c,t,r){if(cells[c])return 0;const e=EC[t][r];let k=0;
+for(let s=0;s<3;s++){const j=NB[c][s];if(j>=0&&cells[j]){if(e[s]!==rev(EC[cells[j].t][cells[j].r][s]))return 0;k++}}return k}
+function moves(){const m=[];offer.forEach((o,i)=>{for(let r=0;r<3;r++)for(let c=0;c<N;c++){const k=legal(c,o.t,r);if(k)m.push({i,c,r,k})}});return m}
+function ensure(){let note='';if(cells.every(Boolean)){over=true;return note}
+for(let k=0;k<12;k++){if(moves().length)return note;if(!bag.length){over=true;return note}
+bag.unshift(...offer.map(o=>o.t));offer=[];while(offer.length<4&&bag.length)offer.push({t:bag.pop(),r:0});note='Kein Zug möglich, neues Angebot.'}
+over=true;return note}
+const result=()=>{const a=score[0],b=score[1];return 'Spiel vorbei: '+(a===b?'Unentschieden':name(a>b?0:1)+' gewinnt')+` (${a} : ${b}).`};
+function start(){gid++;busy=false;const m=+$('#size').value;vs=$('#vs').value;
+LAY={G:m,cells:[]};for(let r=0;r<m;r++)for(let k=0;k<=2*r;k++)LAY.cells.push([r,k]);
+N=LAY.cells.length;NB=mkNB(LAY.cells);POS=LAY.cells.map(([r,k])=>({r,k,down:k%2===1,x:(m-1-r)*50+(k>>1)*100+(k%2?50:0),y:r*H}));
+cells=Array(N).fill(null);bag=shuf([...POOL.keys()]);
+const mid=[...Array(N).keys()].filter(c=>NB[c].every(j=>j>=0));const c0=mid.length?mid[Math.random()*mid.length|0]:Math.random()*N|0;
+cells[c0]={t:bag.pop(),r:0,p:-1};offer=[];while(offer.length<4)offer.push({t:bag.pop(),r:0});
+sel=null;score=[0,0];turn=0;over=false;const note=ensure();render();say(over?result():(note?note+' ':'')+name(0)+' beginnt. Wähle eine Kachel.');aiGo()}
+function cellSvg(t,i,ok){const p=POS[i],st=t?(t.p===0?'var(--gold)':t.p===1?'var(--p2)':'var(--line)'):ok?'var(--gold)':'var(--line)';
+return `<g class="cell${ok?' ok':''}" data-i="${i}" transform="translate(${p.x} ${p.y})"><g transform="${p.down?'rotate(180 50 '+H/2+')':''}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(${t?'--card':'--panel'});stroke:${st};stroke-width:${t&&t.p>=0?3:1}"/>${t?ropes(POOL[t.t],t.r):''}</g>${ok?`<circle cx="50" cy="${p.down?29:57}" r="9" style="fill:var(--gold)"/>`:''}</g>`}
+function render(){const ok=new Set();
+if(sel!==null&&!over&&!busy&&!(vs==='cpu'&&turn===1)){const o=offer[sel];for(let c=0;c<N;c++)if(legal(c,o.t,o.r))ok.add(c)}
+$('#board').innerHTML=`<svg viewBox="-4 -4 ${LAY.G*100+8} ${LAY.G*H+8}">${cells.map((t,i)=>cellSvg(t,i,ok.has(i))).join('')}</svg>`;
+$('#offer').innerHTML=offer.map((o,i)=>`<div class="h${sel===i?' sel':''}" data-i="${i}"><svg viewBox="-3 -3 106 ${H+6}"><polygon points="${TRI}" stroke-linejoin="round" style="fill:var(--card);stroke:var(--line)"/>${ropes(POOL[o.t],o.r)}</svg></div>`).join('');
+$('#score').innerHTML=[0,1].map(p=>`<div class="pl${turn===p&&!over?' on':''}" style="--c:var(${p?'--p2':'--gold'})"><span>${name(p)}</span><b>${score[p]}</b></div>`).join('');
+$('#hl').textContent=`Kacheln im Beutel: ${bag.length}`}
+function play(i,c,r){const t=offer[i].t,k=legal(c,t,r);cells[c]={t,r,p:turn};score[turn]+=k;
+if(bag.length)offer[i]={t:bag.pop(),r:0};else offer.splice(i,1);
+sel=null;const who=name(turn);turn^=1;const note=ensure();render();
+say(over?result():(note?note+' ':'')+`${who} legte +${k}. ${name(turn)} ist dran.`);aiGo()}
+function aiGo(){if(over||vs!=='cpu'||turn!==1)return;busy=true;const g=gid;
+setTimeout(()=>{if(g!==gid)return;const m=moves(),mx=Math.max(...m.map(x=>x.k)),b=m.filter(x=>x.k===mx),x=b[Math.random()*b.length|0];
+offer[x.i].r=x.r;sel=x.i;render();setTimeout(()=>{if(g!==gid)return;busy=false;play(x.i,x.c,x.r)},500)},600)}
+const mine=()=>!over&&!busy&&!(vs==='cpu'&&turn===1);
+$('#offer').addEventListener('click',e=>{const d=e.target.closest('.h');if(!d||!mine())return;const i=+d.dataset.i;
+if(sel===i)offer[i].r=(offer[i].r+1)%3;else sel=i;render()});
+$('#board').addEventListener('click',e=>{const d=e.target.closest('.cell');if(!d||!mine()||sel===null)return;const c=+d.dataset.i,o=offer[sel];
+if(legal(c,o.t,o.r))play(sel,c,o.r);else say('Dort passt die Kachel nicht. Goldene Punkte zeigen die möglichen Felder.')});
+function rotSel(){if(mine()&&sel!==null){offer[sel].r=(offer[sel].r+1)%3;render()}}
+$('#bRot').onclick=rotSel;addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R')rotSel()});
+$('#bNew').onclick=start;$('#size').onchange=start;$('#vs').onchange=start;
+const TH=['','papier','nacht'];let ti=matchMedia('(prefers-color-scheme: light)').matches?1:0;
+const setTh=()=>{TH[ti]?document.documentElement.dataset.theme=TH[ti]:delete document.documentElement.dataset.theme;try{localStorage.setItem('duell-th',ti)}catch(e){}};
+try{const s=localStorage.getItem('duell-th');if(s!==null)ti=+s}catch(e){}
+$('#bTheme').onclick=()=>{ti=(ti+1)%3;setTh()};
+$('#bFull').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+setTh();start();
+</script></body></html>
