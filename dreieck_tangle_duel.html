@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dreieck-Tangle Duel – Strikte Kanten-Engine</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg-dark: #0f141c;
+    --panel-dark: #1a2232;
+    --card-dark: #243044;
+    --p1-color: #ef4444;
+    --p2-color: #06b6d4;
+    --gold: #f59e0b;
+    --bad: #e5534b;
+  }
+
+  body {
+    background: radial-gradient(circle at center, #1b263b 0%, #0f141c 100%);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .cell-polygon {
+    transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
+  }
+
+  .cell-valid {
+    cursor: pointer;
+  }
+  
+  .cell-valid .cell-polygon {
+    stroke: var(--gold) !important;
+    stroke-width: 3.5px !important;
+    fill: rgba(245, 158, 11, 0.22) !important;
+    animation: pulse-valid 1.2s infinite alternate ease-in-out;
+  }
+
+  @keyframes pulse-valid {
+    0% { fill: rgba(245, 158, 11, 0.15); stroke-width: 2.5px; }
+    100% { fill: rgba(245, 158, 11, 0.35); stroke-width: 4.5px; }
+  }
+
+  .cell-p1 .cell-polygon {
+    stroke: var(--p1-color) !important;
+    stroke-width: 3px !important;
+  }
+
+  .cell-p2 .cell-polygon {
+    stroke: var(--p2-color) !important;
+    stroke-width: 3px !important;
+  }
+
+  .cell-last-placed .cell-polygon {
+    animation: pulse-border 1.5s infinite alternate;
+  }
+
+  @keyframes pulse-border {
+    0% { stroke-width: 3px; }
+    100% { stroke-width: 5px; stroke: var(--gold); }
+  }
+
+  .tile-card {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+  }
+
+  .tile-card:hover {
+    transform: translateY(-4px);
+  }
+
+  .tile-card.selected {
+    transform: translateY(-6px) scale(1.06);
+    box-shadow: 0 0 18px var(--gold);
+    border-color: var(--gold) !important;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track { background: #1a2232; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-2 md:p-4 text-slate-100">
+
+  <!-- Header -->
+  <header class="max-w-6xl w-full mx-auto flex flex-wrap items-center justify-between gap-4 bg-slate-900/90 p-4 rounded-xl border border-slate-700/80 backdrop-blur shadow-2xl">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30">
+        <svg class="w-7 h-7 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="12 2 2 22 22 22"/>
+          <path d="M12 2v20"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-xl md:text-2xl font-black bg-gradient-to-r from-amber-400 via-orange-400 to-red-400 bg-clip-text text-transparent">
+          Dreieck-Tangle Duel
+        </h1>
+        <p class="text-xs text-slate-400 font-medium">Exakte Kanten-Matchengine & KI-Rotationskorrektur</p>
+      </div>
+    </div>
+
+    <!-- Steuerung & Modus -->
+    <div class="flex flex-wrap items-center gap-2">
+      <select id="gameMode" class="bg-slate-800 text-slate-200 text-sm px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500 font-medium">
+        <option value="pvp">2 Spieler (Lokal)</option>
+        <option value="ai-easy">VS KI (Einfach)</option>
+        <option value="ai-medium" selected>VS KI (Mittel)</option>
+        <option value="ai-hard">VS KI (Schwer)</option>
+      </select>
+
+      <select id="boardSize" class="bg-slate-800 text-slate-200 text-sm px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-amber-500 font-medium">
+        <option value="3">Größe 3 (9 Kacheln)</option>
+        <option value="4" selected>Größe 4 (16 Kacheln)</option>
+        <option value="5">Größe 5 (25 Kacheln)</option>
+      </select>
+
+      <button id="btnUndo" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-3 py-2 rounded-lg transition text-sm flex items-center gap-1.5 border border-slate-700">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+        Zurück
+      </button>
+
+      <button id="btnNewGame" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-4 py-2 rounded-lg transition text-sm flex items-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Neu Starten
+      </button>
+
+      <button id="btnRules" class="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2 rounded-lg border border-slate-700 transition" title="Regeln">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hauptbereich -->
+  <main class="max-w-6xl w-full mx-auto my-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+
+    <!-- Spieler 1 Scorecard -->
+    <div id="p1Card" class="lg:col-span-3 bg-slate-900/80 rounded-xl p-4 border-2 border-red-500/60 relative overflow-hidden transition-all duration-300 shadow-xl">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse"></div>
+          <span class="font-bold text-red-400 text-lg" id="p1Name">Spieler 1</span>
+        </div>
+        <span id="p1Tag" class="text-xs font-semibold bg-red-500/20 text-red-300 px-2 py-0.5 rounded border border-red-500/30">Zug</span>
+      </div>
+      
+      <div class="text-3xl font-black text-slate-100 mb-2" id="p1Score">0 <span class="text-xs text-slate-400 font-normal">Punkte</span></div>
+      
+      <div class="space-y-1 text-xs text-slate-400 border-t border-slate-800 pt-2">
+        <div class="flex justify-between"><span>Verbundene Kanten:</span><span id="p1Matches" class="text-slate-200 font-medium">0</span></div>
+        <div class="flex justify-between"><span>Gelegte Kacheln:</span><span id="p1Tiles" class="text-slate-200 font-medium">0</span></div>
+        <div class="flex justify-between"><span>Schleifen-Boni:</span><span id="p1Loops" class="text-amber-400 font-medium">0</span></div>
+      </div>
+    </div>
+
+    <!-- Spielfeld Container -->
+    <div class="lg:col-span-6 flex flex-col items-center justify-center bg-slate-900/50 rounded-xl p-4 border border-slate-800 relative min-h-[440px] shadow-2xl">
+      
+      <div id="statusMsg" class="w-full text-center py-2.5 px-4 mb-3 rounded-lg bg-slate-950/80 border border-slate-800 text-sm font-semibold text-amber-300 shadow-inner">
+        Spieler 1 ist am Zug. Wähle eine Kachel aus deiner Hand!
+      </div>
+
+      <div id="boardContainer" class="w-full flex justify-center items-center max-w-[520px]">
+        <div id="board" class="w-full"></div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-center gap-2 mt-4">
+        <button id="btnRotateLeft" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 border border-slate-700 shadow">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+          Links
+        </button>
+        <button id="btnRotateRight" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 border border-slate-700 shadow">
+          Drehen (R)
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6"/></svg>
+        </button>
+        <button id="btnPass" class="bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 px-3.5 py-2 rounded-lg text-sm font-medium transition border border-slate-800">
+          Passen
+        </button>
+      </div>
+    </div>
+
+    <!-- Spieler 2 / KI Scorecard -->
+    <div id="p2Card" class="lg:col-span-3 bg-slate-900/80 rounded-xl p-4 border-2 border-slate-800 relative overflow-hidden transition-all duration-300 shadow-xl">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-3.5 h-3.5 rounded-full bg-cyan-500"></div>
+          <span class="font-bold text-cyan-400 text-lg" id="p2Name">Spieler 2</span>
+        </div>
+        <span id="p2Tag" class="text-xs font-semibold bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Wartet</span>
+      </div>
+
+      <div class="text-3xl font-black text-slate-100 mb-2" id="p2Score">0 <span class="text-xs text-slate-400 font-normal">Punkte</span></div>
+
+      <div class="space-y-1 text-xs text-slate-400 border-t border-slate-800 pt-2">
+        <div class="flex justify-between"><span>Verbundene Kanten:</span><span id="p2Matches" class="text-slate-200 font-medium">0</span></div>
+        <div class="flex justify-between"><span>Gelegte Kacheln:</span><span id="p2Tiles" class="text-slate-200 font-medium">0</span></div>
+        <div class="flex justify-between"><span>Schleifen-Boni:</span><span id="p2Loops" class="text-amber-400 font-medium">0</span></div>
+      </div>
+    </div>
+
+    <!-- Hand & Nachziehstapel -->
+    <div class="lg:col-span-12 bg-slate-900/80 rounded-xl p-4 border border-slate-800 shadow-xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">
+          <span>Deine Handkacheln</span>
+          <span id="handTurnLabel" class="text-xs font-normal text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20">(Spieler 1)</span>
+        </h3>
+        <span id="deckCount" class="text-xs text-slate-400 bg-slate-950 px-3 py-1 rounded-full border border-slate-800 font-mono">
+          Nachziehstapel: 16 Kacheln
+        </span>
+      </div>
+
+      <div id="hand" class="flex flex-wrap items-center justify-center gap-4 min-h-[110px]"></div>
+    </div>
+  </main>
+
+  <!-- Modal: Regelerklärung -->
+  <div id="rulesModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 max-w-lg w-full rounded-2xl p-6 shadow-2xl relative">
+      <button id="btnCloseRules" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200 p-1">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <h2 class="text-xl font-bold text-amber-400 mb-3 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Regeln & Strikte Match-Engine
+      </h2>
+
+      <div class="space-y-3 text-sm text-slate-300 max-h-[60vh] overflow-y-auto pr-2">
+        <p><strong>100% Farbübereinstimmung:</strong> Jede Kachel besitzt 3 verschlungene Seile (Rot, Blau, Gelb). An jeder Kante liegen 2 Seilenden. Beim Legen müssen die Farben an allen angrenzenden Kanten absolut exakt übereinstimmen!</p>
+
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800 space-y-1.5">
+          <div class="font-semibold text-amber-300">Punkteverteilung:</div>
+          <ul class="list-disc list-inside text-xs text-slate-400 space-y-1">
+            <li><strong class="text-slate-200">+10 Punkte:</strong> Pro passender Nachbarkante.</li>
+            <li><strong class="text-slate-200">+15 Bonuspunkte:</strong> Wenn zeitgleich 2 oder 3 Kanten angrenzen.</li>
+            <li><strong class="text-slate-200">+25 Bonuspunkte:</strong> Für das Schließen eines Farbringes aus 3 Dreiecken an einem Knotenpunkt.</li>
+            <li><strong class="text-slate-200">+20 Bonuspunkte:</strong> Für das Befüllen des allerletzten Spielfelds.</li>
+          </ul>
+        </div>
+      </div>
+
+      <button id="btnGotIt" class="mt-5 w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl transition">
+        Alles klar, los geht's!
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Spielende / Sieger -->
+  <div id="winModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-500/60 max-w-md w-full rounded-2xl p-6 shadow-2xl text-center relative overflow-hidden">
+      <div class="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl"></div>
+
+      <div class="w-16 h-16 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+      </div>
+
+      <h2 id="winTitle" class="text-2xl font-black text-amber-400 mb-1">Spiel Beendet!</h2>
+      <p id="winSubtitle" class="text-sm text-slate-300 mb-6">Spieler 1 gewinnt das Duell!</p>
+
+      <div class="bg-slate-950/80 rounded-xl p-4 border border-slate-800 mb-6 space-y-3">
+        <div class="flex justify-between items-center text-sm border-b border-slate-800 pb-2">
+          <span class="flex items-center gap-2 font-medium text-red-400"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Spieler 1</span>
+          <span id="winP1Score" class="font-bold text-slate-100 text-base">0 Pkt</span>
+        </div>
+        <div class="flex justify-between items-center text-sm">
+          <span class="flex items-center gap-2 font-medium text-cyan-400"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>Spieler 2 / KI</span>
+          <span id="winP2Score" class="font-bold text-slate-100 text-base">0 Pkt</span>
+        </div>
+      </div>
+
+      <button id="btnRematch" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95">
+        Revanche Spielen
+      </button>
+    </div>
+  </div>
+
+<script>
+/**
+ * DREIECK-TANGLE MATCH-ENGINE & KI-FIX
+ */
+
+const PATH_COLORS = ['#d9473f', '#3f7fd9', '#f0c93a']; // Rot, Blau, Gelb
+const H = 86.6;
+const V = [[50, 0], [100, H], [0, H]];
+const CENTROID = [50, H * 2 / 3];
+
+// Erzeugung der 6 Seil-Endpunkte an den Kanten
+const PT = [];
+const CT = [];
+for (let e = 0; e < 3; e++) {
+  const a = V[e], b = V[(e + 1) % 3];
+  PT.push(
+    [a[0] + (b[0] - a[0]) / 3, a[1] + (b[1] - a[1]) / 3],
+    [a[0] + (b[0] - a[0]) * 2 / 3, a[1] + (b[1] - a[1]) * 2 / 3]
+  );
+  const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const d = [CENTROID[0] - m[0], CENTROID[1] - m[1]];
+  const l = Math.hypot(d[0], d[1]);
+  CT.push([d[0] / l * 38, d[1] / l * 38]);
+}
+
+// Erzeugung aller 30 mathematisch einzigartigen Kacheln
+const POOL = (() => {
+  const seen = new Set(), out = [];
+  const rec = (a, c) => {
+    if (a.length === 6) {
+      const key = [0, 2, 4].map(s => a.slice(s).concat(a.slice(0, s)).join('')).sort()[0];
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(key.split('').map(Number));
+      return;
+    }
+    for (let k = 0; k < 3; k++) {
+      if (c[k] < 2) {
+        c[k]++; a.push(k); rec(a, c); a.pop(); c[k]--;
+      }
+    }
+  };
+  rec([], [0, 0, 0]);
+  return out;
+})();
+
+/**
+ * ORIGINAL KANTEN & REVERSIERUNG AUS DEM SOLVER
+ * Spiegelbildliches Aufeinandertreffen: rev(v) = (v % 3) * 3 + Math.floor(v / 3)
+ */
+const rev = v => (v % 3) * 3 + Math.floor(v / 3);
+
+const EDGE = (col, r) => {
+  const c = j => col[(j - 2 * r + 12) % 6];
+  return [0, 1, 2].map(e => c(2 * e) * 3 + c(2 * e + 1));
+};
+
+const mkEC = cols => cols.map(col => [0, 1, 2].map(r => EDGE(col, r)));
+const EC = mkEC(POOL);
+
+/**
+ * NACHBARSCHAFTS-MAPPING (aus Original-Engine)
+ * Kante s eines Dreiecks trifft IMMER exakt auf Kante s seines Nachbarn!
+ */
+function mkNB(cells) {
+  const ix = new Map(cells.map(([r, k], i) => [r + ',' + k, i]));
+  return cells.map(([r, k]) => (
+    k % 2 === 0
+      ? [[r, k + 1], [r + 1, k + 1], [r, k - 1]]  // ▲ (Gerade): Kante 0, 1, 2
+      : [[r, k - 1], [r - 1, k - 1], [r, k + 1]]  // ▼ (Ungerade): Kante 0, 1, 2
+  ).map(([y, x]) => ix.has(y + ',' + x) ? ix.get(y + ',' + x) : -1));
+}
+
+function buildLayout(size) {
+  const cells = [];
+  for (let r = 0; r < size; r++) {
+    for (let k = 0; k <= 2 * r; k++) {
+      cells.push([r, k]);
+    }
+  }
+  return { G: size, cells };
+}
+
+function calculatePositions(layout) {
+  return layout.cells.map(([r, k]) => ({
+    r, k,
+    down: k % 2 === 1,
+    x: (layout.G - 1 - r) * 50 + Math.floor(k / 2) * 100 + (k % 2 ? 50 : 0),
+    y: r * H
+  }));
+}
+
+const shuffle = arr => {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
+
+/* GAME STATE & UNDO HISTORY */
+let state = {
+  gridSize: 4,
+  cellsCount: 16,
+  cells: [],         
+  nb: [],            
+  pos: [],           
+  pool: [],          
+  p1Hand: [],        
+  p2Hand: [],        
+  activePlayer: 1,   
+  selectedTile: null,
+  selectedRot: 0,    
+  scores: { 1: 0, 2: 0 },
+  stats: {
+    1: { matches: 0, tiles: 0, loops: 0 },
+    2: { matches: 0, tiles: 0, loops: 0 }
+  },
+  lastPlacedIdx: -1,
+  mode: 'ai-medium',
+  isGameOver: false,
+  consecutivePasses: 0
+};
+
+let historyStack = [];
+
+function saveState() {
+  historyStack.push(JSON.stringify(state));
+  if (historyStack.length > 50) historyStack.shift();
+}
+
+function undoMove() {
+  if (historyStack.length === 0 || state.isGameOver) {
+    setMessage('Kein Zug zum Zurücknehmen vorhanden.');
+    return;
+  }
+  
+  // Im KI-Modus zwei Schritte zurückspringen (Spieler + KI)
+  let prevStateJSON = historyStack.pop();
+  let prevState = JSON.parse(prevStateJSON);
+  
+  if (state.mode.startsWith('ai') && prevState.activePlayer === 2 && historyStack.length > 0) {
+    prevStateJSON = historyStack.pop();
+    prevState = JSON.parse(prevStateJSON);
+  }
+
+  state = prevState;
+  updateUI();
+  setMessage(`Zug zurückgenommen. ${getPlayerName(state.activePlayer)} ist am Zug.`);
+}
+
+function renderRopesSVG(col, r) {
+  const cl = j => col[(j - 2 * r + 12) % 6];
+  let svgStr = '';
+  for (let k = 0; k < 3; k++) {
+    const js = [0, 1, 2, 3, 4, 5].filter(j => cl(j) === k);
+    if (js.length < 2) continue;
+    const A = PT[js[0]], B = PT[js[1]], a = CT[js[0] >> 1], b = CT[js[1] >> 1];
+    const d = `M${A[0]} ${A[1]}C${A[0] + a[0]} ${A[1] + a[1]} ${B[0] + b[0]} ${B[1] + b[1]} ${B[0]} ${B[1]}`;
+    svgStr += `<path d="${d}" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="13" stroke-linecap="round"/>`;
+    svgStr += `<path d="${d}" fill="none" stroke="${PATH_COLORS[k]}" stroke-width="8.5" stroke-linecap="round"/>`;
+  }
+  return svgStr;
+}
+
+function initGame() {
+  const size = parseInt(document.getElementById('boardSize').value);
+  const mode = document.getElementById('gameMode').value;
+
+  const layout = buildLayout(size);
+
+  state.gridSize = size;
+  state.cellsCount = layout.cells.length;
+  state.nb = mkNB(layout.cells);
+  state.pos = calculatePositions(layout);
+  state.cells = Array(state.cellsCount).fill(null);
+  
+  const deck = shuffle([...POOL.keys()]);
+  
+  state.p1Hand = deck.splice(0, 3);
+  state.p2Hand = deck.splice(0, 3);
+  state.pool = deck;
+
+  state.activePlayer = 1;
+  state.selectedTile = null;
+  state.selectedRot = 0;
+  state.scores = { 1: 0, 2: 0 };
+  state.stats = {
+    1: { matches: 0, tiles: 0, loops: 0 },
+    2: { matches: 0, tiles: 0, loops: 0 }
+  };
+  state.lastPlacedIdx = -1;
+  state.mode = mode;
+  state.isGameOver = false;
+  state.consecutivePasses = 0;
+  historyStack = [];
+
+  if (state.p1Hand.length > 0) {
+    state.selectedTile = state.p1Hand[0];
+  }
+
+  document.getElementById('p2Name').textContent = mode.startsWith('ai') ? 'KI Gegner' : 'Spieler 2';
+
+  updateUI();
+  setMessage(`Neues Spiel gestartet! ${getPlayerName(1)} ist am Zug.`);
+}
+
+function getPlayerName(p) {
+  if (p === 1) return 'Spieler 1';
+  return state.mode.startsWith('ai') ? 'Die KI' : 'Spieler 2';
+}
+
+/**
+ * EXAKTE VALIDATIONSPRÜFUNG:
+ * Vergleicht EC[t][r][s] mit rev(EC[c_j.t][c_j.r][s])
+ */
+function isValidPlacement(tileIdx, rot, cellIdx) {
+  if (state.cells[cellIdx] !== null) return false;
+
+  const tileEdgeColors = EC[tileIdx][rot];
+
+  for (let s = 0; s < 3; s++) {
+    const neighborIdx = state.nb[cellIdx][s];
+    if (neighborIdx >= 0 && state.cells[neighborIdx] !== null) {
+      const neighbor = state.cells[neighborIdx];
+      const neighborEdgeColor = EC[neighbor.t][neighbor.r][s];
+      
+      if (tileEdgeColors[s] !== rev(neighborEdgeColor)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function countMatchingEdges(cellIdx) {
+  let matches = 0;
+  for (let s = 0; s < 3; s++) {
+    const neighborIdx = state.nb[cellIdx][s];
+    if (neighborIdx >= 0 && state.cells[neighborIdx] !== null) {
+      matches++;
+    }
+  }
+  return matches;
+}
+
+function checkClosedLoops(cellIdx) {
+  let newLoops = 0;
+  const n = state.nb[cellIdx];
+  if (n[0] >= 0 && n[1] >= 0 && state.cells[n[0]] && state.cells[n[1]]) newLoops++;
+  if (n[1] >= 0 && n[2] >= 0 && state.cells[n[1]] && state.cells[n[2]]) newLoops++;
+  if (n[2] >= 0 && n[0] >= 0 && state.cells[n[2]] && state.cells[n[0]]) newLoops++;
+  return newLoops;
+}
+
+function placeTile(cellIdx) {
+  if (state.isGameOver) return;
+  if (state.selectedTile === null) {
+    setMessage('Wähle zuerst eine Kachel aus deiner Hand!');
+    return;
+  }
+
+  const p = state.activePlayer;
+  const t = state.selectedTile;
+  const r = state.selectedRot;
+
+  if (!isValidPlacement(t, r, cellIdx)) {
+    setMessage('UNGÜLTIGER ZUG! Die Seilfarben müssen an allen Anlegekanten stimmen.');
+    return;
+  }
+
+  saveState();
+
+  // Kachel setzen (mit t und EXAKTER Rotation r)
+  state.cells[cellIdx] = { t, r, owner: p };
+  state.lastPlacedIdx = cellIdx;
+
+  const matches = countMatchingEdges(cellIdx);
+  const loops = checkClosedLoops(cellIdx);
+
+  let pts = matches * 10;
+  if (matches >= 2) pts += 15;
+  if (loops > 0) pts += loops * 25;
+
+  state.scores[p] += pts;
+  state.stats[p].matches += matches;
+  state.stats[p].tiles += 1;
+  state.stats[p].loops += loops;
+
+  const currentHand = p === 1 ? state.p1Hand : state.p2Hand;
+  const handPos = currentHand.indexOf(t);
+  if (handPos >= 0) currentHand.splice(handPos, 1);
+
+  if (state.pool.length > 0) {
+    currentHand.push(state.pool.pop());
+  }
+
+  state.consecutivePasses = 0;
+
+  if (state.cells.every(c => c !== null)) {
+    state.scores[p] += 20;
+    endGame(`Spielfeld komplett gefüllt! +20 Bonuspunkte für ${getPlayerName(p)}.`);
+    return;
+  }
+
+  switchTurn(pts, matches, loops);
+}
+
+function switchTurn(lastPts = 0, matches = 0, loops = 0) {
+  state.activePlayer = state.activePlayer === 1 ? 2 : 1;
+  const currentHand = state.activePlayer === 1 ? state.p1Hand : state.p2Hand;
+  
+  state.selectedTile = currentHand.length > 0 ? currentHand[0] : null;
+  state.selectedRot = 0;
+
+  updateUI();
+
+  let msg = `${getPlayerName(state.activePlayer === 1 ? 2 : 1)} erzielte +${lastPts} Pkt. `;
+  if (loops > 0) msg += `(${loops} Schleifen-Bonus!) `;
+
+  if (!hasAnyValidMove(state.activePlayer)) {
+    msg += `${getPlayerName(state.activePlayer)} hat keine gültigen Züge & muss passen.`;
+    setMessage(msg);
+    setTimeout(() => handlePass(true), 1300);
+    return;
+  }
+
+  msg += `${getPlayerName(state.activePlayer)} ist am Zug.`;
+  setMessage(msg);
+
+  if (state.activePlayer === 2 && state.mode.startsWith('ai')) {
+    setTimeout(makeAIMove, 500);
+  }
+}
+
+function hasAnyValidMove(player) {
+  const hand = player === 1 ? state.p1Hand : state.p2Hand;
+  if (hand.length === 0) return false;
+
+  for (const t of hand) {
+    for (let r = 0; r < 3; r++) {
+      for (let i = 0; i < state.cellsCount; i++) {
+        if (isValidPlacement(t, r, i)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function handlePass(isAutoPass = false) {
+  if (state.isGameOver) return;
+
+  state.consecutivePasses++;
+  const pName = getPlayerName(state.activePlayer);
+
+  if (state.consecutivePasses >= 2) {
+    endGame('Beide Spieler mussten nacheinander passen. Keine gültigen Züge mehr.');
+    return;
+  }
+
+  setMessage(`${pName} hat gepasst. ${getPlayerName(state.activePlayer === 1 ? 2 : 1)} ist am Zug.`);
+  
+  state.activePlayer = state.activePlayer === 1 ? 2 : 1;
+  const currentHand = state.activePlayer === 1 ? state.p1Hand : state.p2Hand;
+  state.selectedTile = currentHand.length > 0 ? currentHand[0] : null;
+  state.selectedRot = 0;
+
+  updateUI();
+
+  if (state.activePlayer === 2 && state.mode.startsWith('ai')) {
+    setTimeout(makeAIMove, 500);
+  }
+}
+
+/**
+ * FEHLERFREIE KI-LOGIK
+ * Testet alle Kacheln x alle Rotationen (0,1,2) x alle Felder
+ */
+function makeAIMove() {
+  if (state.isGameOver || state.activePlayer !== 2) return;
+
+  const validMoves = [];
+  const hand = state.p2Hand;
+
+  for (const t of hand) {
+    for (let r = 0; r < 3; r++) { // TESTET ALLE 3 ROTATIONEN
+      for (let i = 0; i < state.cellsCount; i++) {
+        if (isValidPlacement(t, r, i)) {
+          // Vorübergehend setzen um Punkte zu kalkulieren
+          state.cells[i] = { t, r, owner: 2 };
+          const matches = countMatchingEdges(i);
+          const loops = checkClosedLoops(i);
+          state.cells[i] = null; // Rückgängig
+
+          let score = matches * 10;
+          if (matches >= 2) score += 15;
+          if (loops > 0) score += loops * 25;
+
+          validMoves.push({ t, r, i, score, matches, loops });
+        }
+      }
+    }
+  }
+
+  if (validMoves.length === 0) {
+    handlePass(true);
+    return;
+  }
+
+  let chosenMove;
+  if (state.mode === 'ai-easy') {
+    chosenMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+  } else if (state.mode === 'ai-medium') {
+    validMoves.sort((a, b) => b.score - a.score);
+    chosenMove = validMoves[0];
+  } else {
+    validMoves.sort((a, b) => b.score - a.score || b.loops - a.loops || b.matches - a.matches);
+    chosenMove = validMoves[0];
+  }
+
+  // Wähle die von der KI gefundene Kachel UND exakte Rotation
+  state.selectedTile = chosenMove.t;
+  state.selectedRot = chosenMove.r;
+  placeTile(chosenMove.i);
+}
+
+function endGame(reason) {
+  state.isGameOver = true;
+  
+  const p1 = state.scores[1];
+  const p2 = state.scores[2];
+
+  let title = 'Unentschieden!';
+  let subtitle = reason;
+
+  if (p1 > p2) {
+    title = 'Spieler 1 Gewinnt!';
+    subtitle = `${reason} (P1: ${p1} vs P2/KI: ${p2} Pkt)`;
+  } else if (p2 > p1) {
+    title = `${getPlayerName(2)} Gewinnt!`;
+    subtitle = `${reason} (P2/KI: ${p2} vs P1: ${p1} Pkt)`;
+  }
+
+  document.getElementById('winTitle').textContent = title;
+  document.getElementById('winSubtitle').textContent = subtitle;
+  document.getElementById('winP1Score').textContent = `${p1} Pkt`;
+  document.getElementById('winP2Score').textContent = `${p2} Pkt`;
+
+  document.getElementById('winModal').classList.remove('hidden');
+}
+
+function setMessage(msg) {
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+/* UI RENDERING */
+function updateUI() {
+  renderBoard();
+  renderHand();
+  renderScorecards();
+}
+
+function renderBoard() {
+  const boardEl = document.getElementById('board');
+  const G = state.gridSize;
+
+  let svgContent = '';
+  
+  state.pos.forEach((p, i) => {
+    const cell = state.cells[i];
+    let cellContainerClass = 'cell-invalid';
+    let isValid = false;
+
+    if (cell) {
+      cellContainerClass = cell.owner === 1 ? 'cell-p1' : 'cell-p2';
+      if (i === state.lastPlacedIdx) {
+        cellContainerClass += ' cell-last-placed';
+      }
+    } else if (state.selectedTile !== null) {
+      isValid = isValidPlacement(state.selectedTile, state.selectedRot, i);
+      if (isValid) {
+        cellContainerClass = 'cell-valid';
+      }
+    }
+
+    const transform = p.down ? `rotate(180 50 ${H / 2})` : '';
+    const polygonPoints = `50,0 100,${H} 0,${H}`;
+    
+    let innerSvg = `<polygon points="${polygonPoints}" class="cell-polygon" stroke-linejoin="round" fill="${cell ? '#1a2232' : '#0f141c'}" stroke="${cell ? (cell.owner === 1 ? '#ef4444' : '#06b6d4') : '#334155'}" stroke-width="1.5"/>`;
+
+    if (cell) {
+      // EXAKTE ROTATION AUS DEN STATE RENDERERN
+      innerSvg += renderRopesSVG(POOL[cell.t], cell.r);
+    } else if (isValid) {
+      innerSvg += `<polygon points="${polygonPoints}" fill="rgba(245, 158, 11, 0.2)" stroke="#f59e0b" stroke-dasharray="4 2" stroke-width="2.5"/>`;
+    }
+
+    svgContent += `
+      <g class="${cellContainerClass}" data-index="${i}" transform="translate(${p.x} ${p.y})" tabindex="0">
+        <g transform="${transform}">
+          ${innerSvg}
+        </g>
+      </g>
+    `;
+  });
+
+  boardEl.innerHTML = `
+    <svg viewBox="-4 -4 ${G * 100 + 8} ${G * H + 8}" class="w-full h-auto drop-shadow-2xl overflow-visible">
+      ${svgContent}
+    </svg>
+  `;
+
+  boardEl.querySelectorAll('g[data-index]').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index);
+      placeTile(idx);
+    });
+
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      rotateSelectedTile(1);
+    });
+  });
+}
+
+function renderHand() {
+  const handContainer = document.getElementById('hand');
+  const currentHand = state.activePlayer === 1 ? state.p1Hand : state.p2Hand;
+  const isAI = state.activePlayer === 2 && state.mode.startsWith('ai');
+
+  document.getElementById('handTurnLabel').textContent = `(${getPlayerName(state.activePlayer)} am Zug)`;
+  document.getElementById('deckCount').textContent = `Nachziehstapel: ${state.pool.length} Kacheln`;
+
+  if (isAI) {
+    handContainer.innerHTML = `
+      <div class="text-slate-400 text-sm italic py-4 flex items-center gap-2">
+        <svg class="w-5 h-5 animate-spin text-cyan-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        KI berechnet gültige Rotation...
+      </div>
+    `;
+    return;
+  }
+
+  if (currentHand.length === 0) {
+    handContainer.innerHTML = `<div class="text-slate-400 text-sm py-2">Keine Kacheln mehr auf der Hand.</div>`;
+    return;
+  }
+
+  handContainer.innerHTML = currentHand.map(tileIdx => {
+    const isSelected = state.selectedTile === tileIdx;
+    const rotation = isSelected ? state.selectedRot : 0;
+    const tileData = POOL[tileIdx];
+
+    return `
+      <div class="tile-card bg-slate-950 p-2 rounded-xl border-2 ${isSelected ? 'border-amber-500 shadow-lg shadow-amber-500/20' : 'border-slate-800 hover:border-slate-600'} flex flex-col items-center" data-tile="${tileIdx}">
+        <svg viewBox="-3 -3 106 ${H + 6}" class="w-20 h-20">
+          <polygon points="50,0 100,${H} 0,${H}" fill="#1a2232" stroke="#475569" stroke-width="1.5" stroke-linejoin="round"/>
+          ${renderRopesSVG(tileData, rotation)}
+        </svg>
+        <span class="text-[10px] text-slate-400 mt-1 font-mono">#${tileIdx + 1}</span>
+      </div>
+    `;
+  }).join('');
+
+  handContainer.querySelectorAll('.tile-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const tileIdx = parseInt(card.dataset.tile);
+      if (state.selectedTile === tileIdx) {
+        rotateSelectedTile(1);
+      } else {
+        state.selectedTile = tileIdx;
+        state.selectedRot = 0;
+        updateUI();
+      }
+    });
+  });
+}
+
+function renderScorecards() {
+  const p1Card = document.getElementById('p1Card');
+  const p2Card = document.getElementById('p2Card');
+
+  if (state.activePlayer === 1) {
+    p1Card.classList.add('border-red-500', 'shadow-red-500/10');
+    p1Card.classList.remove('border-slate-800', 'opacity-70');
+    document.getElementById('p1Tag').classList.remove('hidden');
+
+    p2Card.classList.remove('border-cyan-500', 'shadow-cyan-500/10');
+    p2Card.classList.add('border-slate-800', 'opacity-70');
+    document.getElementById('p2Tag').classList.add('hidden');
+  } else {
+    p2Card.classList.add('border-cyan-500', 'shadow-cyan-500/10');
+    p2Card.classList.remove('border-slate-800', 'opacity-70');
+    document.getElementById('p2Tag').classList.remove('hidden');
+
+    p1Card.classList.remove('border-red-500', 'shadow-red-500/10');
+    p1Card.classList.add('border-slate-800', 'opacity-70');
+    document.getElementById('p1Tag').classList.add('hidden');
+  }
+
+  document.getElementById('p1Score').innerHTML = `${state.scores[1]} <span class="text-xs text-slate-400 font-normal">Punkte</span>`;
+  document.getElementById('p2Score').innerHTML = `${state.scores[2]} <span class="text-xs text-slate-400 font-normal">Punkte</span>`;
+
+  document.getElementById('p1Matches').textContent = state.stats[1].matches;
+  document.getElementById('p1Tiles').textContent = state.stats[1].tiles;
+  document.getElementById('p1Loops').textContent = state.stats[1].loops;
+
+  document.getElementById('p2Matches').textContent = state.stats[2].matches;
+  document.getElementById('p2Tiles').textContent = state.stats[2].tiles;
+  document.getElementById('p2Loops').textContent = state.stats[2].loops;
+}
+
+function rotateSelectedTile(dir = 1) {
+  if (state.selectedTile === null) return;
+  state.selectedRot = (state.selectedRot + dir + 3) % 3;
+  updateUI();
+}
+
+/* EVENT LISTENERS */
+document.addEventListener('DOMContentLoaded', () => {
+  initGame();
+
+  document.getElementById('btnNewGame').addEventListener('click', initGame);
+  document.getElementById('btnUndo').addEventListener('click', undoMove);
+  document.getElementById('btnRematch').addEventListener('click', () => {
+    document.getElementById('winModal').classList.add('hidden');
+    initGame();
+  });
+
+  document.getElementById('boardSize').addEventListener('change', initGame);
+  document.getElementById('gameMode').addEventListener('change', initGame);
+
+  document.getElementById('btnRotateRight').addEventListener('click', () => rotateSelectedTile(1));
+  document.getElementById('btnRotateLeft').addEventListener('click', () => rotateSelectedTile(-1));
+  document.getElementById('btnPass').addEventListener('click', () => handlePass(false));
+
+  document.getElementById('btnRules').addEventListener('click', () => {
+    document.getElementById('rulesModal').classList.remove('hidden');
+  });
+  document.getElementById('btnCloseRules').addEventListener('click', () => {
+    document.getElementById('rulesModal').classList.add('hidden');
+  });
+  document.getElementById('btnGotIt').addEventListener('click', () => {
+    document.getElementById('rulesModal').classList.add('hidden');
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') {
+      rotateSelectedTile(1);
+    }
+  });
+});
+</script>
+</body>
+</html>
