@@ -43,6 +43,8 @@ select{font:inherit;background:var(--bg);color:var(--tx);border:1px solid rgba(1
 .dlg ul{padding-left:1.2em;margin:.4em 0}
 .tabs{display:flex;gap:8px;margin-bottom:8px}
 .tabs .b.on{background:var(--ac);color:var(--bg)}
+textarea{width:100%;min-height:84px;font:12px monospace;background:var(--bg);color:var(--tx);border:1px solid rgba(128,128,128,.5);border-radius:8px;padding:8px;margin:4px 0;word-break:break-all}
+#netOv p{margin:.6em 0}
 @media(max-width:820px){
  #app{height:auto}
  main{grid-template-columns:1fr;grid-template-rows:auto auto}
@@ -80,12 +82,28 @@ select{font:inherit;background:var(--bg);color:var(--tx);border:1px solid rgba(1
   </div>
   <div class="card">
    <label>Brettgröße <select id="sSize"><option value="9">9 × 9</option><option value="13">13 × 13</option><option value="19">19 × 19</option></select></label>
-   <label>Modus <select id="sMode"><option value="ai">Gegen Computer (leicht)</option><option value="pvp">Zu zweit</option></select></label>
-   <div class="row" style="margin-top:8px"><button class="b" id="bNew">Neues Spiel</button></div>
+   <label>Modus <select id="sMode"><option value="ai">Gegen Computer (leicht)</option><option value="pvp">Zu zweit (lokal)</option><option value="net">Online 2P (WebRTC)</option></select></label>
+   <div class="row" style="margin-top:8px"><button class="b" id="bNew">Neues Spiel</button><button class="b" id="bNet">Online verbinden</button></div>
   </div>
  </aside>
 </main>
 </div>
+
+<div class="ov" id="netOv"><div class="dlg" role="dialog" aria-modal="true" aria-label="Online 2P">
+ <h2>Online 2P (WebRTC)</h2>
+ <p>Direkte Verbindung zwischen zwei Browsern, ohne Spielserver. Ihr tauscht dafür einmalig zwei Codes aus, zum Beispiel per Chat. Wer einlädt, spielt Schwarz.</p>
+ <div class="row"><button class="b" id="nHost">Ich lade ein</button><button class="b" id="nJoin">Ich trete bei</button></div>
+ <div id="nH" style="display:none">
+  <p><b>1.</b> Schicke diesen Code an deinen Mitspieler:</p><textarea id="hCode" readonly></textarea><button class="b" data-copy="hCode">Kopieren</button>
+  <p><b>2.</b> Füge seinen Antwort-Code hier ein:</p><textarea id="hAns"></textarea><button class="b" id="hGo">Verbinden</button>
+ </div>
+ <div id="nG" style="display:none">
+  <p><b>1.</b> Füge den Code des Einladenden ein:</p><textarea id="gOff"></textarea><button class="b" id="gGo">Antwort-Code erzeugen</button>
+  <p><b>2.</b> Schicke diesen Antwort-Code zurück:</p><textarea id="gCode" readonly></textarea><button class="b" data-copy="gCode">Kopieren</button>
+ </div>
+ <p id="netSt" aria-live="polite">Nicht verbunden.</p>
+ <button class="b" id="nClose">Schließen</button>
+</div></div>
 
 <div class="ov" id="ov">
  <div class="dlg" role="dialog" aria-modal="true" aria-label="Regeln und Hilfe">
@@ -111,6 +129,7 @@ select{font:inherit;background:var(--bg);color:var(--tx);border:1px solid rgba(1
     <li><b>3D-Ansicht:</b> Ziehen dreht das Brett, das Mausrad zoomt. „Ansicht“ stellt die Kamera zurück.</li>
     <li><b>Freiheiten:</b> Fahre mit der Maus über einen Stein, um die Freiheiten seiner Gruppe zu sehen.</li>
     <li><b>Hinweis:</b> Markiert einen guten Zug und erklärt kurz, warum – etwa Schlagen, Retten oder Ataris.</li>
+    <li><b>Online 2P:</b> Modus wählen oder „Online verbinden“ drücken. Einer lädt ein und schickt seinen Code, der andere antwortet mit seinem Code. Danach spielt ihr direkt gegeneinander; Zug zurück ist online aus.</li>
     <li><b>Zug zurück:</b> Nimmt deinen letzten Zug zurück (im Computer-Modus auch den Gegenzug).</li>
     <li><b>Gebiet zeigen:</b> Blendet das aktuell umschlossene Gebiet ein und schätzt den Stand.</li>
     <li><b>Spielende:</b> Nach zwei Pässen tippst du tote Steine an, das Ergebnis aktualisiert sich sofort.</li>
@@ -219,16 +238,17 @@ function newGame(){
  resize();upd();
 }
 function snap(){hist.push({B:B.slice(),turn,caps:caps.slice(),ko,last,passes})}
-function humanTurn(){return !(mode==='ai'&&turn===2)}
-function move(i){
- if(over){if(B[i]){const g=grp(B,i),d=dead.has(i);g.st.forEach(s=>d?dead.delete(s):dead.add(s));finish()}return}
+function humanTurn(){return mode==='net'?(net.on&&net.me===turn):!(mode==='ai'&&turn===2)}
+function move(i,rem){
+ if(over){if(B[i]){const g=grp(B,i),d=dead.has(i);g.st.forEach(s=>d?dead.delete(s):dead.add(s));if(mode==='net'&&!rem)send({t:'dead',i});finish()}return}
  const r=play(B,i,turn,ko);
  if(!r){setMsg(B[i]?'Dieser Punkt ist schon besetzt.':i===ko?'Ko-Regel: Du darfst hier nicht sofort zurückschlagen. Spiele erst woanders.':'Selbstmord ist verboten: Der Stein hätte keine Freiheit und würde nichts schlagen.');return}
  snap();B=r.b;caps[turn]+=r.cap;ko=r.ko;last=i;passes=0;turn=3-turn;hint=null;
  setMsg(r.cap?`${NAMES[3-turn]} schlägt ${r.cap} Stein${r.cap>1?'e':''}.`:`${NAMES[3-turn]} setzt auf ${coord(i)}.`);
- upd();after();
+ if(mode==='net'&&!rem)send({t:'move',i});upd();after();
 }
-function pass(){
+function pass(rem){
+ if(mode==='net'&&!rem)send({t:'pass'});
  snap();passes++;last=-1;ko=-1;hint=null;const who=turn;turn=3-turn;
  if(passes>=2){over=true;finish();return}
  setMsg(`${NAMES[who]} passt.`);upd();after();
@@ -269,7 +289,7 @@ function doHint(){
  hint=h;setMsg(`Hinweis: ${coord(h.i)} – ${h.why.join(' und ')}.`);redraw();
 }
 function undo(){
- if(!hist.length)return;clearTimeout(aiT);
+ if(!hist.length||mode==='net')return;clearTimeout(aiT);
  const pop=()=>{const s=hist.pop();B=s.B;turn=s.turn;caps=s.caps;ko=s.ko;last=s.last;passes=s.passes};
  pop();if(mode==='ai'&&turn===2&&hist.length)pop();
  over=false;dead.clear();hint=null;terr=null;setMsg('Zug zurückgenommen.');upd();
@@ -291,10 +311,10 @@ function toggleT(){showT=!showT;if(showT){const sc=score();setMsg(`Schätzung: $
 function setMsg(t){$('#msg').textContent=t}
 function upd(){
  if(over){$('#turnTx').textContent='Spiel beendet';$('#dot').className='dot'}
- else{$('#turnTx').textContent=`${NAMES[turn]} ist am Zug`;$('#dot').className='dot '+(turn===1?'k':'w')}
+ else{$('#turnTx').textContent=`${NAMES[turn]} ist am Zug${mode==='net'&&net.on&&net.me===turn?' (du)':''}`;$('#dot').className='dot '+(turn===1?'k':'w')}
  $('#caps').textContent=`Gefangene – Schwarz: ${caps[1]} · Weiß: ${caps[2]}`;
  $('#bPass').disabled=over||!humanTurn();$('#bHint').disabled=over||!humanTurn();
- $('#bUndo').disabled=!hist.length;$('#bTerr').textContent=showT?'Gebiet ausblenden':'Gebiet zeigen';
+ $('#bUndo').disabled=!hist.length||mode==='net';$('#bTerr').textContent=showT?'Gebiet ausblenden':'Gebiet zeigen';
  redraw();
 }
 
@@ -355,9 +375,11 @@ $('#bPass').onclick=()=>{if(!over&&humanTurn())pass()};
 $('#bHint').onclick=doHint;
 $('#bUndo').onclick=undo;
 $('#bTerr').onclick=toggleT;
-$('#bNew').onclick=newGame;
-$('#sSize').onchange=e=>{N=+e.target.value;newGame()};
-$('#sMode').onchange=e=>{mode=e.target.value;newGame()};
+const netNew=()=>{if(mode==='net'&&net.on)send({t:'new',N})};
+$('#bNew').onclick=()=>{netNew();newGame()};
+$('#bNet').onclick=()=>{if(mode!=='net'){mode='net';$('#sMode').value='net';newGame()}openNet()};
+$('#sSize').onchange=e=>{N=+e.target.value;netNew();newGame()};
+$('#sMode').onchange=e=>{const v=e.target.value;if(net.pc)netClose();mode=v;newGame();if(v==='net')openNet()};
 const ov=$('#ov');
 $('#bHelp').onclick=()=>ov.classList.add('on');
 $('#bClose').onclick=()=>ov.classList.remove('on');
@@ -368,6 +390,47 @@ document.querySelectorAll('.tabs [data-t]').forEach(b=>b.onclick=()=>{
  $('#tR').style.display=b.dataset.t==='r'?'':'none';$('#tH').style.display=b.dataset.t==='h'?'':'none';
 });
 new ResizeObserver(resize).observe($('#wrap'));
+const net={pc:null,dc:null,me:1,on:false};
+const nst=t=>{$('#netSt').textContent=t};
+function send(o){try{if(net.dc&&net.dc.readyState==='open')net.dc.send(JSON.stringify(o))}catch(e){}}
+function netClose(){const pc=net.pc,dc=net.dc;net.pc=net.dc=null;net.on=false;try{dc&&dc.close();pc&&pc.close()}catch(e){}nst('Nicht verbunden.');upd()}
+function openNet(){$('#netOv').classList.add('on')}
+function mkPC(){
+ const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});
+ pc.onconnectionstatechange=()=>{if(pc!==net.pc)return;const s=pc.connectionState;nst('Status: '+s);if((s==='failed'||s==='disconnected'||s==='closed')&&net.on){net.on=false;setMsg('Die Verbindung wurde getrennt. Über Online verbinden kannst du neu starten.');upd()}};
+ net.pc=pc;return pc;
+}
+function wire(dc){
+ net.dc=dc;
+ const op=()=>{net.on=true;nst('Verbunden!');$('#netOv').classList.remove('on');if(net.me===1){send({t:'new',N});newGame()}setMsg(`Verbunden! Du spielst ${NAMES[net.me]}.`);upd()};
+ dc.onopen=op;if(dc.readyState==='open')op();
+ dc.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}
+  if(m.t==='new'&&[9,13,19].includes(+m.N)){N=+m.N;$('#sSize').value=N;newGame();setMsg(`Neues Spiel. Du spielst ${NAMES[net.me]}.`)}
+  else if(m.t==='move'&&!over&&turn===3-net.me)move(+m.i,true);
+  else if(m.t==='pass'&&!over&&turn===3-net.me)pass(true);
+  else if(m.t==='dead'&&over&&B[+m.i])move(+m.i,true)};
+ dc.onclose=()=>{if(net.dc===dc&&net.on){net.on=false;setMsg('Dein Mitspieler hat die Verbindung beendet.');upd()}};
+}
+function iceDone(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();const f=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',f);res()}};pc.addEventListener('icegatheringstatechange',f);setTimeout(res,6000)})}
+const enc=d=>btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+const dec=s=>JSON.parse(decodeURIComponent(escape(atob(s.replace(/\s+/g,'')))));
+$('#nHost').onclick=async()=>{
+ $('#nH').style.display='';$('#nG').style.display='none';
+ try{netClose();net.me=1;nst('Code wird erzeugt …');const pc=mkPC();wire(pc.createDataChannel('go'));
+  await pc.setLocalDescription(await pc.createOffer());await iceDone(pc);$('#hCode').value=enc(pc.localDescription);nst('Code bereit. Schicke ihn deinem Mitspieler.')}
+ catch(e){nst('Fehler: '+e.message)}
+};
+$('#hGo').onclick=async()=>{try{if(!net.pc)throw new Error('Erst auf Ich lade ein klicken.');await net.pc.setRemoteDescription(dec($('#hAns').value));nst('Verbinde …')}catch(e){nst('Code ungültig oder Fehler: '+e.message)}};
+$('#nJoin').onclick=()=>{$('#nG').style.display='';$('#nH').style.display='none';nst('Füge den Code des Einladenden ein.')};
+$('#gGo').onclick=async()=>{
+ try{netClose();net.me=2;nst('Antwort wird erzeugt …');const pc=mkPC();pc.ondatachannel=e=>wire(e.channel);
+  await pc.setRemoteDescription(dec($('#gOff').value));await pc.setLocalDescription(await pc.createAnswer());await iceDone(pc);
+  $('#gCode').value=enc(pc.localDescription);nst('Antwort-Code bereit. Schicke ihn zurück, dann wird verbunden.')}
+ catch(e){nst('Code ungültig oder Fehler: '+e.message)}
+};
+document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const t=$('#'+b.dataset.copy);t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}b.textContent=ok?'Kopiert':'Markiert, bitte kopieren'});
+$('#nClose').onclick=()=>$('#netOv').classList.remove('on');
+$('#netOv').addEventListener('click',e=>{if(e.target.id==='netOv')$('#netOv').classList.remove('on')});
 applyTheme();newGame();
 </script>
 </body>
