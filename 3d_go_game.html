@@ -679,23 +679,35 @@
         }
 
         function createStoneMesh(color) {
+            // Authentische Go-Stein-Form (Bikonvex / Doppel-Linsen-Form)
             const radius = cellSize * 0.44;
-            const height = cellSize * 0.32;
-            const geo = new THREE.CylinderGeometry(radius, radius, height, 32);
-            geo.scale(1, 0.6, 1); // Convex shape
+            
+            // Verwende eine SphereGeometry mit Stauchung für die typische japanische Muschel-/Schiefer-Go-Stein-Gewölbe-Geometrie
+            const geo = new THREE.SphereGeometry(radius, 32, 24);
+            geo.scale(1, 0.42, 1); // Perfekte organische Wölbung
 
             let mat;
             if (color === BLACK) {
-                mat = new THREE.MeshStandardMaterial({
-                    color: 0x111111,
-                    roughness: 0.2,
-                    metalness: 0.1
+                // Echter Schiefer (Kuroishi / Schwarz): Tiefes, matt glänzendes Graphit-Schwarz mit feinem Lichtreflex
+                mat = new THREE.MeshPhysicalMaterial({
+                    color: 0x18191c,
+                    roughness: 0.28,
+                    metalness: 0.15,
+                    clearcoat: 0.45,            // Edle Klarlack-/Schiefer-Versiegelung
+                    clearcoatRoughness: 0.2,
+                    reflectivity: 0.6
                 });
             } else {
-                mat = new THREE.MeshStandardMaterial({
-                    color: 0xf8fafc,
-                    roughness: 0.15,
-                    metalness: 0.05
+                // Echte Muschel (Shiroishi / Weiß): Schimmernder, leicht elfenbeinfarbener Glanz mit Tiefenbrechung
+                mat = new THREE.MeshPhysicalMaterial({
+                    color: 0xfaf9f6,
+                    roughness: 0.1,
+                    metalness: 0.05,
+                    clearcoat: 0.9,             // Hohe Muschelpolitur
+                    clearcoatRoughness: 0.08,
+                    transmission: 0.15,          // Subtile Lichtdurchlässigkeit wie echte Muschelsteine
+                    ior: 1.52,                   // Brechungsindex von Kalkstein/Muschel
+                    thickness: 0.5
                 });
             }
 
@@ -734,7 +746,9 @@
             // Render new stone
             const worldPos = gridToWorld(row, col);
             const stoneMesh = createStoneMesh(player);
-            stoneMesh.position.set(worldPos.x, (cellSize * 0.32 * 0.6) / 2 + 0.01, worldPos.z);
+            // Präzise Platzierung direkt auf der Brett-Oberfläche
+            const stoneHeightRadius = (cellSize * 0.44) * 0.42;
+            stoneMesh.position.set(worldPos.x, stoneHeightRadius + 0.005, worldPos.z);
             stonesGroup.add(stoneMesh);
             stoneMeshes.set(`${row},${col}`, stoneMesh);
 
@@ -942,12 +956,13 @@
             currentPlayer = lastState.player;
 
             clearStoneMeshes();
+            const stoneHeightRadius = (cellSize * 0.44) * 0.42;
             for (let r = 0; r < boardSize; r++) {
                 for (let c = 0; c < boardSize; c++) {
                     if (boardState[r][c] !== EMPTY) {
                         const worldPos = gridToWorld(r, c);
                         const stoneMesh = createStoneMesh(boardState[r][c]);
-                        stoneMesh.position.set(worldPos.x, (cellSize * 0.32 * 0.6) / 2 + 0.01, worldPos.z);
+                        stoneMesh.position.set(worldPos.x, stoneHeightRadius + 0.005, worldPos.z);
                         stonesGroup.add(stoneMesh);
                         stoneMeshes.set(`${r},${c}`, stoneMesh);
                     }
@@ -1167,20 +1182,22 @@
 
         // WebRTC P2P Multiplayer Logik
         function initPeerJS() {
-            if (peer) return;
+            if (peer && !peer.destroyed) return;
 
             document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
             document.getElementById('online-status-text').innerText = 'Verbinde mit PeerJS Server...';
             
-            // Mit Google STUN Servern für verlässliche P2P-Verbindung durch Firewalls/Router
+            // Mit Google & Mozilla STUN Servern für verlässliche P2P-Verbindung durch Firewalls/Router
             peer = new Peer(null, {
-                debug: 2,
+                debug: 1,
                 config: {
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' }
-                    ]
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun.services.mozilla.com' }
+                    ],
+                    sdpSemantics: 'unified-plan'
                 }
             });
 
@@ -1188,7 +1205,7 @@
                 myPeerId = id;
                 document.getElementById('my-room-id-input').value = id;
                 document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
-                document.getElementById('online-status-text').innerText = 'Online – Bereits zum Verbinden';
+                document.getElementById('online-status-text').innerText = 'Bereit! Gib deinem Mitspieler die ID.';
             });
 
             peer.on('connection', (conn) => {
@@ -1197,26 +1214,38 @@
                 setupPeerConnection();
             });
 
+            peer.on('disconnected', () => {
+                document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
+                document.getElementById('online-status-text').innerText = 'Verbindung getrennt. Versuche Reconnect...';
+                peer.reconnect();
+            });
+
             peer.on('error', (err) => {
                 console.error("PeerJS Fehler:", err);
                 document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-rose-500';
                 
+                let errorMsg = 'Verbindungsfehler!';
                 if (err.type === 'peer-not-found') {
-                    document.getElementById('online-status-text').innerText = 'Fehler: Raum-ID existiert nicht!';
-                    showToast("Raum-ID nicht gefunden! Hat der Host den Raum offen?");
-                } else {
-                    document.getElementById('online-status-text').innerText = 'Verbindungsfehler!';
-                    showToast("Fehler bei der Online-Verbindung.");
+                    errorMsg = 'Raum-ID nicht gefunden! (Prüfe die ID des Hosts)';
+                } else if (err.type === 'unavailable-id') {
+                    errorMsg = 'ID bereits belegt.';
+                } else if (err.type === 'network' || err.type === 'webrtc') {
+                    errorMsg = 'Netzwerk/Firewall blockiert P2P-Verbindung.';
+                } else if (err.type === 'browser-incompatible') {
+                    errorMsg = 'Browser unterstützt kein WebRTC.';
                 }
+                
+                document.getElementById('online-status-text').innerText = errorMsg;
+                showToast(errorMsg);
                 setTimeout(hideToast, 4000);
             });
 
             document.getElementById('btn-create-room').addEventListener('click', () => {
                 if (!peer || !myPeerId) {
-                    showToast("Verbindung zum Server läuft noch... Bitte kurz warten.");
+                    showToast("Verbindung zum Server läuft noch... Bitte 2 Sekunden warten.");
                     return;
                 }
-                showToast("Raum erstellt! Teile deine ID mit Mitspieler.");
+                showToast("Raum ist bereit! Kopiere die ID und schicke sie weiter.");
                 setTimeout(hideToast, 3000);
             });
 
@@ -1246,9 +1275,17 @@
                 }
 
                 document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
-                document.getElementById('online-status-text').innerText = 'Suche Raum...';
+                document.getElementById('online-status-text').innerText = 'Verbinde mit Host...';
                 
-                peerConn = peer.connect(targetId, { reliable: true });
+                // Falls alte Verbindung existiert, erst aufräumen
+                if (peerConn) {
+                    try { peerConn.close(); } catch(e) {}
+                }
+
+                peerConn = peer.connect(targetId, { 
+                    reliable: true,
+                    serialization: 'json'
+                });
                 isOnlineHost = false;
                 setupPeerConnection();
             });
@@ -1274,6 +1311,12 @@
                 } else if (data.type === 'RESTART') {
                     initGameState();
                 }
+            });
+
+            peerConn.on('error', (err) => {
+                console.error("Peer Connection Error:", err);
+                showToast("Datenübertragungsfehler!");
+                setTimeout(hideToast, 3000);
             });
 
             peerConn.on('close', () => {
