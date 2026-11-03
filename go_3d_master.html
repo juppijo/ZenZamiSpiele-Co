@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Go Game - 囲碁</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PeerJS for WebRTC Online Multiplayer -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+JP:wght@400;600&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #f8fafc;
+            touch-action: none; /* Prevents default browser zooming/scrolling on mobile touch */
+        }
+        .font-serif-title {
+            font-family: 'Cinzel', 'Noto Serif JP', serif;
+        }
+        canvas {
+            display: block;
+            outline: none;
+            touch-action: none;
+        }
+        /* Custom Scrollbar for rules sidebar/modal */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(217, 119, 6, 0.5);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(217, 119, 6, 0.8);
+        }
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-button {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s ease;
+        }
+        .glass-button:hover {
+            background: rgba(51, 65, 85, 0.9);
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+        .glass-button:active {
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative flex flex-col justify-between overflow-hidden">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+    <!-- UI Overlay Header -->
+    <header class="relative z-10 w-full p-2 sm:p-4 flex justify-between items-center glass-panel border-b border-slate-800 shadow-xl pointer-events-auto">
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-600/30 border border-amber-500/50 flex items-center justify-center text-amber-400 font-bold text-base sm:text-xl shadow-lg shrink-0">
+                碁
+            </div>
+            <div>
+                <h1 class="text-sm sm:text-xl font-bold tracking-wider font-serif-title bg-gradient-to-r from-amber-200 via-amber-400 to-amber-100 bg-clip-text text-transparent">
+                    3D GO MASTER
+                </h1>
+                <p class="hidden sm:block text-xs text-amber-200/60 tracking-widest uppercase">Klassisches Strategiespiel</p>
+            </div>
+        </div>
+
+        <!-- Central Status Bar (Desktop Header) -->
+        <div class="hidden lg:flex items-center space-x-6 glass-panel px-6 py-2 rounded-full border border-amber-500/20">
+            <!-- Black Player Info -->
+            <div id="player-black-card" class="flex items-center space-x-3 transition-all duration-300 opacity-100 scale-105">
+                <div class="w-6 h-6 rounded-full bg-black border-2 border-slate-600 shadow-md flex items-center justify-center text-[10px]" id="black-role-badge"></div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-300" id="black-player-name">Schwarz</div>
+                    <div class="text-xs text-amber-400/80">Gefangen: <span id="captures-black" class="font-bold text-amber-400">0</span></div>
+                </div>
+            </div>
+
+            <div class="text-slate-600 font-light text-xl">|</div>
+
+            <!-- Turn Indicator -->
+            <div class="text-center px-2">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">Am Zug</div>
+                <div id="turn-display" class="text-sm font-bold text-amber-400 flex items-center justify-center gap-1.5">
+                    <span id="turn-ping" class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    <span id="turn-text">Schwarz</span>
+                </div>
+            </div>
+
+            <div class="text-slate-600 font-light text-xl">|</div>
+
+            <!-- White Player Info -->
+            <div id="player-white-card" class="flex items-center space-x-3 transition-all duration-300 opacity-60">
+                <div class="w-6 h-6 rounded-full bg-slate-100 border-2 border-slate-300 shadow-md flex items-center justify-center text-[10px]" id="white-role-badge"></div>
+                <div>
+                    <div class="text-xs font-semibold text-slate-300" id="white-player-name">Weiß</div>
+                    <div class="text-xs text-amber-400/80">Gefangen: <span id="captures-white" class="font-bold text-amber-400">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Right Control Buttons (Desktop & Mobile trigger) -->
+        <div class="flex items-center space-x-1 sm:space-x-2">
+            <!-- Desktop Game Options -->
+            <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+                <select id="game-mode-select" class="glass-button text-xs text-amber-200 px-2 py-1 rounded cursor-pointer outline-none focus:border-amber-500">
+                    <option value="pvp" class="bg-slate-900 text-slate-200">2 Spieler (Lokal)</option>
+                    <option value="ai" class="bg-slate-900 text-slate-200">Gegen PC</option>
+                    <option value="online" class="bg-slate-900 text-amber-400 font-bold">Online 2P (WebRTC)</option>
+                </select>
+
+                <!-- AI Options Sub-Container -->
+                <div id="ai-options-container" class="hidden flex items-center space-x-2 border-l border-slate-700 pl-2">
+                    <select id="ai-difficulty-select" class="glass-button text-xs text-amber-300 px-2 py-1 rounded cursor-pointer outline-none focus:border-amber-500">
+                        <option value="easy" class="bg-slate-900 text-emerald-400">Leicht</option>
+                        <option value="medium" selected class="bg-slate-900 text-amber-400">Mittel</option>
+                        <option value="hard" class="bg-slate-900 text-rose-400">Schwer</option>
+                    </select>
+                    
+                    <select id="player-color-select" class="glass-button text-xs text-slate-200 px-2 py-1 rounded cursor-pointer outline-none focus:border-amber-500">
+                        <option value="1" class="bg-slate-900 text-slate-200">Du: Schwarz (1.)</option>
+                        <option value="2" class="bg-slate-900 text-slate-200">Du: Weiß (2.)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Board Size Selector (Desktop) -->
+            <div class="hidden sm:block relative">
+                <select id="board-size-select" class="glass-button text-xs text-amber-200 px-2.5 py-2 rounded-lg cursor-pointer outline-none focus:border-amber-500">
+                    <option value="19" class="bg-slate-900 text-slate-200">19 x 19 (Standard)</option>
+                    <option value="13" class="bg-slate-900 text-slate-200">13 x 13 (Mittel)</option>
+                    <option value="9" class="bg-slate-900 text-slate-200">9 x 9 (Schnell)</option>
+                </select>
+            </div>
+
+            <!-- Mobile Settings Menu Toggle Button -->
+            <button id="btn-mobile-settings" title="Einstellungen" class="md:hidden glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
+                <i data-lucide="sliders" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </button>
+
+            <!-- Theme Toggle Button -->
+            <button id="btn-theme" title="Holzart / Style wechseln" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
+                <i data-lucide="palette" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </button>
+
+            <!-- Rules Button -->
+            <button id="btn-rules" title="Regeln & Anleitung" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
+                <i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </button>
+
+            <!-- Fullscreen Button -->
+            <button id="btn-fullscreen" title="Vollbildmodus" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
+                <i data-lucide="maximize" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Settings Modal Dropdown -->
+    <div id="mobile-settings-modal" class="fixed inset-x-0 top-14 z-40 p-3 glass-panel border-b border-amber-500/30 transition-all duration-300 transform -translate-y-full opacity-0 pointer-events-none md:hidden">
+        <div class="flex flex-col space-y-3">
+            <div class="flex justify-between items-center text-xs font-bold text-amber-400 border-b border-slate-700 pb-2">
+                <span>SPIELEINSTELLUNGEN</span>
+                <button id="btn-close-mobile-settings" class="text-slate-400 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Spielmodus</label>
+                    <select id="mobile-game-mode-select" class="w-full glass-button text-xs text-amber-200 p-2 rounded-lg outline-none">
+                        <option value="pvp" class="bg-slate-900">2 Spieler (Lokal)</option>
+                        <option value="ai" class="bg-slate-900">Gegen PC</option>
+                        <option value="online" class="bg-slate-900 text-amber-400">Online 2P (WebRTC)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Spielfeldgröße</label>
+                    <select id="mobile-board-size-select" class="w-full glass-button text-xs text-amber-200 p-2 rounded-lg outline-none">
+                        <option value="19" class="bg-slate-900">19 x 19 (Standard)</option>
+                        <option value="13" class="bg-slate-900">13 x 13 (Mittel)</option>
+                        <option value="9" class="bg-slate-900">9 x 9 (Schnell)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Mobile AI Options -->
+            <div id="mobile-ai-options-container" class="hidden grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">KI Schwierigkeit</label>
+                    <select id="mobile-ai-difficulty-select" class="w-full glass-button text-xs text-amber-300 p-2 rounded-lg outline-none">
+                        <option value="easy" class="bg-slate-900 text-emerald-400">Leicht</option>
+                        <option value="medium" selected class="bg-slate-900 text-amber-400">Mittel</option>
+                        <option value="hard" class="bg-slate-900 text-rose-400">Schwer</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">Deine Farbe</label>
+                    <select id="mobile-player-color-select" class="w-full glass-button text-xs text-slate-200 p-2 rounded-lg outline-none">
+                        <option value="1" class="bg-slate-900">Schwarz (1.)</option>
+                        <option value="2" class="bg-slate-900">Weiß (2.)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Status Bar (Positioned directly under top header) -->
+    <div class="lg:hidden absolute top-14 left-2 right-2 z-10 p-2 glass-panel rounded-xl flex justify-between items-center text-xs shadow-lg pointer-events-auto border border-amber-500/20">
+        <div class="flex items-center gap-1.5">
+            <div class="w-3.5 h-3.5 rounded-full bg-black border border-slate-500 shadow"></div>
+            <span class="text-slate-300">Gefangen: <span id="captures-black-mobile" class="font-bold text-amber-400">0</span></span>
+        </div>
+        <div id="turn-display-mobile" class="font-bold text-amber-400 bg-slate-900/80 px-3 py-0.5 rounded-full border border-amber-500/30 text-[11px]">
+            Zug: Schwarz
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-slate-300">Gefangen: <span id="captures-white-mobile" class="font-bold text-amber-400">0</span></span>
+            <div class="w-3.5 h-3.5 rounded-full bg-white border border-slate-300 shadow"></div>
+        </div>
+    </div>
+
+    <!-- AI Toast / Hint Message Area -->
+    <div id="toast-container" class="absolute top-28 sm:top-24 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none transition-all duration-300 opacity-0 scale-95 w-[90%] max-w-sm">
+        <div class="glass-panel border-amber-500/50 bg-slate-900/95 text-amber-200 px-4 py-2.5 rounded-full shadow-2xl flex items-center justify-center space-x-2 text-center">
+            <i data-lucide="sparkles" class="w-4 h-4 text-amber-400 animate-pulse shrink-0"></i>
+            <span id="toast-message" class="text-xs sm:text-sm font-medium">Taktischer Hinweis wird generiert...</span>
+        </div>
+    </div>
+
+    <!-- Online Lobby Overlay Modal -->
+    <div id="online-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300 opacity-0 pointer-events-none overflow-y-auto">
+        <div class="glass-panel w-full max-w-md rounded-2xl border border-amber-500/40 p-5 sm:p-6 shadow-2xl flex flex-col space-y-4 sm:space-y-6">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-base sm:text-lg font-bold font-serif-title text-amber-300 flex items-center gap-2">
+                    <i data-lucide="globe" class="w-5 h-5 text-amber-400"></i> Online-Multiplayer Lobby
+                </h3>
+                <button id="btn-close-online-modal" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Online Status Banner -->
+            <div id="online-status-badge" class="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-xs text-slate-300 flex items-center gap-2">
+                <span id="online-status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                <span id="online-status-text">Nicht verbunden</span>
+            </div>
+
+            <!-- Create Room Section -->
+            <div class="space-y-3 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800">
+                <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Raum Erstellen (Schwarz)</h4>
+                <div class="flex gap-2">
+                    <input id="my-room-id-input" type="text" readonly placeholder="Generiere ID..." class="w-full bg-slate-950 border border-slate-700 text-amber-200 text-xs px-3 py-2 rounded-lg outline-none select-all font-mono">
+                    <button id="btn-copy-room-id" class="glass-button px-3 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-amber-300 flex items-center gap-1 shrink-0">
+                        <i data-lucide="copy" class="w-4 h-4"></i> <span class="hidden sm:inline">Kopieren</span>
+                    </button>
+                </div>
+                <button id="btn-create-room" class="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs py-2.5 rounded-lg shadow-lg transition">
+                    Neuen Raum Hosten
+                </button>
+            </div>
+
+            <!-- Join Room Section -->
+            <div class="space-y-3 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800">
+                <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Einem Raum Beitreten (Weiß)</h4>
+                <div class="flex gap-2">
+                    <input id="join-room-id-input" type="text" placeholder="Raum-ID hier einfügen..." class="w-full bg-slate-950 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-lg outline-none font-mono focus:border-amber-500">
+                    <button id="btn-join-room" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-lg text-xs shrink-0 transition">
+                        Beitreten
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Action Controls Bar (Mobile & Desktop Responsive) -->
+    <div class="relative z-10 p-2 sm:p-4 mb-1 sm:mb-2 flex justify-center items-center pointer-events-none">
+        <div class="glass-panel p-1.5 sm:p-2 rounded-2xl border border-amber-500/20 shadow-2xl flex items-center space-x-1 sm:space-x-2 pointer-events-auto">
+            <!-- KI-Tipp Button -->
+            <button id="btn-hint" class="glass-button px-3 sm:px-4 py-2 rounded-xl text-amber-300 flex items-center space-x-1.5 text-xs sm:text-sm font-semibold hover:border-amber-400">
+                <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i>
+                <span class="hidden sm:inline">Taktik-Tipp</span>
+                <span class="sm:hidden">Tipp</span>
+            </button>
+
+            <div class="h-5 sm:h-6 w-[1px] bg-slate-700"></div>
+
+            <!-- Pass Button -->
+            <button id="btn-pass" class="glass-button px-3 sm:px-4 py-2 rounded-xl text-slate-300 flex items-center space-x-1.5 text-xs sm:text-sm font-medium hover:text-white">
+                <i data-lucide="skip-forward" class="w-4 h-4 text-slate-400"></i>
+                <span>Passen</span>
+            </button>
+
+            <!-- Undo Button -->
+            <button id="btn-undo" class="glass-button px-3 sm:px-4 py-2 rounded-xl text-slate-300 flex items-center space-x-1.5 text-xs sm:text-sm font-medium hover:text-white">
+                <i data-lucide="rotate-ccw" class="w-4 h-4 text-slate-400"></i>
+                <span class="hidden sm:inline">Rückgängig</span>
+            </button>
+
+            <div class="h-5 sm:h-6 w-[1px] bg-slate-700"></div>
+
+            <!-- Resign / Reset Button -->
+            <button id="btn-restart" class="glass-button px-3 sm:px-4 py-2 rounded-xl text-rose-400 hover:text-rose-300 hover:border-rose-500/40 flex items-center space-x-1.5 text-xs sm:text-sm font-medium">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-rose-400"></i>
+                <span class="hidden sm:inline">Neues Spiel</span>
+                <span class="sm:hidden">Neu</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Rules Modal Sidebar / Dialog -->
+    <div id="rules-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="glass-panel w-full max-w-2xl max-h-[85vh] rounded-2xl border border-amber-500/30 shadow-2xl flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-6 border-b border-slate-700/80 flex justify-between items-center bg-slate-900/50">
+                <div class="flex items-center space-x-3">
+                    <i data-lucide="book-open" class="w-5 h-5 sm:w-6 sm:h-6 text-amber-400"></i>
+                    <h2 class="text-base sm:text-xl font-bold font-serif-title text-amber-200">Go Spielregeln & Anleitung</h2>
+                </div>
+                <button id="btn-close-rules" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+                    <i data-lucide="x" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 text-slate-300 text-xs sm:text-sm leading-relaxed">
+                <!-- Section 1 -->
+                <div class="space-y-2">
+                    <h3 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        1. Grundziel des Spiels
+                    </h3>
+                    <p class="pl-4 text-slate-400">
+                        Go ist ein antikes asiatisches Strategiespiel für zwei Spieler. Das Ziel besteht darin, mit den eigenen Steinen auf den Kreuzungspunkten des Gitters mehr **Territorium** (freie Schnittpunkte) zu umzingeln als der Gegner.
+                    </p>
+                </div>
+
+                <!-- Section 2 -->
+                <div class="space-y-2">
+                    <h3 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        2. Freiheiten (Liberties) & Schlagen
+                    </h3>
+                    <p class="pl-4 text-slate-400">
+                        Jeder Stein oder zusammenhängende Gruppe von Steinen benötigt waagerecht oder senkrecht angrenzende freie Schnittpunkte (genannt **Freiheiten**). 
+                        Wird die letzte Freiheit einer gegnerischen Gruppe besetzt, gilt diese als **gefangen** und wird vom Brett entfernt.
+                    </p>
+                </div>
+
+                <!-- Section 3 -->
+                <div class="space-y-2">
+                    <h3 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        3. Selbstmord & Ko-Regel
+                    </h3>
+                    <p class="pl-4 text-slate-400">
+                        - **Kein Selbstmord**: Man darf keinen Stein auf ein Feld setzen, das direkt 0 Freiheiten hat, es sei denn, man schlägt dadurch gleichzeitig gegnerische Steine.<br>
+                        - **Ko-Regel**: Wiederholungen genau derselben Brettposition sind verboten, um unendliche Schleifen zu vermeiden.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-slate-800 bg-slate-900/60 flex justify-end">
+                <button id="btn-confirm-rules" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-5 py-2 rounded-xl text-xs sm:text-sm shadow-lg transition">
+                    Verstanden
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- GAME STATE ---
+        const BLACK = 1;
+        const WHITE = 2;
+        const EMPTY = 0;
+
+        let boardSize = 19;
+        let boardState = []; // 2D array [row][col]
+        let currentPlayer = BLACK;
+        let captures = { [BLACK]: 0, [WHITE]: 0 };
+        let history = []; // Stack for undo
+        let lastCapturedCoords = null; // For Ko rule checking
+        let currentThemeIndex = 0;
+
+        // AI Game Settings
+        let gameMode = 'pvp'; // 'pvp', 'ai', or 'online'
+        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
+        let humanPlayerColor = BLACK; // BLACK or WHITE
+        let isAiThinking = false;
+
+        // PeerJS Online Multiplayer Vars
+        let peer = null;
+        let peerConn = null;
+        let myPeerId = null;
+        let isOnlineHost = false;
+
+        // Theme Definitions (Wood Styles)
+        const THEMES = [
+            {
+                name: "Shin Kaya (Klassisch)",
+                boardColor: 0xe5a95c,
+                linesColor: 0x2b1d0c,
+                gridAlpha: 0.85,
+                bgGradStart: "#0f172a",
+                bgGradEnd: "#1e293b",
+                roughness: 0.35,
+                metalness: 0.05
+            },
+            {
+                name: "Dunkler Walnuss",
+                boardColor: 0x5c3a21,
+                linesColor: 0xe2e8f0,
+                gridAlpha: 0.75,
+                bgGradStart: "#020617",
+                bgGradEnd: "#1e1b4b",
+                roughness: 0.4,
+                metalness: 0.1
+            },
+            {
+                name: "Zen Tatami / Bambus",
+                boardColor: 0xc4b5fd,
+                linesColor: 0x312e81,
+                gridAlpha: 0.9,
+                bgGradStart: "#092e20",
+                bgGradEnd: "#14532d",
+                roughness: 0.5,
+                metalness: 0.0
+            }
+        ];
+
+        // Three.js Scene Variables
+        let scene, camera, renderer, controls;
+        let boardMesh, hoverMarkerMesh;
+        let gridGroup, stonesGroup;
+        let stoneMeshes = new Map(); // key: "row,col", value: Mesh
+        let raycaster, mouse;
+
+        const BOARD_PHYSICAL_SIZE = 12;
+        const BOARD_HEIGHT = 0.8;
+        let cellSize = 0;
+
+        // Touch interaction threshold variables to distinguish dragging camera vs tapping stone
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchMoveDist = 0;
+
+        function initEngine() {
+            const container = document.getElementById('canvas-container');
+            
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(THEMES[0].bgGradStart);
+
+            // Camera Setup
+            const isMobile = window.innerWidth < 768;
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, isMobile ? 14 : 12, isMobile ? 15 : 12);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Controls Setup
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent camera from going under board
+            controls.minDistance = 6;
+            controls.maxDistance = 25;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfff5ea, 1.1);
+            dirLight.position.set(10, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.bias = -0.0001;
+            scene.add(dirLight);
+
+            const fillLight = new THREE.DirectionalLight(0x90e0ef, 0.3);
+            fillLight.position.set(-10, 10, -10);
+            scene.add(fillLight);
+
+            // Groups
+            gridGroup = new THREE.Group();
+            stonesGroup = new THREE.Group();
+            scene.add(gridGroup);
+            scene.add(stonesGroup);
+
+            // Raycasting & Interaction
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2(-999, -999);
+
+            createHoverMarker();
+            buildBoard();
+            initGameState();
+            setupEventListeners();
+            animate();
+        }
+
+        function createWoodTexture(baseColorHex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#' + new THREE.Color(baseColorHex).getHexString();
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Add grain lines
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 50; i++) {
+                ctx.beginPath();
+                const y = Math.random() * 512;
+                ctx.moveTo(0, y);
+                ctx.bezierCurveTo(170, y + Math.random() * 20 - 10, 340, y + Math.random() * 20 - 10, 512, y);
+                ctx.stroke();
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function buildBoard() {
+            // Remove old board
+            if (boardMesh) scene.remove(boardMesh);
+            while (gridGroup.children.length > 0) {
+                gridGroup.remove(gridGroup.children[0]);
+            }
+
+            const currentTheme = THEMES[currentThemeIndex];
+            const woodTexture = createWoodTexture(currentTheme.boardColor);
+
+            // Board Mesh
+            const boardGeo = new THREE.BoxGeometry(BOARD_PHYSICAL_SIZE, BOARD_HEIGHT, BOARD_PHYSICAL_SIZE);
+            const boardMat = new THREE.MeshStandardMaterial({
+                map: woodTexture,
+                roughness: currentTheme.roughness,
+                metalness: currentTheme.metalness
+            });
+
+            boardMesh = new THREE.Mesh(boardGeo, boardMat);
+            boardMesh.position.y = -BOARD_HEIGHT / 2;
+            boardMesh.receiveShadow = true;
+            scene.add(boardMesh);
+
+            // Draw Lines & Star Points (Hoshi)
+            cellSize = BOARD_PHYSICAL_SIZE / boardSize;
+            const halfBoard = BOARD_PHYSICAL_SIZE / 2;
+            const offset = cellSize / 2;
+
+            const lineMat = new THREE.LineBasicMaterial({
+                color: currentTheme.linesColor,
+                opacity: currentTheme.gridAlpha,
+                transparent: true,
+                linewidth: 2
+            });
+
+            for (let i = 0; i < boardSize; i++) {
+                const pos = -halfBoard + offset + i * cellSize;
+
+                // X-axis line
+                const geoX = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(-halfBoard + offset, 0.005, pos),
+                    new THREE.Vector3(halfBoard - offset, 0.005, pos)
+                ]);
+                gridGroup.add(new THREE.Line(geoX, lineMat));
+
+                // Z-axis line
+                const geoZ = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(pos, 0.005, -halfBoard + offset),
+                    new THREE.Vector3(pos, 0.005, halfBoard - offset)
+                ]);
+                gridGroup.add(new THREE.Line(geoZ, lineMat));
+            }
+
+            // Hoshi points
+            let starPoints = [];
+            if (boardSize === 19) {
+                starPoints = [
+                    [3, 3], [3, 9], [3, 15],
+                    [9, 3], [9, 9], [9, 15],
+                    [15, 3], [15, 9], [15, 15]
+                ];
+            } else if (boardSize === 13) {
+                starPoints = [
+                    [3, 3], [3, 9], [6, 6], [9, 3], [9, 9]
+                ];
+            } else if (boardSize === 9) {
+                starPoints = [
+                    [2, 2], [2, 6], [4, 4], [6, 2], [6, 6]
+                ];
+            }
+
+            const hoshiGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.01, 16);
+            const hoshiMat = new THREE.MeshBasicMaterial({ color: currentTheme.linesColor });
+            starPoints.forEach(([r, c]) => {
+                const hoshi = new THREE.Mesh(hoshiGeo, hoshiMat);
+                const coords = gridToWorld(r, c);
+                hoshi.position.set(coords.x, 0.006, coords.z);
+                gridGroup.add(hoshi);
+            });
+        }
+
+        function createHoverMarker() {
+            const geo = new THREE.RingGeometry(cellSize * 0.25, cellSize * 0.4, 32);
+            geo.rotateX(-Math.PI / 2);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+            hoverMarkerMesh = new THREE.Mesh(geo, mat);
+            hoverMarkerMesh.visible = false;
+            hoverMarkerMesh.position.y = 0.01;
+            scene.add(hoverMarkerMesh);
+        }
+
+        function gridToWorld(row, col) {
+            const halfBoard = BOARD_PHYSICAL_SIZE / 2;
+            const offset = cellSize / 2;
+            return {
+                x: -halfBoard + offset + col * cellSize,
+                z: -halfBoard + offset + row * cellSize
+            };
+        }
+
+        function worldToGrid(x, z) {
+            const halfBoard = BOARD_PHYSICAL_SIZE / 2;
+            const offset = cellSize / 2;
+            const col = Math.round((x + halfBoard - offset) / cellSize);
+            const row = Math.round((z + halfBoard - offset) / cellSize);
+            if (row >= 0 && row < boardSize && col >= 0 && col < boardSize) {
+                return { row, col };
+            }
+            return null;
+        }
+
+        function initGameState() {
+            boardState = Array.from({ length: boardSize }, () => Array(boardSize).fill(EMPTY));
+            currentPlayer = BLACK;
+            captures = { [BLACK]: 0, [WHITE]: 0 };
+            history = [];
+            lastCapturedCoords = null;
+            clearStoneMeshes();
+            updateUI();
+        }
+
+        function clearStoneMeshes() {
+            stoneMeshes.forEach(mesh => stonesGroup.remove(mesh));
+            stoneMeshes.clear();
+        }
+
+        function createStoneMesh(color) {
+            const radius = cellSize * 0.44;
+            const height = cellSize * 0.32;
+            const geo = new THREE.CylinderGeometry(radius, radius, height, 32);
+            geo.scale(1, 0.6, 1); // Convex shape
+
+            let mat;
+            if (color === BLACK) {
+                mat = new THREE.MeshStandardMaterial({
+                    color: 0x111111,
+                    roughness: 0.2,
+                    metalness: 0.1
+                });
+            } else {
+                mat = new THREE.MeshStandardMaterial({
+                    color: 0xf8fafc,
+                    roughness: 0.15,
+                    metalness: 0.05
+                });
+            }
+
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            return mesh;
+        }
+
+        function placeStone(row, col, player, recordHistory = true) {
+            if (!isValidMove(row, col, player, boardState)) return false;
+
+            const stateCopy = JSON.parse(JSON.stringify(boardState));
+            const capturesCopy = { ...captures };
+            
+            boardState[row][col] = player;
+
+            // Check captured opponent stones
+            const opponent = player === BLACK ? WHITE : BLACK;
+            const capturedGroup = getCapturedStones(opponent, boardState);
+            
+            capturedGroup.forEach(([r, c]) => {
+                boardState[r][c] = EMPTY;
+                removeStoneMesh(r, c);
+                captures[player]++;
+            });
+
+            if (recordHistory) {
+                history.push({
+                    board: stateCopy,
+                    captures: capturesCopy,
+                    player: currentPlayer
+                });
+            }
+
+            // Render new stone
+            const worldPos = gridToWorld(row, col);
+            const stoneMesh = createStoneMesh(player);
+            stoneMesh.position.set(worldPos.x, (cellSize * 0.32 * 0.6) / 2 + 0.01, worldPos.z);
+            stonesGroup.add(stoneMesh);
+            stoneMeshes.set(`${row},${col}`, stoneMesh);
+
+            // Switch turn
+            currentPlayer = opponent;
+            updateUI();
+
+            // Broadcast online move if active
+            if (peerConn && peerConn.open && recordHistory) {
+                peerConn.send({ type: 'MOVE', row, col, player });
+            }
+
+            // Trigger AI if required
+            if (gameMode === 'ai' && currentPlayer !== humanPlayerColor && !isAiThinking) {
+                triggerAiMove();
+            }
+
+            return true;
+        }
+
+        function removeStoneMesh(row, col) {
+            const key = `${row},${col}`;
+            if (stoneMeshes.has(key)) {
+                stonesGroup.remove(stoneMeshes.get(key));
+                stoneMeshes.delete(key);
+            }
+        }
+
+        function isValidMove(row, col, player, state) {
+            if (state[row][col] !== EMPTY) return false;
+
+            const tempState = JSON.parse(JSON.stringify(state));
+            tempState[row][col] = player;
+
+            const opponent = player === BLACK ? WHITE : BLACK;
+            const captured = getCapturedStones(opponent, tempState);
+
+            // Remove captured for suicide test
+            captured.forEach(([r, c]) => tempState[r][c] = EMPTY);
+
+            // Suicide Check
+            if (getLiberties(row, col, tempState).length === 0) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function getCapturedStones(player, state) {
+            const visited = Array.from({ length: boardSize }, () => Array(boardSize).fill(false));
+            const captured = [];
+
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (state[r][c] === player && !visited[r][c]) {
+                        const group = [];
+                        let liberties = 0;
+
+                        const queue = [[r, c]];
+                        visited[r][c] = true;
+
+                        while (queue.length > 0) {
+                            const [currR, currC] = queue.shift();
+                            group.push([currR, currC]);
+
+                            const neighbors = getNeighbors(currR, currC);
+                            neighbors.forEach(([nR, nC]) => {
+                                if (state[nR][nC] === EMPTY) {
+                                    liberties++;
+                                } else if (state[nR][nC] === player && !visited[nR][nC]) {
+                                    visited[nR][nC] = true;
+                                    queue.push([nR, nC]);
+                                }
+                            });
+                        }
+
+                        if (liberties === 0) {
+                            captured.push(...group);
+                        }
+                    }
+                }
+            }
+            return captured;
+        }
+
+        function getNeighbors(row, col) {
+            const neighbors = [];
+            if (row > 0) neighbors.push([row - 1, col]);
+            if (row < boardSize - 1) neighbors.push([row + 1, col]);
+            if (col > 0) neighbors.push([row, col - 1]);
+            if (col < boardSize - 1) neighbors.push([row, col + 1]);
+            return neighbors;
+        }
+
+        function getLiberties(row, col, state) {
+            const player = state[row][col];
+            const visited = Array.from({ length: boardSize }, () => Array(boardSize).fill(false));
+            const liberties = new Set();
+            const queue = [[row, col]];
+            visited[row][col] = true;
+
+            while (queue.length > 0) {
+                const [r, c] = queue.shift();
+                const neighbors = getNeighbors(r, c);
+                neighbors.forEach(([nR, nC]) => {
+                    if (state[nR][nC] === EMPTY) {
+                        liberties.add(`${nR},${nC}`);
+                    } else if (state[nR][nC] === player && !visited[nR][nC]) {
+                        visited[nR][nC] = true;
+                        queue.push([nR, nC]);
+                    }
+                });
+            }
+            return Array.from(liberties);
+        }
+
+        // --- AI LOGIC ---
+        function triggerAiMove() {
+            isAiThinking = true;
+            showToast("KI denkt nach...");
+            setTimeout(() => {
+                const move = calculateAiMove();
+                isAiThinking = false;
+                hideToast();
+                if (move) {
+                    placeStone(move.row, move.col, currentPlayer);
+                } else {
+                    passTurn();
+                }
+            }, 600);
+        }
+
+        function calculateAiMove() {
+            const validMoves = [];
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (isValidMove(r, c, currentPlayer, boardState)) {
+                        validMoves.push({ row: r, col: c });
+                    }
+                }
+            }
+
+            if (validMoves.length === 0) return null;
+
+            if (aiDifficulty === 'easy') {
+                return validMoves[Math.floor(Math.random() * validMoves.length)];
+            }
+
+            // Medium & Hard score heuristic
+            let bestMove = null;
+            let bestScore = -99999;
+
+            validMoves.forEach(m => {
+                let score = 0;
+                const opponent = currentPlayer === BLACK ? WHITE : BLACK;
+
+                // Simulate
+                const tempState = JSON.parse(JSON.stringify(boardState));
+                tempState[m.row][m.col] = currentPlayer;
+
+                const caps = getCapturedStones(opponent, tempState);
+                score += caps.length * 20; // High reward for captures
+
+                // Prefer center / star points on larger boards early
+                const centerDist = Math.abs(m.row - boardSize / 2) + Math.abs(m.col - boardSize / 2);
+                score -= centerDist * 0.5;
+
+                if (aiDifficulty === 'hard') {
+                    // Check liberties created
+                    const libs = getLiberties(m.row, m.col, tempState).length;
+                    score += libs * 2;
+                }
+
+                score += Math.random() * 3; // Slight variation
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMove = m;
+                }
+            });
+
+            return bestMove || validMoves[0];
+        }
+
+        function passTurn() {
+            currentPlayer = currentPlayer === BLACK ? WHITE : BLACK;
+            updateUI();
+            showToast("Spieler hat gepasst.");
+            setTimeout(hideToast, 2000);
+            
+            if (peerConn && peerConn.open) {
+                peerConn.send({ type: 'PASS' });
+            }
+
+            if (gameMode === 'ai' && currentPlayer !== humanPlayerColor) {
+                triggerAiMove();
+            }
+        }
+
+        function undoMove() {
+            if (history.length === 0) return;
+            const lastState = history.pop();
+            boardState = lastState.board;
+            captures = lastState.captures;
+            currentPlayer = lastState.player;
+
+            clearStoneMeshes();
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (boardState[r][c] !== EMPTY) {
+                        const worldPos = gridToWorld(r, c);
+                        const stoneMesh = createStoneMesh(boardState[r][c]);
+                        stoneMesh.position.set(worldPos.x, (cellSize * 0.32 * 0.6) / 2 + 0.01, worldPos.z);
+                        stonesGroup.add(stoneMesh);
+                        stoneMeshes.set(`${r},${c}`, stoneMesh);
+                    }
+                }
+            }
+            updateUI();
+        }
+
+        function generateHint() {
+            const move = calculateAiMove();
+            if (move) {
+                const colLetter = String.fromCharCode(65 + (move.col >= 8 ? move.col + 1 : move.col));
+                showToast(`Empfohlener Zug: ${colLetter}${boardSize - move.row}`);
+                
+                // Temporarily flash hover marker
+                const pos = gridToWorld(move.row, move.col);
+                hoverMarkerMesh.position.set(pos.x, 0.01, pos.z);
+                hoverMarkerMesh.visible = true;
+                setTimeout(() => {
+                    hoverMarkerMesh.visible = false;
+                }, 3000);
+            }
+        }
+
+        // --- UI & PEERJS UPDATES ---
+        function updateUI() {
+            const isBlack = currentPlayer === BLACK;
+            const turnText = isBlack ? 'Schwarz' : 'Weiß';
+
+            document.getElementById('turn-text').innerText = turnText;
+            document.getElementById('turn-display-mobile').innerText = `Zug: ${turnText}`;
+
+            document.getElementById('captures-black').innerText = captures[BLACK];
+            document.getElementById('captures-white').innerText = captures[WHITE];
+            document.getElementById('captures-black-mobile').innerText = captures[BLACK];
+            document.getElementById('captures-white-mobile').innerText = captures[WHITE];
+
+            const pBlackCard = document.getElementById('player-black-card');
+            const pWhiteCard = document.getElementById('player-white-card');
+
+            if (isBlack) {
+                pBlackCard.classList.add('opacity-100', 'scale-105');
+                pBlackCard.classList.remove('opacity-60');
+                pWhiteCard.classList.add('opacity-60');
+                pWhiteCard.classList.remove('opacity-100', 'scale-105');
+            } else {
+                pWhiteCard.classList.add('opacity-100', 'scale-105');
+                pWhiteCard.classList.remove('opacity-60');
+                pBlackCard.classList.add('opacity-60');
+                pBlackCard.classList.remove('opacity-100', 'scale-105');
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-container');
+            document.getElementById('toast-message').innerText = msg;
+            toast.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'scale-100');
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toast-container');
+            toast.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+            toast.classList.remove('opacity-100', 'scale-100');
+        }
+
+        // Setup Event Listeners
+        function setupEventListeners() {
+            window.addEventListener('resize', onWindowResize);
+
+            const container = document.getElementById('canvas-container');
+            
+            // Pointer events for board clicks
+            container.addEventListener('pointerdown', (e) => {
+                touchStartX = e.clientX;
+                touchStartY = e.clientY;
+                touchMoveDist = 0;
+            });
+
+            container.addEventListener('pointermove', (e) => {
+                touchMoveDist += Math.hypot(e.clientX - touchStartX, e.clientY - touchStartY);
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(boardMesh);
+                if (intersects.length > 0) {
+                    const gridPos = worldToGrid(intersects[0].point.x, intersects[0].point.z);
+                    if (gridPos && boardState[gridPos.row][gridPos.col] === EMPTY) {
+                        const pos = gridToWorld(gridPos.row, gridPos.col);
+                        hoverMarkerMesh.position.set(pos.x, 0.01, pos.z);
+                        hoverMarkerMesh.visible = true;
+                    } else {
+                        hoverMarkerMesh.visible = false;
+                    }
+                } else {
+                    hoverMarkerMesh.visible = false;
+                }
+            });
+
+            container.addEventListener('pointerup', (e) => {
+                if (touchMoveDist > 10) return; // Ignore drag/orbit interaction
+                if (isAiThinking) return;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(boardMesh);
+                if (intersects.length > 0) {
+                    const gridPos = worldToGrid(intersects[0].point.x, intersects[0].point.z);
+                    if (gridPos) {
+                        if (gameMode === 'online') {
+                            const myTurnColor = isOnlineHost ? BLACK : WHITE;
+                            if (currentPlayer !== myTurnColor) {
+                                showToast("Gegner ist am Zug!");
+                                setTimeout(hideToast, 1500);
+                                return;
+                            }
+                        }
+                        if (gameMode === 'ai' && currentPlayer !== humanPlayerColor) return;
+                        
+                        placeStone(gridPos.row, gridPos.col, currentPlayer);
+                    }
+                }
+            });
+
+            // Action Buttons
+            document.getElementById('btn-pass').addEventListener('click', passTurn);
+            document.getElementById('btn-undo').addEventListener('click', undoMove);
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                initGameState();
+                if (peerConn && peerConn.open) peerConn.send({ type: 'RESTART' });
+            });
+            document.getElementById('btn-hint').addEventListener('click', generateHint);
+
+            // Fullscreen Toggle
+            document.getElementById('btn-fullscreen').addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+
+            // Theme Switcher
+            document.getElementById('btn-theme').addEventListener('click', () => {
+                currentThemeIndex = (currentThemeIndex + 1) % THEMES.length;
+                scene.background = new THREE.Color(THEMES[currentThemeIndex].bgGradStart);
+                buildBoard();
+            });
+
+            // Size Dropdowns
+            const handleSizeChange = (val) => {
+                boardSize = parseInt(val);
+                buildBoard();
+                initGameState();
+            };
+            document.getElementById('board-size-select').addEventListener('change', (e) => handleSizeChange(e.target.value));
+            document.getElementById('mobile-board-size-select').addEventListener('change', (e) => handleSizeChange(e.target.value));
+
+            // Game Mode Dropdowns
+            const handleModeChange = (val) => {
+                gameMode = val;
+                const aiContainer = document.getElementById('ai-options-container');
+                const mobileAiContainer = document.getElementById('mobile-ai-options-container');
+
+                if (val === 'ai') {
+                    aiContainer.classList.remove('hidden');
+                    mobileAiContainer.classList.remove('hidden');
+                } else {
+                    aiContainer.classList.add('hidden');
+                    mobileAiContainer.classList.add('hidden');
+                }
+
+                if (val === 'online') {
+                    document.getElementById('online-modal').classList.remove('opacity-0', 'pointer-events-none');
+                    initPeerJS();
+                }
+            };
+            document.getElementById('game-mode-select').addEventListener('change', (e) => handleModeChange(e.target.value));
+            document.getElementById('mobile-game-mode-select').addEventListener('change', (e) => handleModeChange(e.target.value));
+
+            // AI Settings
+            document.getElementById('ai-difficulty-select').addEventListener('change', (e) => aiDifficulty = e.target.value);
+            document.getElementById('mobile-ai-difficulty-select').addEventListener('change', (e) => aiDifficulty = e.target.value);
+            
+            const handleColorChange = (val) => {
+                humanPlayerColor = parseInt(val);
+                initGameState();
+                if (gameMode === 'ai' && currentPlayer !== humanPlayerColor) {
+                    triggerAiMove();
+                }
+            };
+            document.getElementById('player-color-select').addEventListener('change', (e) => handleColorChange(e.target.value));
+            document.getElementById('mobile-player-color-select').addEventListener('change', (e) => handleColorChange(e.target.value));
+
+            // Mobile Settings Modal Toggle
+            const mobileModal = document.getElementById('mobile-settings-modal');
+            document.getElementById('btn-mobile-settings').addEventListener('click', () => {
+                mobileModal.classList.toggle('-translate-y-full');
+                mobileModal.classList.toggle('opacity-0');
+                mobileModal.classList.toggle('pointer-events-none');
+            });
+            document.getElementById('btn-close-mobile-settings').addEventListener('click', () => {
+                mobileModal.classList.add('-translate-y-full', 'opacity-0', 'pointer-events-none');
+            });
+
+            // Rules Modal
+            const rulesModal = document.getElementById('rules-modal');
+            document.getElementById('btn-rules').addEventListener('click', () => rulesModal.classList.remove('opacity-0', 'pointer-events-none'));
+            document.getElementById('btn-close-rules').addEventListener('click', () => rulesModal.classList.add('opacity-0', 'pointer-events-none'));
+            document.getElementById('btn-confirm-rules').addEventListener('click', () => rulesModal.classList.add('opacity-0', 'pointer-events-none'));
+
+            // Online Modal Close
+            document.getElementById('btn-close-online-modal').addEventListener('click', () => {
+                document.getElementById('online-modal').classList.add('opacity-0', 'pointer-events-none');
+            });
+        }
+
+        // WebRTC P2P Multiplayer Logik
+        function initPeerJS() {
+            if (peer) return;
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                myPeerId = id;
+                document.getElementById('my-room-id-input').value = id;
+                document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+                document.getElementById('online-status-text').innerText = 'Online - Bereits zum Verbinden';
+            });
+
+            peer.on('connection', (conn) => {
+                peerConn = conn;
+                isOnlineHost = true;
+                setupPeerConnection();
+            });
+
+            document.getElementById('btn-copy-room-id').addEventListener('click', () => {
+                const input = document.getElementById('my-room-id-input');
+                navigator.clipboard.writeText(input.value);
+                showToast("Raum-ID in Zwischenablage kopiert!");
+                setTimeout(hideToast, 2000);
+            });
+
+            document.getElementById('btn-join-room').addEventListener('click', () => {
+                const targetId = document.getElementById('join-room-id-input').value.trim();
+                if (targetId) {
+                    peerConn = peer.connect(targetId);
+                    isOnlineHost = false;
+                    setupPeerConnection();
+                }
+            });
+        }
+
+        function setupPeerConnection() {
+            peerConn.on('open', () => {
+                document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-blue-500';
+                document.getElementById('online-status-text').innerText = isOnlineHost ? 'Verbunden als Host (Schwarz)' : 'Verbunden als Gast (Weiß)';
+                document.getElementById('online-modal').classList.add('opacity-0', 'pointer-events-none');
+                showToast("Gegner verbunden! Spiel startet.");
+                setTimeout(hideToast, 2500);
+                initGameState();
+            });
+
+            peerConn.on('data', (data) => {
+                if (data.type === 'MOVE') {
+                    placeStone(data.row, data.col, data.player, false);
+                } else if (data.type === 'PASS') {
+                    passTurn();
+                } else if (data.type === 'RESTART') {
+                    initGameState();
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function () {
+            initEngine();
+        };
+    </script>
+</body>
+</html>
