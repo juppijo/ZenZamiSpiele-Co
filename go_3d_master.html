@@ -1168,7 +1168,16 @@
         // WebRTC P2P Multiplayer Logik
         function initPeerJS() {
             if (peer) return;
-            peer = new Peer();
+            
+            // Mit Google STUN Servern für verlässliche P2P-Verbindung durch Firewalls/Router
+            peer = new Peer({
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
 
             peer.on('open', (id) => {
                 myPeerId = id;
@@ -1183,6 +1192,14 @@
                 setupPeerConnection();
             });
 
+            peer.on('error', (err) => {
+                console.error("PeerJS Fehler:", err);
+                document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-rose-500';
+                document.getElementById('online-status-text').innerText = 'Fehler: Raum-ID nicht gefunden!';
+                showToast("Verbindungsfehler! Bitte Raum-ID prüfen.");
+                setTimeout(hideToast, 3000);
+            });
+
             document.getElementById('btn-copy-room-id').addEventListener('click', () => {
                 const input = document.getElementById('my-room-id-input');
                 navigator.clipboard.writeText(input.value);
@@ -1193,20 +1210,28 @@
             document.getElementById('btn-join-room').addEventListener('click', () => {
                 const targetId = document.getElementById('join-room-id-input').value.trim();
                 if (targetId) {
-                    peerConn = peer.connect(targetId);
+                    document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
+                    document.getElementById('online-status-text').innerText = 'Verbinde mit Raum...';
+                    
+                    peerConn = peer.connect(targetId, { reliable: true });
                     isOnlineHost = false;
                     setupPeerConnection();
+                } else {
+                    showToast("Bitte zuerst eine Raum-ID eingeben!");
+                    setTimeout(hideToast, 2000);
                 }
             });
         }
 
         function setupPeerConnection() {
+            if (!peerConn) return;
+
             peerConn.on('open', () => {
                 document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-blue-500';
                 document.getElementById('online-status-text').innerText = isOnlineHost ? 'Verbunden als Host (Schwarz)' : 'Verbunden als Gast (Weiß)';
                 document.getElementById('online-modal').classList.add('opacity-0', 'pointer-events-none');
-                showToast("Gegner verbunden! Spiel startet.");
-                setTimeout(hideToast, 2500);
+                showToast(isOnlineHost ? "Gast beigetreten! Du spielst Schwarz." : "Erfolgreich verbunden! Du spielst Weiß.");
+                setTimeout(hideToast, 3000);
                 initGameState();
             });
 
@@ -1218,6 +1243,11 @@
                 } else if (data.type === 'RESTART') {
                     initGameState();
                 }
+            });
+
+            peerConn.on('close', () => {
+                showToast("Verbindung zum Mitspieler getrennt.");
+                setTimeout(hideToast, 3000);
             });
         }
 
