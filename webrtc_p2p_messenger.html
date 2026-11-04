@@ -92,7 +92,6 @@
     .msg-sent { background-color: var(--msg-sent); color: var(--msg-sent-text); }
     .msg-recv { background-color: var(--msg-recv); color: var(--msg-recv-text); border: 1px solid var(--border-color); }
     
-    /* Markdown Styles im Chat */
     .markdown-body p { margin-bottom: 0.25rem; }
     .markdown-body p:last-child { margin-bottom: 0; }
     .markdown-body code { background: rgba(0,0,0,0.15); padding: 0.1rem 0.3rem; border-radius: 0.2rem; font-family: monospace; }
@@ -235,28 +234,36 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs sm:text-sm">
-          <!-- Schritt 1: Offer -->
-          <div class="space-y-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-            <span class="font-bold text-blue-500 block">1. Angebot (Peer A)</span>
-            <button onclick="startCall()" class="w-full btn-primary py-2 px-3 rounded-lg font-semibold shadow text-xs">
-              <i class="fa-solid fa-play mr-1"></i> Angebot erstellen
-            </button>
-            <div class="relative">
-              <textarea id="localOffer" readonly class="w-full h-20 p-2 text-xs font-mono bg-gray-50 dark:bg-gray-900 border rounded-lg resize-none outline-none" placeholder="Angebot erscheint hier..."></textarea>
-              <button onclick="copyToClipboard('localOffer', this)" class="absolute top-2 right-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 px-2 py-1 rounded text-xs">
-                <i class="fa-regular fa-copy"></i>
+          <!-- Schritt 1: Offer & Link teilen -->
+          <div class="space-y-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-between">
+            <div class="space-y-2">
+              <span class="font-bold text-blue-500 block">1. Angebot (Peer A)</span>
+              <button onclick="startCall()" class="w-full btn-primary py-2 px-3 rounded-lg font-semibold shadow text-xs">
+                <i class="fa-solid fa-play mr-1"></i> Angebot erstellen
               </button>
+              <div class="relative">
+                <textarea id="localOffer" readonly class="w-full h-16 p-2 text-xs font-mono bg-gray-50 dark:bg-gray-900 border rounded-lg resize-none outline-none" placeholder="Angebot erscheint hier..."></textarea>
+                <button onclick="copyToClipboard('localOffer', this)" class="absolute top-2 right-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 px-2 py-1 rounded text-xs" title="JSON kopieren">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
             </div>
+            <!-- NEU: Link per Messenger teilen -->
+            <button onclick="copyShareLink(this)" id="btnShareLink" disabled class="w-full mt-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 px-3 rounded-lg font-semibold shadow text-xs flex items-center justify-center transition">
+              <i class="fa-solid fa-share-nodes mr-1.5"></i> Link kopieren (für Messenger)
+            </button>
           </div>
 
           <!-- Schritt 2: Answer -->
-          <div class="space-y-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-            <span class="font-bold text-purple-500 block">2. Antwort (Peer B)</span>
-            <textarea id="remoteOffer" class="w-full h-16 p-2 text-xs font-mono bg-gray-50 dark:bg-gray-900 border rounded-lg resize-none outline-none" placeholder="Angebot von Peer A einfügen..."></textarea>
-            <button onclick="acceptCall()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg font-semibold shadow text-xs">
-              <i class="fa-solid fa-reply mr-1"></i> Antwort generieren
-            </button>
-            <div class="relative">
+          <div class="space-y-2 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-between">
+            <div class="space-y-2">
+              <span class="font-bold text-purple-500 block">2. Antwort (Peer B)</span>
+              <textarea id="remoteOffer" class="w-full h-16 p-2 text-xs font-mono bg-gray-50 dark:bg-gray-900 border rounded-lg resize-none outline-none" placeholder="Angebot einfügen oder Link öffnen..."></textarea>
+              <button onclick="acceptCall()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-lg font-semibold shadow text-xs">
+                <i class="fa-solid fa-reply mr-1"></i> Antwort generieren
+              </button>
+            </div>
+            <div class="relative mt-2">
               <textarea id="localAnswer" readonly class="w-full h-16 p-2 text-xs font-mono bg-gray-50 dark:bg-gray-900 border rounded-lg resize-none outline-none" placeholder="Antwort erscheint hier..."></textarea>
               <button onclick="copyToClipboard('localAnswer', this)" class="absolute top-2 right-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 px-2 py-1 rounded text-xs">
                 <i class="fa-regular fa-copy"></i>
@@ -401,6 +408,30 @@
       }, 2000);
     }
 
+    // NEU: Link Kopieren für Messenger
+    function copyShareLink(btn) {
+      const offerVal = document.getElementById('localOffer').value.trim();
+      if (!offerVal) return;
+      
+      try {
+        const encoded = encodeURIComponent(offerVal);
+        const baseUrl = window.location.href.split('#')[0];
+        const shareUrl = `${baseUrl}#offer=${encoded}`;
+
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          const originalText = btn.innerHTML;
+          btn.innerHTML = '<i class="fa-solid fa-check text-white mr-1.5"></i> Link kopiert!';
+          btn.classList.add('bg-green-600');
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('bg-green-600');
+          }, 2500);
+        });
+      } catch (e) {
+        showError("Fehler beim Generieren des Links.");
+      }
+    }
+
     function showError(msg) {
       if (msg) {
         errorAlert.classList.remove('hidden');
@@ -474,6 +505,7 @@
       pc.onicecandidate = (e) => {
         if (e.candidate === null) {
           document.getElementById('localOffer').value = JSON.stringify(pc.localDescription);
+          document.getElementById('btnShareLink').removeAttribute('disabled');
         }
       };
 
@@ -546,7 +578,6 @@
 
           if (data.type === 'text') {
             appendMessage(data.content, 'recv', data.id);
-            // Send Read Receipt
             dataChannel.send(JSON.stringify({
               type: 'read-ack',
               id: data.id
@@ -585,7 +616,7 @@
     // --- Video / Screen Sharing ---
 
     async function toggleScreenShare() {
-      if (!pc || pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected') {
+      if (!pc || (pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected')) {
         alert("Bitte stelle zuerst eine P2P-Verbindung her!");
         return;
       }
@@ -657,7 +688,6 @@
       const msgDiv = document.createElement('div');
       msgDiv.className = `max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl ${isSent ? 'msg-sent rounded-br-none shadow-md' : 'msg-recv rounded-bl-none shadow-sm'}`;
 
-      // Markdown parsing & Sanitization
       const cleanHtml = DOMPurify.sanitize(marked.parse(text));
       msgDiv.innerHTML = `<div class="markdown-body">${cleanHtml}</div>`;
 
@@ -753,15 +783,15 @@
         const fileBox = document.createElement('div');
         fileBox.className = "flex items-center space-x-3 p-2 bg-black/10 dark:bg-white/10 rounded-xl mb-1";
         fileBox.innerHTML = `
-                    <i class="fa-solid fa-file text-2xl"></i>
-                    <div class="overflow-hidden text-ellipsis">
-                        <div class="font-bold text-xs truncate">${filename}</div>
-                        <div class="text-[10px] opacity-75">${formatBytes(fileOrBlob.size)}</div>
-                    </div>
-                    <a href="${url}" download="${filename}" class="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition flex items-center justify-center">
-                        <i class="fa-solid fa-download"></i>
-                    </a>
-                `;
+            <i class="fa-solid fa-file text-2xl"></i>
+            <div class="overflow-hidden text-ellipsis">
+                <div class="font-bold text-xs truncate">${filename}</div>
+                <div class="text-[10px] opacity-75">${formatBytes(fileOrBlob.size)}</div>
+            </div>
+            <a href="${url}" download="${filename}" class="p-2 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition flex items-center justify-center">
+                <i class="fa-solid fa-download"></i>
+            </a>
+        `;
         msgDiv.appendChild(fileBox);
       }
 
@@ -932,6 +962,23 @@
       e.preventDefault();
       dropOverlay.classList.remove('active');
       if (e.dataTransfer.files.length > 0) sendFile(e.dataTransfer.files[0]);
+    });
+
+    // NEU: Beim Laden prüfen, ob ein Angebot im URL-Hash übergeben wurde
+    window.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('offer=')) {
+        try {
+          const encodedOffer = hash.split('offer=')[1];
+          const decodedOffer = decodeURIComponent(encodedOffer);
+          document.getElementById('remoteOffer').value = decodedOffer;
+          // Automatisches Öffnen der Einstellungs-Sektion, damit Peer B direkt Schritt 2 sieht
+          settingsPanel.classList.remove('hidden');
+          appendSystemMessage("Angebot aus Link geladen! Klicke auf 'Antwort generieren'.");
+        } catch (e) {
+          console.error("Fehler beim Auslesen des Angebots aus der URL:", e);
+        }
+      }
     });
   </script>
 </body>
