@@ -23,7 +23,7 @@
             overflow: hidden;
             background-color: #0f172a;
             color: #f8fafc;
-            touch-action: none; /* Prevents default browser zooming/scrolling on mobile touch */
+            touch-action: none;
         }
         .font-serif-title {
             font-family: 'Cinzel', 'Noto Serif JP', serif;
@@ -33,7 +33,6 @@
             outline: none;
             touch-action: none;
         }
-        /* Custom Scrollbar for rules sidebar/modal */
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -47,7 +46,6 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(217, 119, 6, 0.8);
         }
-        /* Glassmorphism effects */
         .glass-panel {
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
@@ -87,9 +85,8 @@
             </div>
         </div>
 
-        <!-- Central Status Bar (Desktop Header) -->
+        <!-- Central Status Bar -->
         <div class="hidden lg:flex items-center space-x-6 glass-panel px-6 py-2 rounded-full border border-amber-500/20">
-            <!-- Black Player Info -->
             <div id="player-black-card" class="flex items-center space-x-3 transition-all duration-300 opacity-100 scale-105">
                 <div class="w-6 h-6 rounded-full bg-black border-2 border-slate-600 shadow-md flex items-center justify-center text-[10px]" id="black-role-badge"></div>
                 <div>
@@ -100,7 +97,6 @@
 
             <div class="text-slate-600 font-light text-xl">|</div>
 
-            <!-- Turn Indicator -->
             <div class="text-center px-2">
                 <div class="text-[10px] uppercase tracking-wider text-slate-400">Am Zug</div>
                 <div id="turn-display" class="text-sm font-bold text-amber-400 flex items-center justify-center gap-1.5">
@@ -111,7 +107,6 @@
 
             <div class="text-slate-600 font-light text-xl">|</div>
 
-            <!-- White Player Info -->
             <div id="player-white-card" class="flex items-center space-x-3 transition-all duration-300 opacity-60">
                 <div class="w-6 h-6 rounded-full bg-slate-100 border-2 border-slate-300 shadow-md flex items-center justify-center text-[10px]" id="white-role-badge"></div>
                 <div>
@@ -121,9 +116,8 @@
             </div>
         </div>
 
-        <!-- Top Right Control Buttons (Desktop & Mobile trigger) -->
+        <!-- Controls Header -->
         <div class="flex items-center space-x-1 sm:space-x-2">
-            <!-- Desktop Game Options -->
             <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
                 <select id="game-mode-select" class="glass-button text-xs text-amber-200 px-2 py-1 rounded cursor-pointer outline-none focus:border-amber-500">
                     <option value="pvp" class="bg-slate-900 text-slate-200">2 Spieler (Lokal)</option>
@@ -131,7 +125,6 @@
                     <option value="online" class="bg-slate-900 text-amber-400 font-bold">Online 2P (WebRTC)</option>
                 </select>
 
-                <!-- AI Options Sub-Container -->
                 <div id="ai-options-container" class="hidden flex items-center space-x-2 border-l border-slate-700 pl-2">
                     <select id="ai-difficulty-select" class="glass-button text-xs text-amber-300 px-2 py-1 rounded cursor-pointer outline-none focus:border-amber-500">
                         <option value="easy" class="bg-slate-900 text-emerald-400">Leicht</option>
@@ -146,7 +139,6 @@
                 </div>
             </div>
 
-            <!-- Board Size Selector (Desktop) -->
             <div class="hidden sm:block relative">
                 <select id="board-size-select" class="glass-button text-xs text-amber-200 px-2.5 py-2 rounded-lg cursor-pointer outline-none focus:border-amber-500">
                     <option value="19" class="bg-slate-900 text-slate-200">19 x 19 (Standard)</option>
@@ -155,29 +147,27 @@
                 </select>
             </div>
 
-            <!-- Mobile Settings Menu Toggle Button -->
             <button id="btn-mobile-settings" title="Einstellungen" class="md:hidden glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
                 <i data-lucide="sliders" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </button>
 
             <!-- Theme Toggle Button -->
-            <button id="btn-theme" title="Holzart / Style wechseln" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
+            <button id="btn-theme" title="Holzart / Style wechseln" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100 flex items-center gap-1">
                 <i data-lucide="palette" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                <span id="theme-name-display" class="hidden xl:inline text-[11px] text-amber-200/80 font-medium ml-1">Shin Kaya</span>
             </button>
 
-            <!-- Rules Button -->
             <button id="btn-rules" title="Regeln & Anleitung" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
                 <i data-lucide="book-open" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </button>
 
-            <!-- Fullscreen Button -->
             <button id="btn-fullscreen" title="Vollbildmodus" class="glass-button p-2 rounded-lg text-amber-300 hover:text-amber-100">
                 <i data-lucide="maximize" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </button>
         </div>
     </header>
 
-    <!-- Mobile Settings Modal Dropdown -->
+    <!-- Mobile Settings Modal -->
     <div id="mobile-settings-modal" class="fixed inset-x-0 top-14 z-40 p-3 glass-panel border-b border-amber-500/30 transition-all duration-300 transform -translate-y-full opacity-0 pointer-events-none md:hidden">
         <div class="flex flex-col space-y-3">
             <div class="flex justify-between items-center text-xs font-bold text-amber-400 border-b border-slate-700 pb-2">
@@ -204,7 +194,6 @@
                 </div>
             </div>
 
-            <!-- Mobile AI Options -->
             <div id="mobile-ai-options-container" class="hidden grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-800">
                 <div>
                     <label class="text-[10px] text-slate-400 block mb-1">KI Schwierigkeit</label>
@@ -225,7 +214,7 @@
         </div>
     </div>
 
-    <!-- Mobile Status Bar (Positioned directly under top header) -->
+    <!-- Mobile Status Bar -->
     <div class="lg:hidden absolute top-14 left-2 right-2 z-10 p-2 glass-panel rounded-xl flex justify-between items-center text-xs shadow-lg pointer-events-auto border border-amber-500/20">
         <div class="flex items-center gap-1.5">
             <div class="w-3.5 h-3.5 rounded-full bg-black border border-slate-500 shadow"></div>
@@ -240,9 +229,9 @@
         </div>
     </div>
 
-    <!-- AI Toast / Hint Message Area -->
-    <div id="toast-container" class="absolute top-28 sm:top-24 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none transition-all duration-300 opacity-0 scale-95 w-[90%] max-w-sm">
-        <div class="glass-panel border-amber-500/50 bg-slate-900/95 text-amber-200 px-4 py-2.5 rounded-full shadow-2xl flex items-center justify-center space-x-2 text-center">
+    <!-- Toast / Hint Message Area -->
+    <div id="toast-container" class="absolute top-28 sm:top-24 left-1/2 transform -translate-x-1/2 z-20 pointer-events-none transition-all duration-300 opacity-0 scale-95 w-[90%] max-w-md">
+        <div class="glass-panel border-amber-500/50 bg-slate-900/95 text-amber-200 px-4 py-2.5 rounded-full shadow-2xl flex items-center justify-center space-x-2 text-center border">
             <i data-lucide="sparkles" class="w-4 h-4 text-amber-400 animate-pulse shrink-0"></i>
             <span id="toast-message" class="text-xs sm:text-sm font-medium">Taktischer Hinweis wird generiert...</span>
         </div>
@@ -260,13 +249,11 @@
                 </button>
             </div>
 
-            <!-- Online Status Banner -->
             <div id="online-status-badge" class="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-xs text-slate-300 flex items-center gap-2">
                 <span id="online-status-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
                 <span id="online-status-text">Nicht verbunden</span>
             </div>
 
-            <!-- Create Room Section -->
             <div class="space-y-3 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800">
                 <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Raum Erstellen (Schwarz)</h4>
                 <div class="flex gap-2">
@@ -280,7 +267,6 @@
                 </button>
             </div>
 
-            <!-- Join Room Section -->
             <div class="space-y-3 bg-slate-900/60 p-3.5 sm:p-4 rounded-xl border border-slate-800">
                 <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Einem Raum Beitreten (Weiß)</h4>
                 <div class="flex gap-2">
@@ -293,7 +279,7 @@
         </div>
     </div>
 
-    <!-- Bottom Action Controls Bar (Mobile & Desktop Responsive) -->
+    <!-- Bottom Controls Bar -->
     <div class="relative z-10 p-2 sm:p-4 mb-1 sm:mb-2 flex justify-center items-center pointer-events-none">
         <div class="glass-panel p-1.5 sm:p-2 rounded-2xl border border-amber-500/20 shadow-2xl flex items-center space-x-1 sm:space-x-2 pointer-events-auto">
             <!-- KI-Tipp Button -->
@@ -328,10 +314,9 @@
         </div>
     </div>
 
-    <!-- Rules Modal Sidebar / Dialog -->
+    <!-- Rules Modal -->
     <div id="rules-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="glass-panel w-full max-w-2xl max-h-[85vh] rounded-2xl border border-amber-500/30 shadow-2xl flex flex-col overflow-hidden">
-            <!-- Modal Header -->
             <div class="p-4 sm:p-6 border-b border-slate-700/80 flex justify-between items-center bg-slate-900/50">
                 <div class="flex items-center space-x-3">
                     <i data-lucide="book-open" class="w-5 h-5 sm:w-6 sm:h-6 text-amber-400"></i>
@@ -342,9 +327,7 @@
                 </button>
             </div>
 
-            <!-- Modal Body -->
             <div class="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 text-slate-300 text-xs sm:text-sm leading-relaxed">
-                <!-- Section 1 -->
                 <div class="space-y-2">
                     <h3 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -355,7 +338,6 @@
                     </p>
                 </div>
 
-                <!-- Section 2 -->
                 <div class="space-y-2">
                     <h3 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -367,7 +349,6 @@
                     </p>
                 </div>
 
-                <!-- Section 3 -->
                 <div class="space-y-2">
                     <h3 class="text-sm sm:text-base font-bold text-amber-400 flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -380,7 +361,6 @@
                 </div>
             </div>
 
-            <!-- Modal Footer -->
             <div class="p-4 border-t border-slate-800 bg-slate-900/60 flex justify-end">
                 <button id="btn-confirm-rules" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-5 py-2 rounded-xl text-xs sm:text-sm shadow-lg transition">
                     Verstanden
@@ -391,7 +371,6 @@
 
     <!-- MAIN JAVASCRIPT LOGIC -->
     <script>
-        // Initialize Lucide Icons
         lucide.createIcons();
 
         // --- GAME STATE ---
@@ -400,26 +379,24 @@
         const EMPTY = 0;
 
         let boardSize = 19;
-        let boardState = []; // 2D array [row][col]
+        let boardState = [];
         let currentPlayer = BLACK;
         let captures = { [BLACK]: 0, [WHITE]: 0 };
-        let history = []; // Stack for undo
-        let lastCapturedCoords = null; // For Ko rule checking
+        let history = [];
+        let lastCapturedCoords = null;
         let currentThemeIndex = 0;
 
-        // AI Game Settings
-        let gameMode = 'pvp'; // 'pvp', 'ai', or 'online'
-        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
-        let humanPlayerColor = BLACK; // BLACK or WHITE
+        let gameMode = 'pvp';
+        let aiDifficulty = 'medium';
+        let humanPlayerColor = BLACK;
         let isAiThinking = false;
 
-        // PeerJS Online Multiplayer Vars
         let peer = null;
         let peerConn = null;
         let myPeerId = null;
         let isOnlineHost = false;
 
-        // Theme Definitions (Wood Styles)
+        // Expanded Wood Themes
         const THEMES = [
             {
                 name: "Shin Kaya (Klassisch)",
@@ -443,28 +420,56 @@
             },
             {
                 name: "Zen Tatami / Bambus",
-                boardColor: 0xc4b5fd,
-                linesColor: 0x312e81,
-                gridAlpha: 0.9,
+                boardColor: 0x8a9a65,
+                linesColor: 0x1b2e0f,
+                gridAlpha: 0.85,
                 bgGradStart: "#092e20",
                 bgGradEnd: "#14532d",
                 roughness: 0.5,
                 metalness: 0.0
+            },
+            {
+                name: "Kirschbaum (Rosewood)",
+                boardColor: 0x943d24,
+                linesColor: 0xfce7f3,
+                gridAlpha: 0.8,
+                bgGradStart: "#1a0505",
+                bgGradEnd: "#2d0a0a",
+                roughness: 0.3,
+                metalness: 0.08
+            },
+            {
+                name: "Ebenholz / Obsidian",
+                boardColor: 0x1e2022,
+                linesColor: 0xf59e0b,
+                gridAlpha: 0.9,
+                bgGradStart: "#050505",
+                bgGradEnd: "#0f172a",
+                roughness: 0.2,
+                metalness: 0.2
+            },
+            {
+                name: "Nordische Fichte",
+                boardColor: 0xf3e5ab,
+                linesColor: 0x3e2723,
+                gridAlpha: 0.8,
+                bgGradStart: "#0f172a",
+                bgGradEnd: "#334155",
+                roughness: 0.45,
+                metalness: 0.02
             }
         ];
 
-        // Three.js Scene Variables
         let scene, camera, renderer, controls;
         let boardMesh, hoverMarkerMesh;
-        let gridGroup, stonesGroup;
-        let stoneMeshes = new Map(); // key: "row,col", value: Mesh
+        let gridGroup, stonesGroup, labelsGroup;
+        let stoneMeshes = new Map();
         let raycaster, mouse;
 
         const BOARD_PHYSICAL_SIZE = 12;
         const BOARD_HEIGHT = 0.8;
         let cellSize = 0;
 
-        // Touch interaction threshold variables to distinguish dragging camera vs tapping stone
         let touchStartX = 0;
         let touchStartY = 0;
         let touchMoveDist = 0;
@@ -472,16 +477,13 @@
         function initEngine() {
             const container = document.getElementById('canvas-container');
             
-            // Scene Setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(THEMES[0].bgGradStart);
 
-            // Camera Setup
             const isMobile = window.innerWidth < 768;
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, isMobile ? 14 : 12, isMobile ? 15 : 12);
 
-            // Renderer Setup
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -489,15 +491,13 @@
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             container.appendChild(renderer.domElement);
 
-            // Controls Setup
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent camera from going under board
+            controls.maxPolarAngle = Math.PI / 2 - 0.05;
             controls.minDistance = 6;
             controls.maxDistance = 25;
 
-            // Lighting
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
             scene.add(ambientLight);
 
@@ -513,17 +513,16 @@
             fillLight.position.set(-10, 10, -10);
             scene.add(fillLight);
 
-            // Groups
             gridGroup = new THREE.Group();
             stonesGroup = new THREE.Group();
+            labelsGroup = new THREE.Group();
             scene.add(gridGroup);
             scene.add(stonesGroup);
+            scene.add(labelsGroup);
 
-            // Raycasting & Interaction
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2(-999, -999);
 
-            createHoverMarker();
             buildBoard();
             initGameState();
             setupEventListeners();
@@ -539,7 +538,6 @@
             ctx.fillStyle = '#' + new THREE.Color(baseColorHex).getHexString();
             ctx.fillRect(0, 0, 512, 512);
 
-            // Add grain lines
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
             ctx.lineWidth = 2;
             for (let i = 0; i < 50; i++) {
@@ -552,17 +550,37 @@
             return new THREE.CanvasTexture(canvas);
         }
 
+        function createTextSprite(text, colorHex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#' + new THREE.Color(colorHex).getHexString();
+            ctx.font = 'Bold 64px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 64, 64);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(0.45, 0.45, 1.0);
+            return sprite;
+        }
+
+        function getColumnLetter(colIndex) {
+            return String.fromCharCode(65 + (colIndex >= 8 ? colIndex + 1 : colIndex));
+        }
+
         function buildBoard() {
-            // Remove old board
             if (boardMesh) scene.remove(boardMesh);
-            while (gridGroup.children.length > 0) {
-                gridGroup.remove(gridGroup.children[0]);
-            }
+            while (gridGroup.children.length > 0) gridGroup.remove(gridGroup.children[0]);
+            while (labelsGroup.children.length > 0) labelsGroup.remove(labelsGroup.children[0]);
 
             const currentTheme = THEMES[currentThemeIndex];
             const woodTexture = createWoodTexture(currentTheme.boardColor);
 
-            // Board Mesh
             const boardGeo = new THREE.BoxGeometry(BOARD_PHYSICAL_SIZE, BOARD_HEIGHT, BOARD_PHYSICAL_SIZE);
             const boardMat = new THREE.MeshStandardMaterial({
                 map: woodTexture,
@@ -575,7 +593,6 @@
             boardMesh.receiveShadow = true;
             scene.add(boardMesh);
 
-            // Draw Lines & Star Points (Hoshi)
             cellSize = BOARD_PHYSICAL_SIZE / boardSize;
             const halfBoard = BOARD_PHYSICAL_SIZE / 2;
             const offset = cellSize / 2;
@@ -590,22 +607,39 @@
             for (let i = 0; i < boardSize; i++) {
                 const pos = -halfBoard + offset + i * cellSize;
 
-                // X-axis line
                 const geoX = new THREE.BufferGeometry().setFromPoints([
                     new THREE.Vector3(-halfBoard + offset, 0.005, pos),
                     new THREE.Vector3(halfBoard - offset, 0.005, pos)
                 ]);
                 gridGroup.add(new THREE.Line(geoX, lineMat));
 
-                // Z-axis line
                 const geoZ = new THREE.BufferGeometry().setFromPoints([
                     new THREE.Vector3(pos, 0.005, -halfBoard + offset),
                     new THREE.Vector3(pos, 0.005, halfBoard - offset)
                 ]);
                 gridGroup.add(new THREE.Line(geoZ, lineMat));
+
+                const labelMargin = offset * 0.7;
+
+                const colLetter = getColumnLetter(i);
+                const colSpriteTop = createTextSprite(colLetter, currentTheme.linesColor);
+                colSpriteTop.position.set(pos, 0.11, -halfBoard + labelMargin);
+                labelsGroup.add(colSpriteTop);
+
+                const colSpriteBottom = createTextSprite(colLetter, currentTheme.linesColor);
+                colSpriteBottom.position.set(pos, 0.11, halfBoard - labelMargin);
+                labelsGroup.add(colSpriteBottom);
+
+                const rowNum = (boardSize - i).toString();
+                const rowSpriteLeft = createTextSprite(rowNum, currentTheme.linesColor);
+                rowSpriteLeft.position.set(-halfBoard + labelMargin, 0.11, pos);
+                labelsGroup.add(rowSpriteLeft);
+
+                const rowSpriteRight = createTextSprite(rowNum, currentTheme.linesColor);
+                rowSpriteRight.position.set(halfBoard - labelMargin, 0.11, pos);
+                labelsGroup.add(rowSpriteRight);
             }
 
-            // Hoshi points
             let starPoints = [];
             if (boardSize === 19) {
                 starPoints = [
@@ -631,15 +665,27 @@
                 hoshi.position.set(coords.x, 0.006, coords.z);
                 gridGroup.add(hoshi);
             });
+
+            // Markierungsring jetzt nach korrekter Berechnung von cellSize erstellen
+            createHoverMarker();
         }
 
         function createHoverMarker() {
-            const geo = new THREE.RingGeometry(cellSize * 0.25, cellSize * 0.4, 32);
+            if (hoverMarkerMesh) {
+                scene.remove(hoverMarkerMesh);
+                if (hoverMarkerMesh.geometry) hoverMarkerMesh.geometry.dispose();
+            }
+            const geo = new THREE.RingGeometry(cellSize * 0.3, cellSize * 0.42, 32);
             geo.rotateX(-Math.PI / 2);
-            const mat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+            const mat = new THREE.MeshBasicMaterial({ 
+                color: 0xef4444, // Auf Rot geändert
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0.9 
+            });
             hoverMarkerMesh = new THREE.Mesh(geo, mat);
             hoverMarkerMesh.visible = false;
-            hoverMarkerMesh.position.y = 0.01;
+            hoverMarkerMesh.position.y = 0.015;
             scene.add(hoverMarkerMesh);
         }
 
@@ -679,34 +725,29 @@
         }
 
         function createStoneMesh(color) {
-            // Authentische Go-Stein-Form (Bikonvex / Doppel-Linsen-Form)
             const radius = cellSize * 0.44;
-            
-            // Verwende eine SphereGeometry mit Stauchung für die typische japanische Muschel-/Schiefer-Go-Stein-Gewölbe-Geometrie
             const geo = new THREE.SphereGeometry(radius, 32, 24);
-            geo.scale(1, 0.42, 1); // Perfekte organische Wölbung
+            geo.scale(1, 0.42, 1);
 
             let mat;
             if (color === BLACK) {
-                // Echter Schiefer (Kuroishi / Schwarz): Tiefes, matt glänzendes Graphit-Schwarz mit feinem Lichtreflex
                 mat = new THREE.MeshPhysicalMaterial({
                     color: 0x18191c,
                     roughness: 0.28,
                     metalness: 0.15,
-                    clearcoat: 0.45,            // Edle Klarlack-/Schiefer-Versiegelung
+                    clearcoat: 0.45,
                     clearcoatRoughness: 0.2,
                     reflectivity: 0.6
                 });
             } else {
-                // Echte Muschel (Shiroishi / Weiß): Schimmernder, leicht elfenbeinfarbener Glanz mit Tiefenbrechung
                 mat = new THREE.MeshPhysicalMaterial({
                     color: 0xfaf9f6,
                     roughness: 0.1,
                     metalness: 0.05,
-                    clearcoat: 0.9,             // Hohe Muschelpolitur
+                    clearcoat: 0.9,
                     clearcoatRoughness: 0.08,
-                    transmission: 0.15,          // Subtile Lichtdurchlässigkeit wie echte Muschelsteine
-                    ior: 1.52,                   // Brechungsindex von Kalkstein/Muschel
+                    transmission: 0.15,
+                    ior: 1.52,
                     thickness: 0.5
                 });
             }
@@ -725,7 +766,6 @@
             
             boardState[row][col] = player;
 
-            // Check captured opponent stones
             const opponent = player === BLACK ? WHITE : BLACK;
             const capturedGroup = getCapturedStones(opponent, boardState);
             
@@ -743,25 +783,20 @@
                 });
             }
 
-            // Render new stone
             const worldPos = gridToWorld(row, col);
             const stoneMesh = createStoneMesh(player);
-            // Präzise Platzierung direkt auf der Brett-Oberfläche
             const stoneHeightRadius = (cellSize * 0.44) * 0.42;
             stoneMesh.position.set(worldPos.x, stoneHeightRadius + 0.005, worldPos.z);
             stonesGroup.add(stoneMesh);
             stoneMeshes.set(`${row},${col}`, stoneMesh);
 
-            // Switch turn
             currentPlayer = opponent;
             updateUI();
 
-            // Broadcast online move if active
             if (peerConn && peerConn.open && recordHistory) {
                 peerConn.send({ type: 'MOVE', row, col, player });
             }
 
-            // Trigger AI if required
             if (gameMode === 'ai' && currentPlayer !== humanPlayerColor && !isAiThinking) {
                 triggerAiMove();
             }
@@ -786,10 +821,8 @@
             const opponent = player === BLACK ? WHITE : BLACK;
             const captured = getCapturedStones(opponent, tempState);
 
-            // Remove captured for suicide test
             captured.forEach(([r, c]) => tempState[r][c] = EMPTY);
 
-            // Suicide Check
             if (getLiberties(row, col, tempState).length === 0) {
                 return false;
             }
@@ -865,7 +898,6 @@
             return Array.from(liberties);
         }
 
-        // --- AI LOGIC ---
         function triggerAiMove() {
             isAiThinking = true;
             showToast("KI denkt nach...");
@@ -897,7 +929,6 @@
                 return validMoves[Math.floor(Math.random() * validMoves.length)];
             }
 
-            // Medium & Hard score heuristic
             let bestMove = null;
             let bestScore = -99999;
 
@@ -905,24 +936,21 @@
                 let score = 0;
                 const opponent = currentPlayer === BLACK ? WHITE : BLACK;
 
-                // Simulate
                 const tempState = JSON.parse(JSON.stringify(boardState));
                 tempState[m.row][m.col] = currentPlayer;
 
                 const caps = getCapturedStones(opponent, tempState);
-                score += caps.length * 20; // High reward for captures
+                score += caps.length * 20;
 
-                // Prefer center / star points on larger boards early
                 const centerDist = Math.abs(m.row - boardSize / 2) + Math.abs(m.col - boardSize / 2);
                 score -= centerDist * 0.5;
 
                 if (aiDifficulty === 'hard') {
-                    // Check liberties created
                     const libs = getLiberties(m.row, m.col, tempState).length;
                     score += libs * 2;
                 }
 
-                score += Math.random() * 3; // Slight variation
+                score += Math.random() * 3;
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -974,20 +1002,24 @@
         function generateHint() {
             const move = calculateAiMove();
             if (move) {
-                const colLetter = String.fromCharCode(65 + (move.col >= 8 ? move.col + 1 : move.col));
-                showToast(`Empfohlener Zug: ${colLetter}${boardSize - move.row}`);
+                const colLetter = getColumnLetter(move.col);
+                const rowNum = boardSize - move.row;
+                const coordString = `${colLetter}${rowNum}`;
                 
-                // Temporarily flash hover marker
                 const pos = gridToWorld(move.row, move.col);
-                hoverMarkerMesh.position.set(pos.x, 0.01, pos.z);
-                hoverMarkerMesh.visible = true;
+                if (hoverMarkerMesh) {
+                    hoverMarkerMesh.position.set(pos.x, 0.01, pos.z);
+                    hoverMarkerMesh.visible = true;
+                }
+              
+               	showToast(`Taktik-Tipp 👉 Brettfeld: ${coordString}`);
+              
                 setTimeout(() => {
-                    hoverMarkerMesh.visible = false;
-                }, 3000);
+                    if (hoverMarkerMesh) hoverMarkerMesh.visible = false;
+                }, 4000);
             }
         }
 
-        // --- UI & PEERJS UPDATES ---
         function updateUI() {
             const isBlack = currentPlayer === BLACK;
             const turnText = isBlack ? 'Schwarz' : 'Weiß';
@@ -1014,6 +1046,8 @@
                 pBlackCard.classList.add('opacity-60');
                 pBlackCard.classList.remove('opacity-100', 'scale-105');
             }
+
+            document.getElementById('theme-name-display').innerText = THEMES[currentThemeIndex].name;
         }
 
         function showToast(msg) {
@@ -1029,13 +1063,11 @@
             toast.classList.remove('opacity-100', 'scale-100');
         }
 
-        // Setup Event Listeners
         function setupEventListeners() {
             window.addEventListener('resize', onWindowResize);
 
             const container = document.getElementById('canvas-container');
             
-            // Pointer events for board clicks
             container.addEventListener('pointerdown', (e) => {
                 touchStartX = e.clientX;
                 touchStartY = e.clientY;
@@ -1053,18 +1085,20 @@
                     const gridPos = worldToGrid(intersects[0].point.x, intersects[0].point.z);
                     if (gridPos && boardState[gridPos.row][gridPos.col] === EMPTY) {
                         const pos = gridToWorld(gridPos.row, gridPos.col);
-                        hoverMarkerMesh.position.set(pos.x, 0.01, pos.z);
-                        hoverMarkerMesh.visible = true;
+                        if (hoverMarkerMesh) {
+                            hoverMarkerMesh.position.set(pos.x, 0.01, pos.z);
+                            hoverMarkerMesh.visible = true;
+                        }
                     } else {
-                        hoverMarkerMesh.visible = false;
+                        if (hoverMarkerMesh) hoverMarkerMesh.visible = false;
                     }
                 } else {
-                    hoverMarkerMesh.visible = false;
+                    if (hoverMarkerMesh) hoverMarkerMesh.visible = false;
                 }
             });
 
             container.addEventListener('pointerup', (e) => {
-                if (touchMoveDist > 10) return; // Ignore drag/orbit interaction
+                if (touchMoveDist > 10) return;
                 if (isAiThinking) return;
 
                 raycaster.setFromCamera(mouse, camera);
@@ -1087,7 +1121,6 @@
                 }
             });
 
-            // Action Buttons
             document.getElementById('btn-pass').addEventListener('click', passTurn);
             document.getElementById('btn-undo').addEventListener('click', undoMove);
             document.getElementById('btn-restart').addEventListener('click', () => {
@@ -1096,7 +1129,6 @@
             });
             document.getElementById('btn-hint').addEventListener('click', generateHint);
 
-            // Fullscreen Toggle
             document.getElementById('btn-fullscreen').addEventListener('click', () => {
                 if (!document.fullscreenElement) {
                     document.documentElement.requestFullscreen();
@@ -1105,14 +1137,16 @@
                 }
             });
 
-            // Theme Switcher
             document.getElementById('btn-theme').addEventListener('click', () => {
                 currentThemeIndex = (currentThemeIndex + 1) % THEMES.length;
-                scene.background = new THREE.Color(THEMES[currentThemeIndex].bgGradStart);
+                const theme = THEMES[currentThemeIndex];
+                scene.background = new THREE.Color(theme.bgGradStart);
                 buildBoard();
+                updateUI();
+                showToast(`Stil gewechselt: ${theme.name}`);
+                setTimeout(hideToast, 2000);
             });
 
-            // Size Dropdowns
             const handleSizeChange = (val) => {
                 boardSize = parseInt(val);
                 buildBoard();
@@ -1121,7 +1155,6 @@
             document.getElementById('board-size-select').addEventListener('change', (e) => handleSizeChange(e.target.value));
             document.getElementById('mobile-board-size-select').addEventListener('change', (e) => handleSizeChange(e.target.value));
 
-            // Game Mode Dropdowns
             const handleModeChange = (val) => {
                 gameMode = val;
                 const aiContainer = document.getElementById('ai-options-container');
@@ -1143,7 +1176,6 @@
             document.getElementById('game-mode-select').addEventListener('change', (e) => handleModeChange(e.target.value));
             document.getElementById('mobile-game-mode-select').addEventListener('change', (e) => handleModeChange(e.target.value));
 
-            // AI Settings
             document.getElementById('ai-difficulty-select').addEventListener('change', (e) => aiDifficulty = e.target.value);
             document.getElementById('mobile-ai-difficulty-select').addEventListener('change', (e) => aiDifficulty = e.target.value);
             
@@ -1157,7 +1189,6 @@
             document.getElementById('player-color-select').addEventListener('change', (e) => handleColorChange(e.target.value));
             document.getElementById('mobile-player-color-select').addEventListener('change', (e) => handleColorChange(e.target.value));
 
-            // Mobile Settings Modal Toggle
             const mobileModal = document.getElementById('mobile-settings-modal');
             document.getElementById('btn-mobile-settings').addEventListener('click', () => {
                 mobileModal.classList.toggle('-translate-y-full');
@@ -1168,26 +1199,22 @@
                 mobileModal.classList.add('-translate-y-full', 'opacity-0', 'pointer-events-none');
             });
 
-            // Rules Modal
             const rulesModal = document.getElementById('rules-modal');
             document.getElementById('btn-rules').addEventListener('click', () => rulesModal.classList.remove('opacity-0', 'pointer-events-none'));
             document.getElementById('btn-close-rules').addEventListener('click', () => rulesModal.classList.add('opacity-0', 'pointer-events-none'));
             document.getElementById('btn-confirm-rules').addEventListener('click', () => rulesModal.classList.add('opacity-0', 'pointer-events-none'));
 
-            // Online Modal Close
             document.getElementById('btn-close-online-modal').addEventListener('click', () => {
                 document.getElementById('online-modal').classList.add('opacity-0', 'pointer-events-none');
             });
         }
 
-        // WebRTC P2P Multiplayer Logik
         function initPeerJS() {
             if (peer && !peer.destroyed) return;
 
             document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
             document.getElementById('online-status-text').innerText = 'Verbinde mit PeerJS Server...';
             
-            // Mit Google & Mozilla STUN Servern für verlässliche P2P-Verbindung durch Firewalls/Router
             peer = new Peer(null, {
                 debug: 1,
                 config: {
@@ -1226,13 +1253,11 @@
                 
                 let errorMsg = 'Verbindungsfehler!';
                 if (err.type === 'peer-not-found') {
-                    errorMsg = 'Raum-ID nicht gefunden! (Prüfe die ID des Hosts)';
+                    errorMsg = 'Raum-ID nicht gefunden!';
                 } else if (err.type === 'unavailable-id') {
                     errorMsg = 'ID bereits belegt.';
                 } else if (err.type === 'network' || err.type === 'webrtc') {
                     errorMsg = 'Netzwerk/Firewall blockiert P2P-Verbindung.';
-                } else if (err.type === 'browser-incompatible') {
-                    errorMsg = 'Browser unterstützt kein WebRTC.';
                 }
                 
                 document.getElementById('online-status-text').innerText = errorMsg;
@@ -1277,7 +1302,6 @@
                 document.getElementById('online-status-dot').className = 'w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
                 document.getElementById('online-status-text').innerText = 'Verbinde mit Host...';
                 
-                // Falls alte Verbindung existiert, erst aufräumen
                 if (peerConn) {
                     try { peerConn.close(); } catch(e) {}
                 }
@@ -1307,7 +1331,7 @@
                 if (data.type === 'MOVE') {
                     placeStone(data.row, data.col, data.player, false);
                 } else if (data.type === 'PASS') {
-                    passTurn();
+                    passTool = passTurn();
                 } else if (data.type === 'RESTART') {
                     initGameState();
                 }

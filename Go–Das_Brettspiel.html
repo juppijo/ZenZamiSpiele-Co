@@ -82,7 +82,8 @@ textarea{width:100%;min-height:84px;font:12px monospace;background:var(--bg);col
   </div>
   <div class="card">
    <label>Brettgröße <select id="sSize"><option value="9">9 × 9</option><option value="13">13 × 13</option><option value="19">19 × 19</option></select></label>
-   <label>Modus <select id="sMode"><option value="ai">Gegen Computer (leicht)</option><option value="pvp">Zu zweit (lokal)</option><option value="net">Online 2P (WebRTC)</option></select></label>
+   <label>Modus <select id="sMode"><option value="ai">Gegen Computer</option><option value="pvp">Zu zweit (lokal)</option><option value="net">Online 2P (WebRTC)</option></select></label>
+   <label>Stärke <select id="sLvl"><option value="1">Leicht</option><option value="2">Mittel</option><option value="3">Schwer</option></select></label>
    <div class="row" style="margin-top:8px"><button class="b" id="bNew">Neues Spiel</button><button class="b" id="bNet">Online verbinden</button></div>
   </div>
  </aside>
@@ -256,14 +257,19 @@ function pass(rem){
 function after(){if(!over&&mode==='ai'&&turn===2){clearTimeout(aiT);aiT=setTimeout(aiMove,520)}}
 function aiMove(){
  if(over||turn!==2)return;
- const h=suggest(2),late=hist.length>N*N*0.7;
+ if(lvl===3){setMsg('Der Computer denkt …');clearTimeout(aiT);aiT=setTimeout(()=>{if(over||turn!==2)return;aiGo(mc(2))},40);return}
+ aiGo(lvl===2?suggest(2,.3,null,true):suggest(2));
+}
+function aiGo(h){
+ const late=hist.length>N*N*0.7;
+ if(passes>=1&&lvl>=2&&hist.length>N*2){const s=areaOf(B);if(s.w>s.b){pass();return}}
  if(!h||h.score<-10||(passes>=1&&h.score<3)||(late&&h.score<3))pass();else move(h.i);
 }
-function suggest(c){
+function suggest(c,nz,list,deep){
  let best=null;const o=3-c,early=hist.length<N;
  for(let i=0;i<N*N;i++){
   if(B[i])continue;const r=play(B,i,c,ko);if(!r)continue;
-  const x=i%N,y=(i/N)|0,ns=nb(i);let sc=Math.random()*.8;const why=[];
+  const x=i%N,y=(i/N)|0,ns=nb(i);let sc=Math.random()*(nz===undefined?.8:nz);const why=[];
   if(ns.every(j=>B[j]===c))sc-=30;
   if(r.cap){sc+=10*r.cap;why.push(`schlägt ${r.cap} Stein${r.cap>1?'e':''}`)}
   let resc=false,atari=false;
@@ -273,11 +279,13 @@ function suggest(c){
   }
   if(resc){sc+=8;why.push('rettet eine Gruppe aus dem Atari')}
   if(atari){sc+=4;why.push('setzt eine gegnerische Gruppe in Atari')}
+  if(deep){const sg2=new Set();for(const j of ns){if(sg2.has(j))continue;if(r.b[j]===c){const g=grp(r.b,j);g.st.forEach(s=>sg2.add(s));if(g.libs.size===1&&!r.cap)sc-=6+g.st.length}else if(r.b[j]===o){const g=grp(r.b,j);g.st.forEach(s=>sg2.add(s));sc+=Math.max(0,4-g.libs.size)*.8}}}
   if(r.libs===1&&!r.cap)sc-=9;
   const d=Math.min(x,y,N-1-x,N-1-y);
   sc+=(d>=2&&d<=3)?3:d===0?-3:d===1?-1:0;
   let cnt=0;for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const xx=x+dx,yy=y+dy;if(xx>=0&&yy>=0&&xx<N&&yy<N&&B[yy*N+xx])cnt++}
   sc+=Math.min(cnt,3)*.6;
+  if(list)list.push({i,score:sc});
   if(!best||sc>best.score){if(!why.length)why.push(early?'besetzt früh wertvollen Raum auf der 3. und 4. Linie':'stärkt deine Gruppen und gewinnt Raum');best={i,score:sc,why}}
  }
  return best;
@@ -313,7 +321,7 @@ function upd(){
  if(over){$('#turnTx').textContent='Spiel beendet';$('#dot').className='dot'}
  else{$('#turnTx').textContent=`${NAMES[turn]} ist am Zug${mode==='net'&&net.on&&net.me===turn?' (du)':''}`;$('#dot').className='dot '+(turn===1?'k':'w')}
  $('#caps').textContent=`Gefangene – Schwarz: ${caps[1]} · Weiß: ${caps[2]}`;
- $('#bPass').disabled=over||!humanTurn();$('#bHint').disabled=over||!humanTurn();
+ $('#sLvl').disabled=mode!=='ai';$('#bPass').disabled=over||!humanTurn();$('#bHint').disabled=over||!humanTurn();
  $('#bUndo').disabled=!hist.length||mode==='net';$('#bTerr').textContent=showT?'Gebiet ausblenden':'Gebiet zeigen';
  redraw();
 }
@@ -431,6 +439,28 @@ $('#gGo').onclick=async()=>{
 document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const t=$('#'+b.dataset.copy);t.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}b.textContent=ok?'Kopiert':'Markiert, bitte kopieren'});
 $('#nClose').onclick=()=>$('#netOv').classList.remove('on');
 $('#netOv').addEventListener('click',e=>{if(e.target.id==='netOv')$('#netOv').classList.remove('on')});
+let lvl=1;
+function areaOf(b){const s=[0,0,0],seen=new Uint8Array(N*N);for(let i=0;i<N*N;i++){if(b[i]){s[b[i]]++;continue}if(seen[i])continue;const st=[i],bd=new Set();seen[i]=1;for(let k=0;k<st.length;k++)for(const j of nb(st[k])){if(b[j]===0){if(!seen[j]){seen[j]=1;st.push(j)}}else bd.add(b[j])}if(bd.size===1)s[[...bd][0]]+=st.length}return{b:s[1],w:s[2]+KOMI}}
+function playout(b,col,kp,me){
+ b=b.slice();let pas=0,mv=0;const lim=(N*N*1.3)|0;
+ while(pas<2&&mv<lim){
+  let done=false;
+  for(let t=0;t<40;t++){const i=(Math.random()*N*N)|0;if(b[i])continue;if(nb(i).every(j=>b[j]===col))continue;const r=play(b,i,col,kp);if(!r)continue;b=r.b;kp=r.ko;done=true;break}
+  if(done)pas=0;else{pas++;kp=-1}
+  col=3-col;mv++;
+ }
+ const s=areaOf(b);return(me===1?s.b>s.w:s.w>s.b)?1:0;
+}
+function mc(c){
+ const L=[];suggest(c,.2,L,true);if(!L.length)return null;
+ L.sort((a,b)=>b.score-a.score);
+ const C=L.slice(0,N>9?6:8),W=C.map(()=>0),Rn=C.map(()=>0),t0=performance.now(),lim=N===9?1300:N===13?1800:2400;
+ let k=0;
+ while(performance.now()-t0<lim){const j=k++%C.length,r=play(B,C[j].i,c,ko);if(!r)continue;W[j]+=playout(r.b,3-c,r.ko,c);Rn[j]++}
+ let bi=0,bv=-9;C.forEach((m,j)=>{const v=(Rn[j]?W[j]/Rn[j]:0)+m.score*.01;if(v>bv){bv=v;bi=j}});
+ return C[bi];
+}
+$('#sLvl').onchange=e=>{lvl=+e.target.value;newGame()};
 applyTheme();newGame();
 </script>
 </body>
