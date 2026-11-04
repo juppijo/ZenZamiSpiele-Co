@@ -64,9 +64,14 @@
         .glass-button:active {
             transform: scale(0.96);
         }
+        .glass-button.active-toggle {
+            background: rgba(217, 119, 6, 0.3);
+            border-color: rgba(245, 158, 11, 0.8);
+            color: #fef08a;
+        }
     </style>
 </head>
-<body class="w-screen h-screen relative flex flex-col justify-between overflow-hidden">
+<body class="w-screen h-screen relative overflow-hidden bg-slate-950">
 
     <!-- 3D Canvas Container -->
     <div id="canvas-container" class="absolute inset-0 z-0"></div>
@@ -279,9 +284,18 @@
         </div>
     </div>
 
-    <!-- Bottom Controls Bar -->
-    <div class="relative z-10 p-2 sm:p-4 mb-1 sm:mb-2 flex justify-center items-center pointer-events-none">
-        <div class="glass-panel p-1.5 sm:p-2 rounded-2xl border border-amber-500/20 shadow-2xl flex items-center space-x-1 sm:space-x-2 pointer-events-auto">
+    <!-- Bottom Controls Bar (Fest am unteren Rand fixiert) -->
+    <div class="fixed bottom-3 left-1/2 transform -translate-x-1/2 z-30 pointer-events-none w-[95%] max-w-xl flex justify-center">
+        <div class="glass-panel p-1.5 sm:p-2 rounded-2xl border border-amber-500/30 shadow-2xl flex items-center space-x-1 sm:space-x-2 pointer-events-auto">
+            <!-- Gebiete anzeigen Toggle Button -->
+            <button id="btn-territory" class="glass-button px-3 sm:px-4 py-2 rounded-xl text-amber-300 flex items-center space-x-1.5 text-xs sm:text-sm font-semibold hover:border-amber-400">
+                <i data-lucide="map" class="w-4 h-4 text-amber-400"></i>
+                <span class="hidden sm:inline">Gebiete anzeigen</span>
+                <span class="sm:hidden">Gebiete</span>
+            </button>
+
+            <div class="h-5 sm:h-6 w-[1px] bg-slate-700"></div>
+
             <!-- KI-Tipp Button -->
             <button id="btn-hint" class="glass-button px-3 sm:px-4 py-2 rounded-xl text-amber-300 flex items-center space-x-1.5 text-xs sm:text-sm font-semibold hover:border-amber-400">
                 <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i>
@@ -390,6 +404,7 @@
         let aiDifficulty = 'medium';
         let humanPlayerColor = BLACK;
         let isAiThinking = false;
+        let showTerritoryMode = false;
 
         let peer = null;
         let peerConn = null;
@@ -462,7 +477,7 @@
 
         let scene, camera, renderer, controls;
         let boardMesh, hoverMarkerMesh;
-        let gridGroup, stonesGroup, labelsGroup;
+        let gridGroup, stonesGroup, labelsGroup, territoryGroup;
         let stoneMeshes = new Map();
         let raycaster, mouse;
 
@@ -516,9 +531,11 @@
             gridGroup = new THREE.Group();
             stonesGroup = new THREE.Group();
             labelsGroup = new THREE.Group();
+            territoryGroup = new THREE.Group();
             scene.add(gridGroup);
             scene.add(stonesGroup);
             scene.add(labelsGroup);
+            scene.add(territoryGroup);
 
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2(-999, -999);
@@ -666,8 +683,8 @@
                 gridGroup.add(hoshi);
             });
 
-            // Markierungsring jetzt nach korrekter Berechnung von cellSize erstellen
             createHoverMarker();
+            if (showTerritoryMode) renderTerritoryOverlay();
         }
 
         function createHoverMarker() {
@@ -678,7 +695,7 @@
             const geo = new THREE.RingGeometry(cellSize * 0.3, cellSize * 0.42, 32);
             geo.rotateX(-Math.PI / 2);
             const mat = new THREE.MeshBasicMaterial({ 
-                color: 0xef4444, // Auf Rot geändert
+                color: 0xef4444,
                 side: THREE.DoubleSide, 
                 transparent: true, 
                 opacity: 0.9 
@@ -722,6 +739,7 @@
         function clearStoneMeshes() {
             stoneMeshes.forEach(mesh => stonesGroup.remove(mesh));
             stoneMeshes.clear();
+            clearTerritoryOverlays();
         }
 
         function createStoneMesh(color) {
@@ -792,6 +810,10 @@
 
             currentPlayer = opponent;
             updateUI();
+
+            if (showTerritoryMode) {
+                renderTerritoryOverlay();
+            }
 
             if (peerConn && peerConn.open && recordHistory) {
                 peerConn.send({ type: 'MOVE', row, col, player });
@@ -898,6 +920,112 @@
             return Array.from(liberties);
         }
 
+        function calculateTerritory() {
+            const visited = Array.from({ length: boardSize }, () => Array(boardSize).fill(false));
+            const territoryMap = Array.from({ length: boardSize }, () => Array(boardSize).fill(EMPTY));
+            let blackScore = 0;
+            let whiteScore = 0;
+
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    if (boardState[r][c] === EMPTY && !visited[r][c]) {
+                        const emptyGroup = [];
+                        const borders = new Set();
+                        const queue = [[r, c]];
+                        visited[r][c] = true;
+
+                        while (queue.length > 0) {
+                            const [currR, currC] = queue.shift();
+                            emptyGroup.push([currR, currC]);
+
+                            const neighbors = getNeighbors(currR, currC);
+                            neighbors.forEach(([nR, nC]) => {
+                                const val = boardState[nR][nC];
+                                if (val === EMPTY) {
+                                    if (!visited[nR][nC]) {
+                                        visited[nR][nC] = true;
+                                        queue.push([nR, nC]);
+                                    }
+                                } else {
+                                    borders.add(val);
+                                }
+                            });
+                        }
+
+                        if (borders.size === 1) {
+                            const owner = Array.from(borders)[0];
+                            emptyGroup.forEach(([er, ec]) => {
+                                territoryMap[er][ec] = owner;
+                            });
+                            if (owner === BLACK) blackScore += emptyGroup.length;
+                            if (owner === WHITE) whiteScore += emptyGroup.length;
+                        }
+                    }
+                }
+            }
+
+            return { territoryMap, blackScore, whiteScore };
+        }
+
+        function clearTerritoryOverlays() {
+            while (territoryGroup.children.length > 0) {
+                const child = territoryGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                territoryGroup.remove(child);
+            }
+        }
+
+        function renderTerritoryOverlay() {
+            clearTerritoryOverlays();
+            if (!showTerritoryMode) return;
+
+            const { territoryMap, blackScore, whiteScore } = calculateTerritory();
+
+            const boxGeo = new THREE.BoxGeometry(cellSize * 0.5, 0.04, cellSize * 0.5);
+            
+            const blackMat = new THREE.MeshStandardMaterial({
+                color: 0x3b82f6,
+                transparent: true,
+                opacity: 0.65,
+                roughness: 0.3
+            });
+
+            const whiteMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                transparent: true,
+                opacity: 0.7,
+                roughness: 0.3
+            });
+
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize; c++) {
+                    const owner = territoryMap[r][c];
+                    if (owner !== EMPTY) {
+                        const pos = gridToWorld(r, c);
+                        const mesh = new THREE.Mesh(boxGeo, owner === BLACK ? blackMat : whiteMat);
+                        mesh.position.set(pos.x, 0.02, pos.z);
+                        territoryGroup.add(mesh);
+                    }
+                }
+            }
+
+            showToast(`Gebiete 📊 Schwarz: ${blackScore} (+${captures[BLACK]} Gef.) | Weiß: ${whiteScore} (+${captures[WHITE]} Gef.)`);
+        }
+
+        function toggleTerritoryMode() {
+            showTerritoryMode = !showTerritoryMode;
+            const btn = document.getElementById('btn-territory');
+            
+            if (showTerritoryMode) {
+                btn.classList.add('active-toggle');
+                renderTerritoryOverlay();
+            } else {
+                btn.classList.remove('active-toggle');
+                clearTerritoryOverlays();
+                hideToast();
+            }
+        }
+
         function triggerAiMove() {
             isAiThinking = true;
             showToast("KI denkt nach...");
@@ -997,6 +1125,7 @@
                 }
             }
             updateUI();
+            if (showTerritoryMode) renderTerritoryOverlay();
         }
 
         function generateHint() {
@@ -1012,7 +1141,7 @@
                     hoverMarkerMesh.visible = true;
                 }
               
-               	showToast(`Taktik-Tipp 👉 Brettfeld: ${coordString}`);
+                showToast(`Taktik-Tipp 👉 Brettfeld: ${coordString}`);
               
                 setTimeout(() => {
                     if (hoverMarkerMesh) hoverMarkerMesh.visible = false;
@@ -1121,6 +1250,7 @@
                 }
             });
 
+            document.getElementById('btn-territory').addEventListener('click', toggleTerritoryMode);
             document.getElementById('btn-pass').addEventListener('click', passTurn);
             document.getElementById('btn-undo').addEventListener('click', undoMove);
             document.getElementById('btn-restart').addEventListener('click', () => {
@@ -1331,7 +1461,7 @@
                 if (data.type === 'MOVE') {
                     placeStone(data.row, data.col, data.player, false);
                 } else if (data.type === 'PASS') {
-                    passTool = passTurn();
+                    passTurn();
                 } else if (data.type === 'RESTART') {
                     initGameState();
                 }
