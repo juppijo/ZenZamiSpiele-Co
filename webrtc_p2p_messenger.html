@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WebRTC P2P Chat & File Sharing</title>
+    <title>WebRTC P2P Messenger & Whiteboard</title>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome für Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js für Markdown Rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- DOMPurify für sichere HTML-Sanitisation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
     
     <style>
-        /* Farbthemen-Variablen */
         :root {
             --bg-main: #f3f4f6;
             --bg-card: #ffffff;
@@ -68,7 +71,6 @@
             --msg-recv-text: #00f5d4;
         }
 
-        /* Responsive Viewport Fix für Smartphones */
         html, body {
             height: 100%;
             height: 100dvh;
@@ -111,16 +113,34 @@
             border: 1px solid var(--border-color);
         }
 
-        /* Animations & Modals */
-        #dropOverlay.active {
-            display: flex !important;
+        /* Markdown Styles inside message bubbles */
+        .markdown-body p { margin-bottom: 0.375rem; }
+        .markdown-body p:last-child { margin-bottom: 0; }
+        .markdown-body code {
+            background: rgba(0,0,0,0.15);
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.85em;
         }
-
-        #lightboxModal.active {
-            display: flex !important;
+        .markdown-body pre {
+            background: rgba(0,0,0,0.25);
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            overflow-x: auto;
+            margin: 0.375rem 0;
         }
+        .markdown-body pre code {
+            background: transparent;
+            padding: 0;
+        }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.25rem; margin: 0.25rem 0; }
+        .markdown-body ol { list-style-type: decimal; padding-left: 1.25rem; margin: 0.25rem 0; }
+        .markdown-body a { text-decoration: underline; word-break: break-all; }
 
-        /* Custom Scrollbars */
+        #dropOverlay.active { display: flex !important; }
+        #lightboxModal.active { display: flex !important; }
+
         ::-webkit-scrollbar {
             width: 5px;
             height: 5px;
@@ -136,13 +156,13 @@
 </head>
 <body class="flex flex-col h-full font-sans antialiased select-none">
 
-    <!-- Drag and Drop Overlay -->
+    <!-- Drag & Drop Overlay -->
     <div id="dropOverlay" class="fixed inset-0 bg-blue-600/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center text-white border-4 border-dashed border-white m-4 rounded-3xl pointer-events-none transition-all">
         <i class="fa-solid fa-cloud-arrow-up text-6xl mb-4 animate-bounce"></i>
         <p class="text-xl font-bold">Datei hier fallen lassen zum Senden</p>
     </div>
 
-    <!-- Image Lightbox Modal -->
+    <!-- Lightbox Modal -->
     <div id="lightboxModal" class="fixed inset-0 bg-black/90 z-50 hidden flex-col items-center justify-center p-4">
         <button onclick="closeLightbox()" class="absolute top-4 right-4 text-white text-3xl p-2 hover:text-gray-300">
             <i class="fa-solid fa-xmark"></i>
@@ -150,10 +170,80 @@
         <img id="lightboxImg" class="max-w-full max-h-full object-contain rounded-lg" src="" alt="Vorschau">
     </div>
 
+    <!-- Whiteboard Modal Panel -->
+    <div id="whiteboardModal" class="fixed inset-0 bg-black/75 z-40 hidden flex-col p-2 sm:p-6 backdrop-blur-sm">
+        <div class="app-card flex flex-col h-full w-full max-w-5xl mx-auto rounded-2xl border shadow-2xl overflow-hidden">
+            <!-- Whiteboard Toolbar Header -->
+            <div class="flex flex-wrap items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 gap-2">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-pen-ruler text-blue-500 text-lg"></i>
+                    <h2 class="font-bold text-sm sm:text-base">Gemeinsames Whiteboard</h2>
+                </div>
+
+                <!-- Tools -->
+                <div class="flex items-center space-x-2 overflow-x-auto py-1">
+                    <button id="toolPen" onclick="setWBTool('pen')" class="p-2 px-3 rounded-lg bg-blue-500 text-white text-xs font-medium shadow flex items-center space-x-1">
+                        <i class="fa-solid fa-pencil"></i>
+                        <span class="hidden sm:inline">Stift</span>
+                    </button>
+                    <button id="toolEraser" onclick="setWBTool('eraser')" class="p-2 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-xs font-medium flex items-center space-x-1">
+                        <i class="fa-solid fa-eraser"></i>
+                        <span class="hidden sm:inline">Radierer</span>
+                    </button>
+                    
+                    <label class="flex items-center cursor-pointer p-1">
+                        <input type="color" id="wbColorPicker" value="#3b82f6" onchange="wbColor = this.value" class="w-7 h-7 rounded border-none cursor-pointer bg-transparent">
+                    </label>
+
+                    <select id="wbWidthSelect" onchange="wbLineWidth = this.value" class="text-xs bg-gray-200 dark:bg-gray-700 rounded-lg p-1.5 outline-none font-medium">
+                        <option value="2">Dünn (2px)</option>
+                        <option value="5" selected>Mittel (5px)</option>
+                        <option value="12">Dick (12px)</option>
+                        <option value="25">Sehr dick (25px)</option>
+                    </select>
+
+                    <button onclick="clearWhiteboard(true)" class="p-2 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium flex items-center space-x-1">
+                        <i class="fa-solid fa-trash"></i>
+                        <span class="hidden sm:inline">Löschen</span>
+                    </button>
+                </div>
+
+                <button onclick="toggleWhiteboard()" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-xs">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Whiteboard Canvas container -->
+            <div class="flex-1 relative bg-white dark:bg-gray-900 overflow-hidden cursor-crosshair" id="canvasContainer">
+                <canvas id="wbCanvas" class="absolute inset-0 w-full h-full touch-none"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen Share Video Overlay -->
+    <div id="videoOverlay" class="hidden fixed bottom-4 right-4 z-30 w-80 sm:w-96 app-card rounded-2xl border shadow-2xl overflow-hidden flex-col transition-all">
+        <div class="flex items-center justify-between p-2.5 bg-gray-900 text-white text-xs font-semibold">
+            <span class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                <span>Bildschirmübertragung</span>
+            </span>
+            <div class="flex items-center space-x-1">
+                <button onclick="toggleVideoFullscreen()" class="p-1 hover:bg-gray-700 rounded"><i class="fa-solid fa-expand"></i></button>
+                <button onclick="stopScreenShare()" class="p-1 hover:bg-red-600 rounded text-red-400"><i class="fa-solid fa-phone-slash"></i></button>
+            </div>
+        </div>
+        <div id="videoContainer" class="relative bg-black aspect-video flex items-center justify-center">
+            <!-- Remote Screen Stream -->
+            <video id="remoteVideo" autoplay playsinline class="w-full h-full object-contain"></video>
+            <!-- Local Screen Stream Preview -->
+            <video id="localVideo" autoplay playsinline muted class="absolute bottom-2 right-2 w-28 aspect-video border border-white/40 rounded-lg object-cover bg-gray-900 shadow-md hidden"></video>
+        </div>
+    </div>
+
     <!-- Haupt-Container -->
     <div id="appContainer" class="flex flex-col h-full w-full max-w-5xl mx-auto p-0 sm:p-4 transition-all">
         
-        <div class="app-card flex flex-col h-full w-full sm:rounded-2xl border shadow-xl overflow-hidden">
+        <div class="app-card flex flex-col h-full w-full sm:rounded-2xl border shadow-xl overflow-hidden relative">
             
             <!-- Header Bar -->
             <header class="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
@@ -173,6 +263,18 @@
 
                 <!-- Controls Top Right -->
                 <div class="flex items-center space-x-1 sm:space-x-2">
+                    <!-- Screen Share Button -->
+                    <button id="screenShareBtn" onclick="toggleScreenShare()" title="Bildschirm teilen" class="p-2 sm:px-3 sm:py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-xs sm:text-sm font-medium transition flex items-center space-x-1">
+                        <i class="fa-solid fa-desktop text-blue-500"></i>
+                        <span class="hidden sm:inline">Bildschirm</span>
+                    </button>
+
+                    <!-- Whiteboard Toggle Button -->
+                    <button onclick="toggleWhiteboard()" title="Gemeinsames Whiteboard öffnen" class="p-2 sm:px-3 sm:py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-xs sm:text-sm font-medium transition flex items-center space-x-1">
+                        <i class="fa-solid fa-pen-ruler text-purple-500"></i>
+                        <span class="hidden sm:inline">Whiteboard</span>
+                    </button>
+
                     <!-- Theme Selector -->
                     <select id="themeSelect" onchange="changeTheme(this.value)" class="text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 border-none rounded-lg p-2 font-medium cursor-pointer focus:ring-2 focus:ring-blue-500 outline-none">
                         <option value="light">☀️ Hell</option>
@@ -182,9 +284,8 @@
                     </select>
 
                     <!-- Toggle Settings -->
-                    <button onclick="toggleSettings()" class="p-2 sm:px-3 sm:py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-xs sm:text-sm font-medium transition flex items-center space-x-1">
+                    <button onclick="toggleSettings()" title="Verbindungseinstellungen" class="p-2 sm:px-3 sm:py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-xs sm:text-sm font-medium transition flex items-center space-x-1">
                         <i class="fa-solid fa-gear"></i>
-                        <span class="hidden sm:inline">Verbindung</span>
                     </button>
 
                     <!-- Fullscreen Toggle -->
@@ -244,7 +345,18 @@
             </section>
 
             <!-- Chat Verlauf / Nachrichten-Bereich -->
-            <main id="chatlog" class="chat-area flex-1 p-4 overflow-y-auto space-y-4 text-sm"></main>
+            <main id="chatlog" class="chat-area flex-1 p-4 overflow-y-auto space-y-4 text-sm relative"></main>
+
+            <!-- Emoji Picker Popover -->
+            <div id="emojiPicker" class="hidden absolute bottom-20 left-4 z-20 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl p-3 flex-col space-y-2">
+                <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+                    <span class="text-xs font-bold">Emojis auswahlen</span>
+                    <button onclick="toggleEmojiPicker()" class="text-gray-400 hover:text-gray-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="emojiGrid" class="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto text-xl p-1">
+                    <!-- Dynamic Emojis populated via JS -->
+                </div>
+            </div>
 
             <!-- Fortschrittsbalken für Datei-Uploads -->
             <div id="fileProgressContainer" class="hidden px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
@@ -263,12 +375,17 @@
                     
                     <!-- File Attachment Button -->
                     <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(event)">
-                    <button type="button" onclick="document.getElementById('fileInput').click()" class="p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition flex-shrink-0" title="Datei oder Bild anhängen">
+                    <button type="button" onclick="document.getElementById('fileInput').click()" class="p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition flex-shrink-0" title="Datei anhängen">
                         <i class="fa-solid fa-paperclip text-lg"></i>
                     </button>
 
+                    <!-- Emoji Toggle Button -->
+                    <button type="button" onclick="toggleEmojiPicker()" class="p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition flex-shrink-0" title="Emoji einfügen">
+                        <i class="fa-regular fa-face-smile text-lg"></i>
+                    </button>
+
                     <!-- Text Input -->
-                    <input type="text" id="msgInput" placeholder="Nachricht schreiben..." class="flex-1 p-3 bg-gray-100 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition">
+                    <input type="text" id="msgInput" placeholder="Nachricht schreiben (Markdown unterstütz)..." class="flex-1 p-3 bg-gray-100 dark:bg-gray-700 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition">
 
                     <!-- Send Button -->
                     <button type="submit" class="btn-primary p-3 px-5 rounded-xl font-medium shadow-md transition flex items-center justify-center flex-shrink-0">
@@ -293,11 +410,20 @@
         let incomingFileData = [];
         let incomingBytesReceived = 0;
 
+        // Screen Sharing
+        let localStream = null;
+
         // UI-Elemente
         const statusBadge = document.getElementById('statusBadge');
         const settingsPanel = document.getElementById('settingsPanel');
         const chatlog = document.getElementById('chatlog');
         const dropOverlay = document.getElementById('dropOverlay');
+
+        // Configure Marked.js for secure rendering
+        marked.setOptions({
+            gfm: true,
+            breaks: true
+        });
 
         // Theme Wechsler
         function changeTheme(theme) {
@@ -309,12 +435,10 @@
         document.getElementById('themeSelect').value = savedTheme;
         changeTheme(savedTheme);
 
-        // Einstellungen einklappen/ausklappen
         function toggleSettings() {
             settingsPanel.classList.toggle('hidden');
         }
 
-        // Vollbild umschalten
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(() => {});
@@ -325,7 +449,6 @@
             }
         }
 
-        // Copy Helper
         function copyToClipboard(elementId, btn) {
             const textarea = document.getElementById(elementId);
             textarea.select();
@@ -336,12 +459,10 @@
             setTimeout(() => { btn.innerHTML = originalIcon; }, 2000);
         }
 
-        // Update Status Anzeige
         function updateStatus(state) {
             if (state === 'connected') {
                 statusBadge.className = "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300";
                 statusBadge.innerHTML = '<span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-green-500"></span> Verbunden';
-                // Auf mobilen Geräten Einstellungen nach erfolgreicher Verbindung einklappen
                 if (window.innerWidth < 768) {
                     settingsPanel.classList.add('hidden');
                 }
@@ -354,11 +475,27 @@
             }
         }
 
-        // --- WebRTC Logik ---
+        // --- WebRTC Core Logik ---
+
+        function initPeerConnection() {
+            pc = new RTCPeerConnection(config);
+
+            // Handle incoming screen share tracks
+            pc.ontrack = (event) => {
+                const remoteVideo = document.getElementById('remoteVideo');
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    document.getElementById('videoOverlay').classList.remove('hidden');
+                    document.getElementById('videoOverlay').classList.add('flex');
+                }
+            };
+
+            return pc;
+        }
 
         async function startCall() {
             updateStatus('connecting');
-            pc = new RTCPeerConnection(config);
+            initPeerConnection();
             dataChannel = pc.createDataChannel("chat");
             setupDataChannel();
 
@@ -374,7 +511,7 @@
 
         async function acceptCall() {
             updateStatus('connecting');
-            pc = new RTCPeerConnection(config);
+            initPeerConnection();
 
             pc.ondatachannel = (e) => {
                 dataChannel = e.channel;
@@ -409,7 +546,7 @@
             
             dataChannel.onopen = () => {
                 updateStatus('connected');
-                appendSystemMessage("Verbindung erfolgreich aufgebaut! Du kannst jetzt Nachrichten und Dateien senden.");
+                appendSystemMessage("Verbindung erfolgreich aufgebaut! Du kannst jetzt Chatten, Dateien teilen und das Whiteboard nutzen.");
             };
             
             dataChannel.onclose = () => {
@@ -421,7 +558,13 @@
                 if (typeof e.data === 'string') {
                     const data = JSON.parse(e.data);
                     if (data.type === 'text') {
-                        appendMessage(data.content, 'recv');
+                        appendMessage(data.content, 'recv', data.id);
+                    } else if (data.type === 'read-receipt') {
+                        markMessageAsRead(data.msgId);
+                    } else if (data.type === 'draw') {
+                        drawRemoteLine(data);
+                    } else if (data.type === 'wb-clear') {
+                        clearWhiteboard(false);
                     } else if (data.type === 'file-start') {
                         incomingFileInfo = data;
                         incomingFileData = [];
@@ -429,7 +572,6 @@
                         showProgress(true, `Empfange: ${data.name}`, 0);
                     }
                 } else {
-                    // Binaerdaten (Datei Chunk)
                     incomingFileData.push(e.data);
                     incomingBytesReceived += e.data.byteLength;
                     const percent = Math.round((incomingBytesReceived / incomingFileInfo.size) * 100);
@@ -446,7 +588,70 @@
             };
         }
 
-        // --- Senden von Nachrichten & Dateien ---
+        // --- Screen Sharing (Bildschirmübertragung) ---
+
+        async function toggleScreenShare() {
+            if (!pc || pc.connectionState !== "connected") {
+                alert("Bitte verbinde dich zuerst mit einem Peer!");
+                return;
+            }
+
+            if (localStream) {
+                stopScreenShare();
+                return;
+            }
+
+            try {
+                localStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                const localVideo = document.getElementById('localVideo');
+                localVideo.srcObject = localStream;
+                localVideo.classList.remove('hidden');
+
+                const videoOverlay = document.getElementById('videoOverlay');
+                videoOverlay.classList.remove('hidden');
+                videoOverlay.classList.add('flex');
+
+                // Track zu PeerConnection hinzufügen
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                    track.onended = () => stopScreenShare();
+                });
+
+                // ICE Negotiation herstellen
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                // Bei dynamischem Track-Hinzufügen ist Nachverhandlung via Signalisierung erforderlich.
+                appendSystemMessage("Bildschirmübertragung gestartet. Erneuere gegebenenfalls das Angebot bei deinem Peer.");
+
+            } catch (err) {
+                console.error("Fehler beim Bildschirmteilen:", err);
+            }
+        }
+
+        function stopScreenShare() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            document.getElementById('localVideo').classList.add('hidden');
+            document.getElementById('localVideo').srcObject = null;
+            
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (!remoteVideo.srcObject || remoteVideo.srcObject.getTracks().every(t => t.readyState === 'ended')) {
+                document.getElementById('videoOverlay').classList.add('hidden');
+            }
+        }
+
+        function toggleVideoFullscreen() {
+            const container = document.getElementById('videoContainer');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // --- Chat & Lesebestätigungen (Read Receipts) & Markdown ---
 
         function handleSendSubmit(e) {
             e.preventDefault();
@@ -459,10 +664,227 @@
                 return;
             }
 
-            dataChannel.send(JSON.stringify({ type: 'text', content: msg }));
-            appendMessage(msg, 'sent');
+            const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+
+            dataChannel.send(JSON.stringify({ type: 'text', content: msg, id: msgId }));
+            appendMessage(msg, 'sent', msgId);
             input.value = '';
+            document.getElementById('emojiPicker').classList.add('hidden');
         }
+
+        function appendMessage(text, type, msgId) {
+            const isSent = type === 'sent';
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex flex-col ${isSent ? 'items-end' : 'items-start'}`;
+            wrapper.id = msgId;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl ${isSent ? 'msg-sent rounded-br-none shadow-md' : 'msg-recv rounded-bl-none shadow-sm'}`;
+
+            // Markdown Rendering mit Sanitisierung
+            const rawHtml = marked.parse(text);
+            const cleanHtml = DOMPurify.sanitize(rawHtml);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = "markdown-body";
+            contentDiv.innerHTML = cleanHtml;
+            msgDiv.appendChild(contentDiv);
+
+            // Time & Status
+            const metaDiv = document.createElement('div');
+            metaDiv.className = "flex items-center justify-end space-x-1 text-[10px] opacity-70 mt-1";
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.innerText = getTimeString();
+            metaDiv.appendChild(timeSpan);
+
+            if (isSent) {
+                const tickIcon = document.createElement('i');
+                tickIcon.className = "fa-solid fa-check tick-status text-gray-200 ml-1";
+                metaDiv.appendChild(tickIcon);
+            }
+
+            msgDiv.appendChild(metaDiv);
+            wrapper.appendChild(msgDiv);
+            chatlog.appendChild(wrapper);
+            chatlog.scrollTop = chatlog.scrollHeight;
+
+            // Trigger Lesebestätigung für empfangene Nachrichten
+            if (!isSent) {
+                observeReadReceipt(wrapper, msgId);
+            }
+        }
+
+        function observeReadReceipt(element, msgId) {
+            // IntersectionObserver sendet Lesebestätigung sobald Nachricht im Chat-Fenster sichtbar ist
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        if (dataChannel && dataChannel.readyState === 'open') {
+                            dataChannel.send(JSON.stringify({ type: 'read-receipt', msgId: msgId }));
+                        }
+                        observer.disconnect();
+                    }
+                });
+            }, { root: chatlog, threshold: 0.5 });
+
+            observer.observe(element);
+        }
+
+        function markMessageAsRead(msgId) {
+            const wrapper = document.getElementById(msgId);
+            if (wrapper) {
+                const tickIcon = wrapper.querySelector('.tick-status');
+                if (tickIcon) {
+                    tickIcon.className = "fa-solid fa-check-double tick-status text-cyan-300 ml-1";
+                }
+            }
+        }
+
+        // --- Emoji Picker ---
+
+        const emojis = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😋','😛','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😤','😮','😱','😳','🥱','😴','💩','👻','💀','👽','👍','👎','👏','🙌','🔥','❤️','🎉','✨'];
+
+        function initEmojiPicker() {
+            const grid = document.getElementById('emojiGrid');
+            emojis.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = "hover:bg-gray-100 dark:hover:bg-gray-700 rounded p-1 text-center transition";
+                btn.innerText = emoji;
+                btn.onclick = () => {
+                    const input = document.getElementById('msgInput');
+                    input.value += emoji;
+                    input.focus();
+                };
+                grid.appendChild(btn);
+            });
+        }
+        initEmojiPicker();
+
+        function toggleEmojiPicker() {
+            document.getElementById('emojiPicker').classList.toggle('hidden');
+        }
+
+        // --- Gemeinsames Whiteboard (Shared Whiteboard) ---
+
+        const whiteboardModal = document.getElementById('whiteboardModal');
+        const canvas = document.getElementById('wbCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let wbTool = 'pen';
+        let wbColor = '#3b82f6';
+        let wbLineWidth = 5;
+        let lastPos = { x: 0, y: 0 };
+
+        function toggleWhiteboard() {
+            whiteboardModal.classList.toggle('hidden');
+            whiteboardModal.classList.toggle('flex');
+            if (!whiteboardModal.classList.contains('hidden')) {
+                resizeCanvas();
+            }
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvasContainer');
+            // Canvas Bildpuffer ohne Inhaltssprung anpassen
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            ctx.putImageData(imgData, 0, 0);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        window.addEventListener('resize', () => {
+            if (!whiteboardModal.classList.contains('hidden')) {
+                resizeCanvas();
+            }
+        });
+
+        function setWBTool(tool) {
+            wbTool = tool;
+            document.getElementById('toolPen').className = tool === 'pen' ? "p-2 px-3 rounded-lg bg-blue-500 text-white text-xs font-medium shadow flex items-center space-x-1" : "p-2 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-xs font-medium flex items-center space-x-1";
+            document.getElementById('toolEraser').className = tool === 'eraser' ? "p-2 px-3 rounded-lg bg-blue-500 text-white text-xs font-medium shadow flex items-center space-x-1" : "p-2 px-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 text-xs font-medium flex items-center space-x-1";
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) / canvas.width,
+                y: (clientY - rect.top) / canvas.height
+            };
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            lastPos = getCanvasCoords(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const currentPos = getCanvasCoords(e);
+
+            const drawData = {
+                type: 'draw',
+                x0: lastPos.x,
+                y0: lastPos.y,
+                x1: currentPos.x,
+                y1: currentPos.y,
+                color: wbTool === 'eraser' ? '#ffffff' : wbColor,
+                width: wbLineWidth
+            };
+
+            // Lokales Zeichnen
+            renderLine(drawData.x0 * canvas.width, drawData.y0 * canvas.height, drawData.x1 * canvas.width, drawData.y1 * canvas.height, drawData.color, drawData.width);
+
+            // Sync an Peer über DataChannel
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify(drawData));
+            }
+
+            lastPos = currentPos;
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        function renderLine(x0, y0, x1, y1, color, width) {
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        function drawRemoteLine(data) {
+            renderLine(data.x0 * canvas.width, data.y0 * canvas.height, data.x1 * canvas.width, data.y1 * canvas.height, data.color, data.width);
+        }
+
+        function clearWhiteboard(broadcast = true) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (broadcast && dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({ type: 'wb-clear' }));
+            }
+        }
+
+        // Canvas Events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDrawing);
+
+        // --- Dateien Senden & Helper ---
 
         function handleFileSelect(e) {
             const file = e.target.files[0];
@@ -475,7 +897,6 @@
                 return;
             }
 
-            // Metadaten an Empfänger senden
             dataChannel.send(JSON.stringify({
                 type: 'file-start',
                 name: file.name,
@@ -496,7 +917,6 @@
                 const percent = Math.round((offset / buffer.byteLength) * 100);
                 showProgress(true, `Sende: ${file.name}`, percent);
                 
-                // Kurze Pause fuer Puffer-Management
                 if (dataChannel.bufferedAmount > CHUNK_SIZE * 8) {
                     await new Promise(resolve => setTimeout(resolve, 50));
                 }
@@ -505,39 +925,6 @@
             showProgress(false);
             appendFileMessage(file, file.name, file.type, 'sent');
             document.getElementById('fileInput').value = '';
-        }
-
-        // --- UI Rendering Hilfsfunktionen ---
-
-        function getTimeString() {
-            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-
-        function appendSystemMessage(text) {
-            const div = document.createElement('div');
-            div.className = "text-center my-2 text-xs text-gray-500 dark:text-gray-400 font-medium italic";
-            div.innerText = text;
-            chatlog.appendChild(div);
-            chatlog.scrollTop = chatlog.scrollHeight;
-        }
-
-        function appendMessage(text, type) {
-            const isSent = type === 'sent';
-            const wrapper = document.createElement('div');
-            wrapper.className = `flex flex-col ${isSent ? 'items-end' : 'items-start'}`;
-
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl ${isSent ? 'msg-sent rounded-br-none shadow-md' : 'msg-recv rounded-bl-none shadow-sm'}`;
-            msgDiv.innerText = text;
-
-            const timeDiv = document.createElement('span');
-            timeDiv.className = "text-[10px] opacity-70 mt-1 block text-right";
-            timeDiv.innerText = getTimeString();
-            msgDiv.appendChild(timeDiv);
-
-            wrapper.appendChild(msgDiv);
-            chatlog.appendChild(wrapper);
-            chatlog.scrollTop = chatlog.scrollHeight;
         }
 
         function appendFileMessage(fileOrBlob, filename, fileType, type) {
@@ -551,14 +938,12 @@
             const url = URL.createObjectURL(fileOrBlob);
 
             if (fileType.startsWith('image/')) {
-                // Bild-Vorschau
                 const img = document.createElement('img');
                 img.src = url;
                 img.className = "max-w-full max-h-60 rounded-lg cursor-pointer object-cover mb-1";
                 img.onclick = () => openLightbox(url);
                 msgDiv.appendChild(img);
             } else {
-                // Allgemeiner Datei-Download
                 const fileBox = document.createElement('div');
                 fileBox.className = "flex items-center space-x-3 p-2 bg-black/10 dark:bg-white/10 rounded-xl mb-1";
                 fileBox.innerHTML = `
@@ -581,6 +966,18 @@
 
             wrapper.appendChild(msgDiv);
             chatlog.appendChild(wrapper);
+            chatlog.scrollTop = chatlog.scrollHeight;
+        }
+
+        function getTimeString() {
+            return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function appendSystemMessage(text) {
+            const div = document.createElement('div');
+            div.className = "text-center my-2 text-xs text-gray-500 dark:text-gray-400 font-medium italic";
+            div.innerText = text;
+            chatlog.appendChild(div);
             chatlog.scrollTop = chatlog.scrollHeight;
         }
 
@@ -613,8 +1010,7 @@
             document.getElementById('lightboxModal').classList.remove('active');
         }
 
-        // --- Drag & Drop Event-Handling ---
-
+        // Drag & Drop
         window.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropOverlay.classList.add('active');
