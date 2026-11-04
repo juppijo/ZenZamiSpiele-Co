@@ -60,6 +60,19 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px;min-width:160px}
 .bar span{display:block;height:100%;background:var(--acc);transition:width .1s}
 .icon{padding:7px 11px;font-size:1.1rem;line-height:1}
+.typing{min-height:1.5em;padding:0 16px 2px;color:var(--mute);font-size:.85rem}
+.tick{letter-spacing:-2px;margin-left:2px}.tick.rd{color:var(--acc2)}
+.ovl{position:fixed;inset:0;z-index:40;background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.ovl.on{display:flex}
+.tb{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.tb input[type=color]{width:38px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none}
+.tb input[type=range]{width:90px;accent-color:var(--acc)}
+.tb .sw{width:26px;height:26px;border-radius:50%;padding:0;min-height:0}
+.tb button[aria-pressed=true],header button[aria-pressed=true]{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px}
+#paper{background:#fff;border-radius:8px;touch-action:none;cursor:crosshair;width:min(100%,calc((100dvh - 130px)*1.5));aspect-ratio:3/2;box-shadow:0 2px 14px rgba(0,0,0,.4)}
+#vid{max-width:100%;max-height:100%;background:#000;border-radius:8px}
+.badge::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc2);margin-left:6px}
 #lb{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:50;padding:12px;cursor:zoom-out}
 #lb.on{display:flex}
 #lb img{max-width:100%;max-height:100%;border-radius:8px}
@@ -84,6 +97,9 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
 <header>
   <h1>Direktchat</h1>
   <div class="status"><span class="dot" id="dot"></span><span id="stat">Nicht verbunden</span></div>
+  <button id="bDraw" title="Gemeinsame Zeichenfläche">Zeichnen</button>
+  <button id="bShare" disabled title="Bildschirm teilen">Bildschirm</button>
+  <button id="bWatch" hidden title="Geteilten Bildschirm ansehen">Ansehen</button>
   <button id="bTheme" title="Farbstil wechseln">Styles</button>
   <button id="bFs" title="Vollbild ein/aus">Vollbild</button>
 </header>
@@ -127,6 +143,8 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
         <label class="chk"><input type="checkbox" id="oEnter" checked> Enter sendet (Umschalt+Enter = neue Zeile)</label>
         <label class="chk"><input type="checkbox" id="oTime" checked> Uhrzeit anzeigen</label>
         <label class="chk"><input type="checkbox" id="oSound" checked> Ton bei neuer Nachricht</label>
+        <label class="chk"><input type="checkbox" id="oType" checked> „Tippt gerade“ senden</label>
+        <label class="chk"><input type="checkbox" id="oRead" checked> Gelesen-Haken senden</label>
       </div>
       <label>Schriftgröße<select id="oSize"><option value="14">Klein</option><option value="16" selected>Normal</option><option value="19">Groß</option><option value="22">Sehr groß</option></select></label>
       <div class="row">
@@ -140,6 +158,7 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
 
   <div id="log" aria-live="polite"><div class="empty" id="empty">Noch keine Nachrichten. Stelle oben eine Verbindung her, dann kann es losgehen.</div></div>
 
+  <div class="typing" id="typing" aria-live="polite"></div>
   <form id="form">
     <button type="button" class="icon" id="bAttach" disabled aria-label="Datei senden" title="Datei senden">📎</button>
     <button type="button" class="icon" id="bPhoto" disabled aria-label="Foto aufnehmen oder Bild senden" title="Foto / Bild">📷</button>
@@ -149,6 +168,27 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
     <button class="primary" id="bSend" disabled>Senden</button>
   </form>
 </main>
+<div class="ovl" id="board">
+  <div class="tb">
+    <input type="color" id="pc" value="#1a1a1a" aria-label="Farbe">
+    <button class="sw" style="background:#1a1a1a" data-c="#1a1a1a" aria-label="Schwarz"></button>
+    <button class="sw" style="background:#d9342b" data-c="#d9342b" aria-label="Rot"></button>
+    <button class="sw" style="background:#2f6fe4" data-c="#2f6fe4" aria-label="Blau"></button>
+    <button class="sw" style="background:#2e9b4f" data-c="#2e9b4f" aria-label="Grün"></button>
+    <button class="sw" style="background:#e0a800" data-c="#e0a800" aria-label="Gold"></button>
+    <input type="range" id="pw" min="2" max="40" value="5" aria-label="Strichstärke">
+    <button id="pe" aria-pressed="false">Radierer</button>
+    <button id="pu">Rückgängig</button>
+    <button id="px">Löschen</button>
+    <button id="ps">Als Bild senden</button>
+    <button id="pcl" class="primary" style="margin-left:auto">Schließen</button>
+  </div>
+  <div class="stage"><canvas id="paper" width="1200" height="800"></canvas></div>
+</div>
+<div class="ovl" id="screen">
+  <div class="tb"><button id="vfs">Vollbild</button><button id="vcl" class="primary" style="margin-left:auto">Schließen</button></div>
+  <div class="stage"><video id="vid" autoplay playsinline muted></video></div>
+</div>
 <div id="lb" onclick="this.classList.remove('on')"><img id="lbImg" alt=""></div>
 <div class="toast" id="toast"></div>
 
@@ -170,7 +210,7 @@ $("stun").value=store.get("stun","stun:stun.l.google.com:19302");$("stun").oninp
 $("oSize").value=store.get("size","16");
 const setSize=()=>{document.body.style.fontSize=$("oSize").value+"px";store.set("size",$("oSize").value)};
 $("oSize").onchange=setSize;setSize();
-["oEnter","oTime","oSound"].forEach(id=>{$(id).checked=store.get(id,"1")==="1";$(id).onchange=()=>{store.set(id,$(id).checked?"1":"0");if(id==="oTime")render()}});
+["oEnter","oTime","oSound","oType","oRead"].forEach(id=>{$(id).checked=store.get(id,"1")==="1";$(id).onchange=()=>{store.set(id,$(id).checked?"1":"0");if(id==="oTime")render()}});
 
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),1600)}
 async function copy(text){
@@ -200,7 +240,7 @@ function newPC(){
     else if(st==="failed"){status("Verbindung fehlgeschlagen");sys("Verbindung fehlgeschlagen. Prüfe den STUN-Server oder versuche es neu.")}
     else if(st==="disconnected"||st==="closed")status("Getrennt");
   };
-  pc.ondatachannel=e=>setupDC(e.channel);
+  pc.ondatachannel=e=>setupDC(e.channel);pc.ontrack=onTrack;pc.onnegotiationneeded=onNeg;
 }
 function gathered(){
   return new Promise(res=>{
@@ -241,17 +281,17 @@ $("bAnswer").onclick=async()=>{
 /* Datenkanal */
 function setupDC(ch){
   dc=ch;dc.binaryType="arraybuffer";
-  dc.onopen=()=>{status("Verbunden","ok");$("inp").disabled=false;$("bSend").disabled=false;$("bAttach").disabled=false;$("bPhoto").disabled=false;sys("Verbunden. Ihr könnt jetzt schreiben.");$("dConn").open=false;$("inp").focus()};
-  dc.onclose=()=>{$("inp").disabled=true;$("bSend").disabled=true;$("bAttach").disabled=true;$("bPhoto").disabled=true;status("Getrennt");sys("Verbindung beendet.")};
+  dc.onopen=()=>{status("Verbunden","ok");$("inp").disabled=false;$("bSend").disabled=false;$("bAttach").disabled=false;$("bPhoto").disabled=false;$("bShare").disabled=false;renegoOn=true;sys("Verbunden. Ihr könnt jetzt schreiben.");$("dConn").open=false;$("inp").focus()};
+  dc.onclose=()=>{$("inp").disabled=true;$("bSend").disabled=true;$("bAttach").disabled=true;$("bPhoto").disabled=true;$("bShare").disabled=true;renegoOn=false;stopShare();status("Getrennt");sys("Verbindung beendet.")};
   dc.onmessage=e=>{
     if(typeof e.data!=="string"){gotChunk(e.data);return}
     let m;try{m=JSON.parse(e.data)}catch(_){m={n:"Gegenüber",t:String(e.data)}}
-    if(m.k==="f"){startIn(m);return}
-    add({me:false,n:m.n||"Gegenüber",t:m.t,ts:Date.now()});beep();
+    if(m.k){onCtl(m);return}
+    add({me:false,n:m.n||"Gegenüber",t:m.t,rid:m.rid,ts:Date.now()});peerTyping(0);beep();flushRead();
   };
 }
 function closeAll(silent){
-  try{dc&&dc.close()}catch(e){}try{pc&&pc.close()}catch(e){}
+  stopShare();try{dc&&dc.close()}catch(e){}try{pc&&pc.close()}catch(e){}
   dc=pc=null;if(!silent){$("inp").disabled=true;$("bSend").disabled=true;$("bAttach").disabled=true;$("bPhoto").disabled=true}
 }
 $("bClose").onclick=()=>{closeAll();status("Getrennt");toast("Getrennt")};
@@ -273,6 +313,7 @@ function render(){
       if(m.file)t.appendChild(fileEl(m));else t.textContent=m.t;
       const meta=document.createElement("div");meta.className="meta";
       if($("oTime").checked){const s=document.createElement("span");s.textContent=fmt(m.ts);meta.appendChild(s)}
+      if(m.me&&m.rid){const k=document.createElement("span");k.className="tick"+(m.read?" rd":"");k.textContent=m.read?"✓✓":"✓";k.title=m.read?"Gelesen":"Gesendet";meta.appendChild(k)}
       if(!m.file||m.file.done){const b=document.createElement("button");b.className="cp";
       if(m.file){b.textContent="Speichern";b.onclick=()=>saveBlob(m.file.name,m.file.blob)}else{b.textContent="Kopieren";b.onclick=()=>copy(m.t)}
       meta.appendChild(b)}
@@ -286,14 +327,14 @@ function send(){
   const v=$("inp").value.trim();
   if(!v||!dc||dc.readyState!=="open")return;
   const n=$("name").value.trim()||"Anonym";
-  dc.send(JSON.stringify({n,t:v}));
-  add({me:true,n,t:v,ts:Date.now()});
+  const rid=rnd();dc.send(JSON.stringify({n,t:v,rid}));
+  add({me:true,n,t:v,rid,ts:Date.now()});typeNow(0);
   $("inp").value="";$("inp").style.height="auto";
   $("log").scrollTop=$("log").scrollHeight;
 }
 $("form").onsubmit=e=>{e.preventDefault();send()};
 $("inp").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&$("oEnter").checked){e.preventDefault();send()}};
-$("inp").oninput=e=>{e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,160)+"px"};
+$("inp").oninput=e=>{typeNow(1);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,160)+"px"};
 
 /* Dateien & Bilder */
 const MAX=50*1048576;let uid=0,inc=null,sendQ=Promise.resolve();
@@ -315,7 +356,7 @@ function fileEl(m){
 }
 function setProg(m){const s=document.getElementById("p"+m.id);if(s)s.style.width=Math.round(m.file.progress*100)+"%"}
 function startIn(m){
-  const msg={id:++uid,me:false,n:m.n||"Gegenüber",ts:Date.now(),file:{name:m.name||"Datei",size:m.size||0,type:m.type||"",progress:0}};
+  const msg={id:++uid,me:false,n:m.n||"Gegenüber",ts:Date.now(),rid:m.rid,file:{name:m.name||"Datei",size:m.size||0,type:m.type||"",progress:0}};
   inc={msg,parts:[],got:0};add(msg);
   if(!msg.file.size)endIn();
 }
@@ -326,14 +367,14 @@ function gotChunk(buf){
   if(inc.got>=inc.msg.file.size)endIn();
 }
 function endIn(){
-  const f=inc.msg.file;f.blob=new Blob(inc.parts,{type:f.type});f.url=URL.createObjectURL(f.blob);f.done=true;f.progress=1;inc=null;render();beep();
+  const f=inc.msg.file;f.blob=new Blob(inc.parts,{type:f.type});f.url=URL.createObjectURL(f.blob);f.done=true;f.progress=1;inc=null;render();beep();flushRead();
 }
 async function sendFile(f){
   if(!dc||dc.readyState!=="open")return;
   const n=$("name").value.trim()||"Anonym";
-  const msg={id:++uid,me:true,n,ts:Date.now(),file:{name:f.name||"Foto.jpg",size:f.size,type:f.type,progress:0,blob:f,url:URL.createObjectURL(f)}};
+  const msg={id:++uid,me:true,n,ts:Date.now(),rid:rnd(),file:{name:f.name||"Foto.jpg",size:f.size,type:f.type,progress:0,blob:f,url:URL.createObjectURL(f)}};
   add(msg);
-  dc.send(JSON.stringify({k:"f",n,name:msg.file.name,size:f.size,type:f.type}));
+  dc.send(JSON.stringify({k:"f",n,name:msg.file.name,size:f.size,type:f.type,rid:msg.rid}));
   dc.bufferedAmountLowThreshold=1<<20;
   for(let o=0;o<f.size;o+=16384){
     if(!dc||dc.readyState!=="open"){msg.file.failed=true;render();return}
@@ -358,6 +399,120 @@ $("inp").addEventListener("paste",e=>{const fs=[...((e.clipboardData&&e.clipboar
 ["dragenter","dragover"].forEach(ev=>$("log").addEventListener(ev,e=>{e.preventDefault();$("log").classList.add("drag")}));
 ["dragleave","drop"].forEach(ev=>$("log").addEventListener(ev,e=>{e.preventDefault();$("log").classList.remove("drag");if(ev==="drop")sendFiles([...e.dataTransfer.files])}));
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("lb").classList.remove("on")});
+
+/* Hilfen, Steuerung */
+let making=false,renegoOn=false,shareS=null,shareSnd=null;
+const rnd=()=>Math.random().toString(36).slice(2,10);
+const nm=()=>$("name").value.trim()||"Anonym";
+const sig=o=>{try{dc&&dc.readyState==="open"&&dc.send(JSON.stringify(o))}catch(e){}};
+function onCtl(m){
+  if(m.k==="f")return startIn(m);
+  if(m.k==="ty")return peerTyping(m.v,m.n);
+  if(m.k==="r"){const x=msgs.find(q=>q.me&&q.rid===m.id);if(x){x.read=true;render()}return}
+  if(m.k==="sdp")return onSdp(m.d);
+  if(m.k==="d"||m.k==="du"||m.k==="dc")return onDraw(m);
+}
+
+/* Tippt gerade, Gelesen-Haken */
+let tyT=0,tyOff=0,tyHide=0;
+function typeNow(v){
+  if(!$("oType").checked)return;
+  clearTimeout(tyOff);
+  if(v){if(Date.now()-tyT>2000){tyT=Date.now();sig({k:"ty",v:1,n:nm()})}tyOff=setTimeout(()=>typeNow(0),3000)}
+  else if(tyT){tyT=0;sig({k:"ty",v:0})}
+}
+function peerTyping(v,n){
+  clearTimeout(tyHide);const e=$("typing");
+  e.textContent=v?(n||"Gegenüber")+" schreibt …":"";
+  if(v)tyHide=setTimeout(()=>e.textContent="",4500);
+}
+function flushRead(){
+  if(!$("oRead").checked||document.visibilityState!=="visible")return;
+  msgs.forEach(m=>{if(!m.me&&!m.sys&&m.rid&&!m.ack&&(!m.file||m.file.done)){m.ack=true;sig({k:"r",id:m.rid})}});
+}
+addEventListener("focus",flushRead);document.addEventListener("visibilitychange",flushRead);
+
+/* Gemeinsame Zeichenfläche */
+const cv=$("paper"),cx=cv.getContext("2d"),strokes=[];let cur=null,pend=[],flushT=0;const pen={c:"#1a1a1a",e:false};
+function paintAll(){cx.fillStyle="#fff";cx.fillRect(0,0,1200,800);strokes.forEach(s=>seg(s,0))}
+function seg(s,from){
+  const p=s.p;if(!p.length)return;
+  cx.lineCap=cx.lineJoin="round";cx.strokeStyle=cx.fillStyle=s.c;cx.lineWidth=s.w;
+  if(p.length===1){cx.beginPath();cx.arc(p[0][0],p[0][1],s.w/2,0,7);cx.fill();return}
+  cx.beginPath();cx.moveTo(...p[Math.max(0,from-1)]);
+  for(let i=Math.max(1,from);i<p.length;i++)cx.lineTo(...p[i]);
+  cx.stroke();
+}
+const pt=e=>{const r=cv.getBoundingClientRect();return[Math.round((e.clientX-r.left)/r.width*1200),Math.round((e.clientY-r.top)/r.height*800)]};
+function flush(){flushT=0;if(cur&&pend.length){sig({k:"d",s:cur.id,c:cur.c,w:cur.w,p:pend});pend=[]}}
+cv.onpointerdown=e=>{
+  e.preventDefault();cv.setPointerCapture(e.pointerId);
+  cur={id:rnd(),c:pen.e?"#fff":pen.c,w:+$("pw").value*(pen.e?3:1),p:[pt(e)],me:true};
+  strokes.push(cur);seg(cur,0);pend=[cur.p[0]];flush();
+};
+cv.onpointermove=e=>{
+  if(!cur)return;
+  const a=cur.p.length;(e.getCoalescedEvents?e.getCoalescedEvents():[e]).forEach(x=>{const q=pt(x);cur.p.push(q);pend.push(q)});
+  seg(cur,a);if(!flushT)flushT=setTimeout(flush,25);
+};
+cv.onpointerup=cv.onpointercancel=()=>{if(cur){clearTimeout(flushT);flush();cur=null}};
+function onDraw(m){
+  const mark=()=>{if(!$("board").classList.contains("on"))$("bDraw").classList.add("badge")};
+  if(m.k==="dc"){strokes.length=0;paintAll();return mark()}
+  if(m.k==="du"){const i=strokes.findIndex(s=>s.id===m.s);if(i>-1){strokes.splice(i,1);paintAll()}return}
+  let s=strokes.find(x=>x.id===m.s);
+  if(!s){s={id:m.s,c:m.c,w:m.w,p:[],me:false};strokes.push(s)}
+  const a=s.p.length;s.p.push(...m.p);seg(s,a);mark();
+}
+const unpress=()=>{pen.e=false;$("pe").setAttribute("aria-pressed","false")};
+document.querySelectorAll("#board [data-c]").forEach(b=>b.onclick=()=>{pen.c=b.dataset.c;$("pc").value=b.dataset.c;unpress()});
+$("pc").oninput=e=>{pen.c=e.target.value;unpress()};
+$("pe").onclick=()=>{pen.e=!pen.e;$("pe").setAttribute("aria-pressed",pen.e)};
+$("pu").onclick=()=>{for(let i=strokes.length-1;i>=0;i--)if(strokes[i].me){sig({k:"du",s:strokes[i].id});strokes.splice(i,1);paintAll();break}};
+$("px").onclick=()=>{strokes.length=0;paintAll();sig({k:"dc"})};
+$("ps").onclick=()=>cv.toBlob(b=>{if(b){sendFiles([new File([b],"Skizze.png",{type:"image/png"})]);toast("Skizze gesendet")}},"image/png");
+$("bDraw").onclick=()=>{$("board").classList.add("on");$("bDraw").classList.remove("badge")};
+$("pcl").onclick=()=>$("board").classList.remove("on");
+paintAll();
+
+/* Bildschirm teilen (Neuverhandlung über den Datenkanal) */
+if(!(navigator.mediaDevices&&navigator.mediaDevices.getDisplayMedia))$("bShare").hidden=true;
+async function onNeg(){
+  if(!renegoOn||!pc)return;
+  try{making=true;await pc.setLocalDescription();sig({k:"sdp",d:pc.localDescription})}catch(e){}finally{making=false}
+}
+async function onSdp(d){
+  if(!pc)return;
+  try{
+    const coll=d.type==="offer"&&(making||pc.signalingState!=="stable");
+    if(coll&&role!=="guest")return;
+    await pc.setRemoteDescription(d);
+    if(d.type==="offer"){await pc.setLocalDescription();sig({k:"sdp",d:pc.localDescription})}
+  }catch(e){}
+}
+function onTrack(e){
+  const t=e.track;if(t.kind!=="video")return;
+  const show=()=>{$("vid").srcObject=e.streams[0]||new MediaStream([t]);$("bWatch").hidden=false;$("screen").classList.add("on");$("vid").play().catch(()=>{})};
+  const hide=()=>{$("screen").classList.remove("on");$("bWatch").hidden=true};
+  t.onunmute=show;t.onmute=hide;t.onended=hide;
+  if(!t.muted)show();
+}
+async function startShare(){
+  try{
+    shareS=await navigator.mediaDevices.getDisplayMedia({video:true});
+    const tr=shareS.getVideoTracks()[0];shareSnd=pc.addTrack(tr,shareS);
+    tr.onended=()=>stopShare();
+    $("bShare").textContent="Teilen beenden";$("bShare").setAttribute("aria-pressed","true");sys("Du teilst deinen Bildschirm.");
+  }catch(e){shareS=null;toast("Bildschirmfreigabe nicht möglich")}
+}
+function stopShare(){
+  if(shareS){shareS.getTracks().forEach(t=>t.stop());try{pc&&shareSnd&&pc.removeTrack(shareSnd)}catch(e){}}
+  shareS=shareSnd=null;$("bShare").textContent="Bildschirm";$("bShare").removeAttribute("aria-pressed");
+}
+$("bShare").onclick=()=>shareS?stopShare():startShare();
+$("bWatch").onclick=()=>$("screen").classList.add("on");
+$("vcl").onclick=()=>$("screen").classList.remove("on");
+$("vfs").onclick=()=>{const v=$("vid");(v.requestFullscreen||v.webkitEnterFullscreen||(()=>{})).call(v)};
 
 function beep(){
   if(!$("oSound").checked)return;
