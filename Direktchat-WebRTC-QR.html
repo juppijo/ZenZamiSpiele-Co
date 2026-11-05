@@ -242,8 +242,39 @@ $("tHost").onclick=()=>setRole("host");$("tGuest").onclick=()=>setRole("guest");
 function status(txt,cls){$("stat").textContent=txt;$("dot").className="dot "+(cls||"")}
 
 /* Signalisierung: Beschreibung <-> kurzer Text */
-const enc=d=>btoa(unescape(encodeURIComponent(JSON.stringify(d))));
-const dec=s=>JSON.parse(decodeURIComponent(escape(atob(s.trim().replace(/\s+/g,"")))));
+/* Kurzer Verbindungs-Code: nur die n\u00f6tigen SDP-Felder, URL-sicher kodiert, mit Pr\u00fcfsumme */
+const b64u=b=>btoa(String.fromCharCode(...b)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const ub64=s=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+const t8=s=>b64u(new TextEncoder().encode(s)),f8=s=>new TextDecoder().decode(ub64(s));
+const crc=s=>{let c=0;for(let i=0;i<s.length;i++)c=(c*31+s.charCodeAt(i))>>>0;return(c%46656).toString(36).padStart(3,"0")};
+const SU={actpass:"x",active:"a",passive:"p"},SUR={x:"actpass",a:"active",p:"passive"},TY={h:"host",s:"srflx",p:"prflx",r:"relay"};
+const BADCODE="Code unvollst\u00e4ndig oder ver\u00e4ndert. Bitte vollst\u00e4ndig neu kopieren.";
+function enc(d){
+  const L=d.sdp.split(/\r?\n/),g=p=>{const l=L.find(x=>x.startsWith(p));return l?l.slice(p.length):""};
+  const fp=g("a=fingerprint:").split(" ");
+  if(fp[0]!=="sha-256"||!g("a=ice-ufrag:")||!SU[g("a=setup:")])return btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+  const cs=L.filter(l=>l.startsWith("a=candidate:")).map(l=>l.slice(12).split(" "))
+    .filter(a=>a[2].toLowerCase()==="udp"&&!/^(127\.|::1|fe80)/i.test(a[4])&&TY[a[7][0]])
+    .map(a=>[a[0],a[3],a[4],a[5],a[7][0]].join(" "));
+  const body=t8([d.type[0],SU[g("a=setup:")],g("a=ice-ufrag:"),g("a=ice-pwd:"),b64u(fp[1].split(":").map(h=>parseInt(h,16))),cs.join(",")].join("|"));
+  return "W2"+body+"."+crc(body);
+}
+function dec(s){
+  s=s.replace(/\s+/g,"");
+  const m=s.match(/W2[A-Za-z0-9_-]+\.[a-z0-9]{3}/);
+  if(m){
+    const c=m[0],i=c.lastIndexOf("."),body=c.slice(2,i);
+    if(crc(body)!==c.slice(i+1))throw new Error(BADCODE);
+    const[t,su,uf,pw,fb,cs]=f8(body).split("|");
+    const fp=[...ub64(fb)].map(x=>x.toString(16).padStart(2,"0").toUpperCase()).join(":");
+    const cl=cs?cs.split(",").map(k=>{const[a,b,ip,port,ty]=k.split(" ");return"a=candidate:"+a+" 1 udp "+b+" "+ip+" "+port+" typ "+TY[ty]+(ty==="h"?"":" raddr 0.0.0.0 rport 0")}):[];
+    const sdp=["v=0","o=- "+Date.now()+" 2 IN IP4 127.0.0.1","s=-","t=0 0","a=group:BUNDLE 0","a=msid-semantic: WMS","m=application 9 UDP/DTLS/SCTP webrtc-datachannel","c=IN IP4 0.0.0.0","a=ice-ufrag:"+uf,"a=ice-pwd:"+pw,"a=ice-options:trickle","a=fingerprint:sha-256 "+fp,"a=setup:"+SUR[su],"a=mid:0","a=sctp-port:5000","a=max-message-size:262144",...cl,"a=end-of-candidates",""].join("\r\n");
+    return{type:t==="o"?"offer":"answer",sdp};
+  }
+  if(/^W2/.test(s))throw new Error(BADCODE);
+  return JSON.parse(decodeURIComponent(escape(atob(s))));
+}
+const errMsg=(e,fb)=>String(e&&e.message||"").startsWith("Code")?e.message:fb+(e&&e.message?" ("+e.message+")":"");
 function newPC(){
   closeAll(true);
   const s=$("stun").value.trim();
@@ -279,7 +310,7 @@ $("bAccept").onclick=async()=>{
     if(!pc)return toast("Erst ein Angebot erzeugen");
     await pc.setRemoteDescription(dec($("answerIn").value));
     status("Verbinde …","wait");
-  }catch(e){toast("Ungültiger Antwort-Code")}
+  }catch(e){toast(errMsg(e,"Ungültiger Antwort-Code"))}
 };
 $("bAnswer").onclick=async()=>{
   try{
@@ -290,7 +321,7 @@ $("bAnswer").onclick=async()=>{
     await gathered();
     $("answerOut").value=enc(pc.localDescription);
     status("Antwort senden, dann verbindet es","wait");toast("Antwort bereit");
-  }catch(e){status("Fehler");toast("Ungültiger Angebots-Code")}
+  }catch(e){status("Fehler");toast(errMsg(e,"Ungültiger Angebots-Code"))}
 };
 
 /* Datenkanal */
@@ -546,7 +577,7 @@ async function showQR(id){
   const code=$(id).value;if(!code)return toast("Noch kein Code vorhanden");
   if(typeof qrcode==="undefined")return toast("QR-Bibliothek nicht geladen");
   try{
-    const q=qrcode(0,"L");q.addData(await qrPack(code));q.make();
+    const q=qrcode(0,"L");q.addData(code.startsWith("W2")?code:await qrPack(code));q.make();
     const n=q.getModuleCount(),cell=Math.max(3,Math.floor(900/(n+8))),sz=(n+8)*cell,c=$("qrc"),x=c.getContext("2d");
     c.width=c.height=sz;x.fillStyle="#fff";x.fillRect(0,0,sz,sz);x.fillStyle="#000";
     for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+4)*cell,(r+4)*cell,cell,cell);
