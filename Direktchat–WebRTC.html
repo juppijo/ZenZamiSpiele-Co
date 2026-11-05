@@ -72,6 +72,10 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
 .stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px}
 #paper{background:#fff;border-radius:8px;touch-action:none;cursor:crosshair;width:min(100%,calc((100dvh - 130px)*1.5));aspect-ratio:3/2;box-shadow:0 2px 14px rgba(0,0,0,.4)}
 #vid{max-width:100%;max-height:100%;background:#000;border-radius:8px}
+.tb strong{color:var(--acc2)}
+#qrw{background:#fff;padding:12px;border-radius:12px}
+#qrc{display:block;width:min(88vw,58dvh,460px);height:auto;image-rendering:pixelated}
+#sv{width:min(100%,560px);max-height:62dvh;border-radius:10px;background:#000;object-fit:cover}
 .badge::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc2);margin-left:6px}
 #lb{position:fixed;inset:0;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;z-index:50;padding:12px;cursor:zoom-out}
 #lb.on{display:flex}
@@ -117,17 +121,17 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
         <p class="hint">1. Angebot erzeugen und an die andere Person senden. 2. Deren Antwort unten einfügen und übernehmen.</p>
         <div class="row"><button class="primary" id="bOffer">Angebot erzeugen</button></div>
         <label>Dein Angebot<textarea id="offerOut" readonly placeholder="Hier erscheint der Code …"></textarea></label>
-        <div class="row"><button data-copy="offerOut">Angebot kopieren</button></div>
+        <div class="row"><button data-copy="offerOut">Angebot kopieren</button><button data-qr="offerOut">QR-Code zeigen</button></div>
         <label>Antwort der anderen Person<textarea id="answerIn" placeholder="Antwort-Code hier einfügen"></textarea></label>
-        <div class="row"><button class="primary" id="bAccept">Antwort übernehmen</button></div>
+        <div class="row"><button id="bScanA">QR scannen</button><button class="primary" id="bAccept">Antwort übernehmen</button></div>
       </div>
 
       <div class="step" id="sGuest">
         <p class="hint">1. Angebot der anderen Person einfügen. 2. Antwort erzeugen und zurücksenden.</p>
         <label>Angebot der anderen Person<textarea id="offerIn" placeholder="Angebots-Code hier einfügen"></textarea></label>
-        <div class="row"><button class="primary" id="bAnswer">Antwort erzeugen</button></div>
+        <div class="row"><button id="bScanO">QR scannen</button><button class="primary" id="bAnswer">Antwort erzeugen</button></div>
         <label>Deine Antwort<textarea id="answerOut" readonly placeholder="Hier erscheint der Code …"></textarea></label>
-        <div class="row"><button data-copy="answerOut">Antwort kopieren</button></div>
+        <div class="row"><button data-copy="answerOut">Antwort kopieren</button><button data-qr="answerOut">QR-Code zeigen</button></div>
       </div>
     </div>
   </details>
@@ -145,6 +149,8 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
         <label class="chk"><input type="checkbox" id="oSound" checked> Ton bei neuer Nachricht</label>
         <label class="chk"><input type="checkbox" id="oType" checked> „Tippt gerade“ senden</label>
         <label class="chk"><input type="checkbox" id="oRead" checked> Gelesen-Haken senden</label>
+        <label class="chk"><input type="checkbox" id="oShort"> Extra-kurzer Code (ohne lokale WLAN-Adressen)</label>
+        <label class="chk"><input type="checkbox" id="oWake" checked> Bildschirm wach halten (Handy)</label>
       </div>
       <label>Schriftgröße<select id="oSize"><option value="14">Klein</option><option value="16" selected>Normal</option><option value="19">Groß</option><option value="22">Sehr groß</option></select></label>
       <div class="row">
@@ -189,6 +195,17 @@ form textarea{min-height:48px;max-height:160px;font:inherit;resize:none;word-bre
   <div class="tb"><button id="vfs">Vollbild</button><button id="vcl" class="primary" style="margin-left:auto">Schließen</button></div>
   <div class="stage"><video id="vid" autoplay playsinline muted></video></div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<div class="ovl" id="qrv">
+  <div class="tb"><strong id="qcap">QR-Code</strong><button id="qcl" class="primary" style="margin-left:auto">Schließen</button></div>
+  <div class="stage" style="flex-direction:column;gap:12px"><div id="qrw"><canvas id="qrc"></canvas></div><p class="hint" style="text-align:center;max-width:36ch">Die andere Person tippt auf „QR scannen“ und hält die Kamera darauf. Stelle die Helligkeit hoch.</p></div>
+</div>
+<div class="ovl" id="scan">
+  <div class="tb"><strong>QR-Code scannen</strong><button id="sf">Bild laden</button><button id="scl" class="primary" style="margin-left:auto">Schließen</button></div>
+  <div class="stage" style="flex-direction:column;gap:10px"><video id="sv" autoplay playsinline muted></video><p class="hint" id="smsg" style="text-align:center"></p><canvas id="sc" hidden></canvas></div>
+</div>
+<input type="file" id="qrf" accept="image/*" hidden>
 <div id="lb" onclick="this.classList.remove('on')"><img id="lbImg" alt=""></div>
 <div class="toast" id="toast"></div>
 
@@ -210,7 +227,8 @@ $("stun").value=store.get("stun","stun:stun.l.google.com:19302");$("stun").oninp
 $("oSize").value=store.get("size","16");
 const setSize=()=>{document.body.style.fontSize=$("oSize").value+"px";store.set("size",$("oSize").value)};
 $("oSize").onchange=setSize;setSize();
-["oEnter","oTime","oSound","oType","oRead"].forEach(id=>{$(id).checked=store.get(id,"1")==="1";$(id).onchange=()=>{store.set(id,$(id).checked?"1":"0");if(id==="oTime")render()}});
+$("oShort").checked=store.get("oShort","0")==="1";$("oShort").onchange=()=>store.set("oShort",$("oShort").checked?"1":"0");
+["oEnter","oTime","oSound","oType","oRead","oWake"].forEach(id=>{$(id).checked=store.get(id,"1")==="1";$(id).onchange=()=>{store.set(id,$(id).checked?"1":"0");if(id==="oTime")render()}});
 
 function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),1600)}
 async function copy(text){
@@ -227,18 +245,100 @@ $("tHost").onclick=()=>setRole("host");$("tGuest").onclick=()=>setRole("guest");
 function status(txt,cls){$("stat").textContent=txt;$("dot").className="dot "+(cls||"")}
 
 /* Signalisierung: Beschreibung <-> kurzer Text */
-const enc=d=>btoa(unescape(encodeURIComponent(JSON.stringify(d))));
-const dec=s=>JSON.parse(decodeURIComponent(escape(atob(s.trim().replace(/\s+/g,"")))));
+/* Kurzer Verbindungs-Code (W3 = bin\u00e4r gepackt, W2 = Text-Fallback, sonst altes Format) */
+const b64u=b=>btoa(String.fromCharCode(...b)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const ub64=s=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+const t8=s=>b64u(new TextEncoder().encode(s)),f8=s=>new TextDecoder().decode(ub64(s));
+const crc=s=>{let c=0;for(let i=0;i<s.length;i++)c=(c*31+s.charCodeAt(i))>>>0;return(c%46656).toString(36).padStart(3,"0")};
+const SU={actpass:"x",active:"a",passive:"p"},SUR={x:"actpass",a:"active",p:"passive"},TY={h:"host",s:"srflx",p:"prflx",r:"relay"};
+const BADCODE="Code unvollst\u00e4ndig oder ver\u00e4ndert. Bitte vollst\u00e4ndig neu kopieren.";
+const V4=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,MD=/^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\.local$/i;
+const hex2=n=>n.toString(16).padStart(2,"0");
+function v6b(s){
+  if(!/^[0-9a-f:]+$/i.test(s)||s.split("::").length>2)return null;
+  const[a,b]=s.split("::"),A=a?a.split(":"):[],B=b?b.split(":"):[],miss=b===undefined?0:8-A.length-B.length;
+  if((b===undefined&&A.length!==8)||miss<0)return null;
+  return[...A,...Array(miss).fill("0"),...B].flatMap(x=>{const n=parseInt(x||"0",16);return[n>>8,n&255]});
+}
+function cpack(a){
+  const ty={host:0,srflx:1,prflx:2,relay:3}[a[7]],ip=a[4],port=+a[5];let k,by,m;
+  if(ty===undefined||!(port>0&&port<65536))return null;
+  if((m=ip.match(V4))){k=0;by=m.slice(1).map(Number)}
+  else if((m=ip.match(MD))){k=2;by=m.slice(1,6).join("").match(/../g).map(x=>parseInt(x,16))}
+  else if((by=v6b(ip)))k=1;
+  else return null;
+  return[ty|k<<2,...by,port>>8,port&255];
+}
+const priv=c=>{const k=c[0]>>2&3;if(k===2)return true;if(k!==0)return false;const a=c[1],b=c[2];return a===10||(a===192&&b===168)||(a===172&&b>=16&&b<32)||(a===169&&b===254)};
+const sum8=a=>{let c=0;for(const x of a)c=(c*31+x+1)&255;return c};
+function mk(t,su,uf,pw,fp,cl){
+  return["v=0","o=- "+Date.now()+" 2 IN IP4 127.0.0.1","s=-","t=0 0","a=group:BUNDLE 0","a=msid-semantic: WMS","m=application 9 UDP/DTLS/SCTP webrtc-datachannel","c=IN IP4 0.0.0.0","a=ice-ufrag:"+uf,"a=ice-pwd:"+pw,"a=ice-options:trickle","a=fingerprint:sha-256 "+fp,"a=setup:"+su,"a=mid:0","a=sctp-port:5000","a=max-message-size:262144",...cl,"a=end-of-candidates",""].join("\r\n");
+}
+function enc(d,short){
+  const L=d.sdp.split(/\r?\n/),g=p=>{const l=L.find(x=>x.startsWith(p));return l?l.slice(p.length):""};
+  const fp=g("a=fingerprint:").split(" "),uf=g("a=ice-ufrag:"),pw=g("a=ice-pwd:"),su=g("a=setup:");
+  if(fp[0]!=="sha-256"||!uf||!SU[su])return btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+  const cands=L.filter(l=>l.startsWith("a=candidate:")).map(l=>l.slice(12).split(" ")).filter(a=>a[2].toLowerCase()==="udp"&&!/^(127\.|::1|fe80)/i.test(a[4]));
+  const ok=uf.length%4===0&&pw.length%4===0&&/^[A-Za-z0-9+/]+$/.test(uf+pw)&&uf.length<=1020&&pw.length<=1020;
+  if(ok){
+    let cs=cands.map(cpack).filter(Boolean);
+    if(short){const s=cs.filter(c=>!priv(c));if(s.length)cs=s}
+    cs=cs.slice(0,15);
+    const ub=[...atob(uf)].map(c=>c.charCodeAt(0)),pb=[...atob(pw)].map(c=>c.charCodeAt(0));
+    const out=[(d.type==="answer"?1:0)|({actpass:0,active:1,passive:2}[su]<<1)|(cs.length<<3),ub.length,...ub,pb.length,...pb,...fp[1].split(":").map(h=>parseInt(h,16)),...cs.flat()];
+    out.push(sum8(out));
+    return "W3"+b64u(out)+".";
+  }
+  const cs=cands.filter(a=>TY[a[7][0]]).map(a=>[a[0],a[3],a[4],a[5],a[7][0]].join(" "));
+  const body=t8([d.type[0],SU[su],uf,pw,b64u(fp[1].split(":").map(h=>parseInt(h,16))),cs.join(",")].join("|"));
+  return "W2"+body+"."+crc(body);
+}
+function dec(s){
+  s=s.replace(/\s+/g,"");
+  let m=s.match(/W3([A-Za-z0-9_-]+)\./);
+  if(m){
+    let b;try{b=[...ub64(m[1])]}catch(e){throw new Error(BADCODE)}
+    const last=b.pop();if(b.length<40||sum8(b)!==last)throw new Error(BADCODE);
+    let i=0;const h=b[i++],n=h>>3&15,ul=b[i++],ub=b.slice(i,i+ul);i+=ul;const pl=b[i++],pb=b.slice(i,i+pl);i+=pl;
+    const fp=b.slice(i,i+32).map(x=>hex2(x).toUpperCase()).join(":");i+=32;
+    const cl=[];
+    for(let j=0;j<n;j++){
+      const c=b[i++],ty=["host","srflx","prflx","relay"][c&3],k=c>>2&3,len=k===0?4:16,ad=b.slice(i,i+len);i+=len;
+      const port=(b[i]<<8)|b[i+1];i+=2;
+      if(ad.length<len||isNaN(port))throw new Error(BADCODE);
+      let ip;
+      if(k===0)ip=ad.join(".");
+      else if(k===1)ip=Array.from({length:8},(_,x)=>((ad[2*x]<<8)|ad[2*x+1]).toString(16)).join(":");
+      else{const x=ad.map(hex2).join("");ip=[x.slice(0,8),x.slice(8,12),x.slice(12,16),x.slice(16,20),x.slice(20)].join("-")+".local"}
+      const pr=({host:126,prflx:110,srflx:100,relay:0}[ty])*16777216+(65535-j)*256+255;
+      cl.push("a=candidate:"+(j+1)+" 1 udp "+pr+" "+ip+" "+port+" typ "+ty+(ty==="host"?"":" raddr 0.0.0.0 rport 0"));
+    }
+    return{type:h&1?"answer":"offer",sdp:mk(0,["actpass","active","passive"][h>>1&3],btoa(String.fromCharCode(...ub)),btoa(String.fromCharCode(...pb)),fp,cl)};
+  }
+  m=s.match(/W2[A-Za-z0-9_-]+\.[a-z0-9]{3}/);
+  if(m){
+    const c=m[0],i=c.lastIndexOf("."),body=c.slice(2,i);
+    if(crc(body)!==c.slice(i+1))throw new Error(BADCODE);
+    const[t,su,uf,pw,fb,cs]=f8(body).split("|");
+    const fp=[...ub64(fb)].map(x=>hex2(x).toUpperCase()).join(":");
+    const cl=cs?cs.split(",").map(k=>{const[a,b,ip,port,ty]=k.split(" ");return"a=candidate:"+a+" 1 udp "+b+" "+ip+" "+port+" typ "+TY[ty]+(ty==="h"?"":" raddr 0.0.0.0 rport 0")}):[];
+    return{type:t==="o"?"offer":"answer",sdp:mk(0,SUR[su],uf,pw,fp,cl)};
+  }
+  if(/W[23][A-Za-z0-9_-]{10}/.test(s))throw new Error(BADCODE);
+  return JSON.parse(decodeURIComponent(escape(atob(s))));
+}
+const errMsg=(e,fb)=>String(e&&e.message||"").startsWith("Code")?e.message:fb+(e&&e.message?" ("+e.message+")":"");
 function newPC(){
   closeAll(true);
   const s=$("stun").value.trim();
   pc=new RTCPeerConnection({iceServers:s?[{urls:s.split(/[\s,]+/).filter(Boolean)}]:[]});
   pc.onconnectionstatechange=()=>{
-    const st=pc.connectionState;
+    const P=pc;if(!P)return;const st=P.connectionState;
     if(st==="connected")status("Verbunden","ok");
     else if(st==="connecting")status("Verbinde …","wait");
-    else if(st==="failed"){status("Verbindung fehlgeschlagen");sys("Verbindung fehlgeschlagen. Prüfe den STUN-Server oder versuche es neu.")}
-    else if(st==="disconnected"||st==="closed")status("Getrennt");
+    else if(st==="failed"){status("Verbindung fehlgeschlagen");lost()}
+    else if(st==="disconnected")status("Verbindung instabil …","wait");
+    else if(st==="closed")status("Getrennt");
   };
   pc.ondatachannel=e=>setupDC(e.channel);pc.ontrack=onTrack;pc.onnegotiationneeded=onNeg;
 }
@@ -255,7 +355,7 @@ $("bOffer").onclick=async()=>{
     setupDC(pc.createDataChannel("chat"));
     await pc.setLocalDescription(await pc.createOffer());
     await gathered();
-    $("offerOut").value=enc(pc.localDescription);
+    $("offerOut").value=enc(pc.localDescription,$("oShort").checked);
     status("Warte auf Antwort","wait");toast("Angebot bereit");
   }catch(e){status("Fehler");toast("Fehler: "+e.message)}
 };
@@ -264,7 +364,7 @@ $("bAccept").onclick=async()=>{
     if(!pc)return toast("Erst ein Angebot erzeugen");
     await pc.setRemoteDescription(dec($("answerIn").value));
     status("Verbinde …","wait");
-  }catch(e){toast("Ungültiger Antwort-Code")}
+  }catch(e){toast(errMsg(e,"Ungültiger Antwort-Code"))}
 };
 $("bAnswer").onclick=async()=>{
   try{
@@ -273,16 +373,16 @@ $("bAnswer").onclick=async()=>{
     await pc.setRemoteDescription(offer);
     await pc.setLocalDescription(await pc.createAnswer());
     await gathered();
-    $("answerOut").value=enc(pc.localDescription);
+    $("answerOut").value=enc(pc.localDescription,$("oShort").checked);
     status("Antwort senden, dann verbindet es","wait");toast("Antwort bereit");
-  }catch(e){status("Fehler");toast("Ungültiger Angebots-Code")}
+  }catch(e){status("Fehler");toast(errMsg(e,"Ungültiger Angebots-Code"))}
 };
 
 /* Datenkanal */
 function setupDC(ch){
   dc=ch;dc.binaryType="arraybuffer";
-  dc.onopen=()=>{status("Verbunden","ok");$("inp").disabled=false;$("bSend").disabled=false;$("bAttach").disabled=false;$("bPhoto").disabled=false;$("bShare").disabled=false;renegoOn=true;sys("Verbunden. Ihr könnt jetzt schreiben.");$("dConn").open=false;$("inp").focus()};
-  dc.onclose=()=>{$("inp").disabled=true;$("bSend").disabled=true;$("bAttach").disabled=true;$("bPhoto").disabled=true;$("bShare").disabled=true;renegoOn=false;stopShare();status("Getrennt");sys("Verbindung beendet.")};
+  dc.onopen=()=>{status("Verbunden","ok");$("inp").disabled=false;$("bSend").disabled=false;$("bAttach").disabled=false;$("bPhoto").disabled=false;$("bShare").disabled=false;renegoOn=true;startPing();wakeOn();sys("Verbunden. Ihr könnt jetzt schreiben.");$("dConn").open=false;$("inp").focus()};
+  dc.onclose=()=>{if(ch!==dc)return;$("inp").disabled=true;$("bSend").disabled=true;$("bAttach").disabled=true;$("bPhoto").disabled=true;$("bShare").disabled=true;renegoOn=false;stopPing();wakeOff();stopShare();status("Getrennt");sys("Verbindung beendet.")};
   dc.onmessage=e=>{
     if(typeof e.data!=="string"){gotChunk(e.data);return}
     let m;try{m=JSON.parse(e.data)}catch(_){m={n:"Gegenüber",t:String(e.data)}}
@@ -291,7 +391,7 @@ function setupDC(ch){
   };
 }
 function closeAll(silent){
-  stopShare();try{dc&&dc.close()}catch(e){}try{pc&&pc.close()}catch(e){}
+  stopPing();wakeOff();stopShare();try{dc&&dc.close()}catch(e){}try{pc&&pc.close()}catch(e){}
   dc=pc=null;if(!silent){$("inp").disabled=true;$("bSend").disabled=true;$("bAttach").disabled=true;$("bPhoto").disabled=true}
 }
 $("bClose").onclick=()=>{closeAll();status("Getrennt");toast("Getrennt")};
@@ -407,6 +507,8 @@ const nm=()=>$("name").value.trim()||"Anonym";
 const sig=o=>{try{dc&&dc.readyState==="open"&&dc.send(JSON.stringify(o))}catch(e){}};
 function onCtl(m){
   if(m.k==="f")return startIn(m);
+  if(m.k==="pi"){sig({k:"po",t:m.t});return}
+  if(m.k==="po"){if(dc&&dc.readyState==="open"&&pc&&pc.connectionState==="connected")status("Verbunden · "+(Date.now()-m.t)+" ms","ok");return}
   if(m.k==="ty")return peerTyping(m.v,m.n);
   if(m.k==="r"){const x=msgs.find(q=>q.me&&q.rid===m.id);if(x){x.read=true;render()}return}
   if(m.k==="sdp")return onSdp(m.d);
@@ -513,6 +615,99 @@ $("bShare").onclick=()=>shareS?stopShare():startShare();
 $("bWatch").onclick=()=>$("screen").classList.add("on");
 $("vcl").onclick=()=>$("screen").classList.remove("on");
 $("vfs").onclick=()=>{const v=$("vid");(v.requestFullscreen||v.webkitEnterFullscreen||(()=>{})).call(v)};
+
+/* QR-Code zeigen und scannen */
+async function pipe(bytes,C){const s=new (C?CompressionStream:DecompressionStream)("deflate-raw"),w=s.writable.getWriter();w.write(bytes);w.close();return new Uint8Array(await new Response(s.readable).arrayBuffer())}
+const b64s=b=>btoa(String.fromCharCode(...b));
+async function qrPack(code){
+  const raw=new TextEncoder().encode(code);
+  if(window.CompressionStream){try{return "WRTC1:Z"+b64s(await pipe(raw,true))}catch(e){}}
+  return "WRTC1:R"+b64s(raw);
+}
+async function qrUnpack(t){
+  const m=t.trim().match(/^WRTC1:([ZR])([A-Za-z0-9+\/=]+)$/);if(!m)return t.trim();
+  let b=Uint8Array.from(atob(m[2]),c=>c.charCodeAt(0));if(m[1]==="Z")b=await pipe(b,false);
+  return new TextDecoder().decode(b);
+}
+async function showQR(id){
+  const code=$(id).value;if(!code)return toast("Noch kein Code vorhanden");
+  if(typeof qrcode==="undefined")return toast("QR-Bibliothek nicht geladen");
+  try{
+    const q=qrcode(0,"L");q.addData(/^W[23]/.test(code)?code:await qrPack(code));q.make();
+    const n=q.getModuleCount(),cell=Math.max(3,Math.floor(900/(n+8))),sz=(n+8)*cell,c=$("qrc"),x=c.getContext("2d");
+    c.width=c.height=sz;x.fillStyle="#fff";x.fillRect(0,0,sz,sz);x.fillStyle="#000";
+    for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))x.fillRect((k+4)*cell,(r+4)*cell,cell,cell);
+    $("qcap").textContent=id==="offerOut"?"QR-Code: Angebot":"QR-Code: Antwort";
+    $("qrv").classList.add("on");
+  }catch(e){toast("Code ist zu lang für einen QR-Code. Schicke ihn als Text.")}
+}
+let scanStream=null,scanTarget="",scanRaf=0,scanTick=0;
+function stopScan(){
+  cancelAnimationFrame(scanRaf);
+  if(scanStream)scanStream.getTracks().forEach(t=>t.stop());
+  scanStream=null;$("sv").srcObject=null;$("scan").classList.remove("on");
+}
+async function gotQR(text){
+  stopScan();
+  try{
+    const code=await qrUnpack(text);dec(code);
+    if(scanTarget==="O"){setRole("guest");$("offerIn").value=code;toast("QR gelesen");$("bAnswer").click()}
+    else{setRole("host");$("answerIn").value=code;toast("QR gelesen");$("bAccept").click()}
+  }catch(e){toast("Das ist kein gültiger Verbindungs-Code")}
+}
+function scanLoop(){
+  if(!scanStream)return;
+  const v=$("sv");
+  if(v.readyState>=2&&v.videoWidth&&(++scanTick%2===0)){
+    const c=$("sc"),k=Math.min(1,960/v.videoWidth);c.width=Math.round(v.videoWidth*k);c.height=Math.round(v.videoHeight*k);
+    const x=c.getContext("2d",{willReadFrequently:true});x.drawImage(v,0,0,c.width,c.height);
+    const d=jsQR(x.getImageData(0,0,c.width,c.height).data,c.width,c.height,{inversionAttempts:"dontInvert"});
+    if(d&&d.data)return gotQR(d.data);
+  }
+  scanRaf=requestAnimationFrame(scanLoop);
+}
+async function openScan(target){
+  if(typeof jsQR==="undefined")return toast("Scanner-Bibliothek nicht geladen");
+  scanTarget=target;$("scan").classList.add("on");$("smsg").textContent="Kamera wird gestartet …";
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    const v=$("sv");v.srcObject=scanStream;await v.play();
+    $("smsg").textContent="Halte die Kamera ruhig auf den QR-Code.";scanLoop();
+  }catch(e){$("smsg").textContent="Kamera nicht verfügbar oder nicht erlaubt. Mit „Bild laden“ kannst du stattdessen ein Foto oder einen Screenshot des QR-Codes wählen."}
+}
+document.querySelectorAll("[data-qr]").forEach(b=>b.onclick=()=>showQR(b.dataset.qr));
+$("bScanO").onclick=()=>openScan("O");$("bScanA").onclick=()=>openScan("A");
+$("qcl").onclick=()=>$("qrv").classList.remove("on");$("scl").onclick=stopScan;
+$("sf").onclick=()=>$("qrf").click();
+$("qrf").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  try{
+    const bm=await createImageBitmap(f),k=Math.min(1,1800/Math.max(bm.width,bm.height)),c=document.createElement("canvas");
+    c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);
+    const x=c.getContext("2d");x.drawImage(bm,0,0,c.width,c.height);
+    const d=jsQR(x.getImageData(0,0,c.width,c.height).data,c.width,c.height);
+    d&&d.data?gotQR(d.data):toast("Im Bild wurde kein QR-Code gefunden");
+  }catch(err){toast("Das Bild konnte nicht gelesen werden")}
+};
+
+/* Verbindung stabil halten */
+let pingT=0,lostT=0,wl=null;
+function startPing(){stopPing();pingT=setInterval(()=>sig({k:"pi",t:Date.now()}),8000)}
+function stopPing(){clearInterval(pingT);pingT=0}
+async function wakeOn(){
+  if(!$("oWake").checked||!navigator.wakeLock||wl)return;
+  try{wl=await navigator.wakeLock.request("screen");wl.onrelease=()=>{wl=null}}catch(e){wl=null}
+}
+function wakeOff(){try{wl&&wl.release()}catch(e){}wl=null}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&dc&&dc.readyState==="open")wakeOn()});
+function lost(){
+  if(lostT)return;lostT=setTimeout(()=>lostT=0,4000);
+  stopPing();wakeOff();
+  sys("Verbindung verloren, zum Beispiel durch Netzwechsel, Ruhezustand oder Hintergrund-Tab. Der Chatverlauf bleibt erhalten.");
+  $("dConn").open=true;
+  if(role==="host"){try{$("bOffer").click();sys("Ein neues Angebot wurde erzeugt. Schicke es erneut (Code oder QR).")}catch(e){}}
+  else sys("Warte auf ein neues Angebot der anderen Person.");
+}
 
 function beep(){
   if(!$("oSound").checked)return;
