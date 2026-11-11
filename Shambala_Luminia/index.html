@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1b1535">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Shambala Luminia – Zamis Reise</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud"><b id="level"></b><span id="count"></span></div>
+<canvas id="map" width="150" height="150"></canvas>
+<nav id="bar">
+  <button id="bMagic" title="Hecken-Zauber (Leertaste)">✨</button>
+  <button id="bJournal" title="Weisheiten">📖</button>
+  <button id="bSet" title="Einstellungen">⚙</button>
+  <button id="bFs" title="Vollbild">⛶</button>
+</nav>
+<div id="arrow" title="Lunas Kompass"><span>➤</span></div>
+<div id="toast"></div>
+<div id="joy"><div id="knob"></div></div>
+
+<section class="panel" id="start">
+  <div class="card center">
+    <h1>Shambala Luminia</h1>
+    <p class="sub">Zamis Reise</p>
+    <p>Zaminia schließt die Augen, zählt von 10 bis 0 und öffnet die alte Tür. Mit Luna an ihrer Seite wandert sie durch das Tal, den Harfenwald und die goldenen Berge – bis zum Kristallkreis.</p>
+    <p class="small">Finde in jedem Labyrinth drei leuchtende Weisheitssteine, beantworte die Fragen und kehre zum Kristall zurück. Falsche Antworten kosten nichts.</p>
+    <p class="small"><b>Computer:</b> W A S D laufen · Leertaste: Hecken-Zauber ✨ · Pfeile oder Maus ziehen: Blick · Esc: Einstellungen<br><b>Smartphone:</b> links wischen: laufen · rechts wischen: Blick</p>
+    <button class="btn big" id="cont" hidden>Weiterspielen</button>
+    <button class="btn big" id="go">Neue Reise beginnen</button>
+    <button class="btn ghost" id="goSet">Einstellungen</button>
+  </div>
+</section>
+
+<section class="panel" id="riddle" hidden>
+  <div class="card">
+    <h2 id="rwho"></h2>
+    <p id="rq" class="q"></p>
+    <div id="ropts"></div>
+    <p id="rhint" class="hintp"></p>
+    <p id="rwis" class="wis" hidden></p>
+    <button class="btn big" id="rnext" hidden>Weitergehen</button>
+  </div>
+</section>
+
+<section class="panel" id="journal" hidden>
+  <div class="card">
+    <h2>Zamis Weisheiten</h2>
+    <ol id="jlist"></ol>
+    <button class="btn" data-close="journal">Schließen</button>
+  </div>
+</section>
+
+<section class="panel" id="settings" hidden>
+  <div class="card">
+    <h2>Einstellungen</h2>
+    <label>Lautstärke <input type="range" min="0" max="1" step=".05" data-k="vol"></label>
+    <label>Blick-Empfindlichkeit <input type="range" min=".4" max="2.5" step=".1" data-k="sens"></label>
+    <label>Lauftempo <input type="range" min=".6" max="1.6" step=".1" data-k="speed"></label>
+    <label>Sichtweite <input type="range" min=".5" max="2" step=".1" data-k="view"></label>
+    <label>Tageszeit
+      <select data-k="time"><option value="dawn">Morgendämmerung</option><option value="day">Mittag</option><option value="dusk">Abend</option><option value="night">Nacht</option></select></label>
+    <label>Kamera
+      <select data-k="cam"><option value="third">Von hinten (Zami sichtbar)</option><option value="first">Ich-Perspektive</option></select></label>
+    <label>Kamera-Abstand <input type="range" min="2" max="9" step=".2" data-k="dist"></label>
+    <label>Kamera-Höhe <input type="range" min=".8" max="3" step=".1" data-k="eye"></label>
+    <label>Neigung <input type="range" min="-.3" max="1.1" step=".05" data-k="tilt"></label>
+    <label>Sichtfeld <input type="range" min="45" max="100" step="1" data-k="fov"></label>
+    <label class="chk"><input type="checkbox" data-k="inv"> Blick oben/unten umkehren</label>
+    <label>Heckenfarbe
+      <select data-k="hedge"><option value="natur">Natur (je Ebene)</option><option value="bunt">Bunt</option><option value="herbst">Herbst</option><option value="rosa">Kirschblüte</option><option value="frost">Frost</option><option value="gold">Gold</option></select></label>
+    <label>Hecken-Durchsichtigkeit <input type="range" min="0" max=".85" step=".05" data-k="glass"></label>
+    <label>Grafik
+      <select data-k="quality"><option value="low">Sparsam (schwache Geräte)</option><option value="mid">Normal</option><option value="high">Scharf</option></select></label>
+    <label class="chk"><input type="checkbox" data-k="map"> Karte anzeigen</label>
+    <label class="chk"><input type="checkbox" data-k="arrow"> Lunas Kompass anzeigen</label>
+    <label class="chk"><input type="checkbox" data-k="joy"> Touch-Joystick</label>
+    <div class="saves"><b>Spielstand</b><br><button class="btn" id="sSave">Speichern</button><button class="btn" id="sLoad">Laden</button><button class="btn ghost" id="sNew">Neues Spiel</button></div>
+    <div class="row"><button class="btn ghost" id="reset">Einstellungen zurücksetzen</button><button class="btn" data-close="settings">Fertig</button></div>
+  </div>
+</section>
+
+<section class="panel" id="end" hidden>
+  <div class="card center">
+    <h2 id="etitle"></h2>
+    <p id="etext"></p>
+    <button class="btn big" id="enext"></button>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="config.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

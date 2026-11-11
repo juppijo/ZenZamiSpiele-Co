@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Shambala Luminia: Zaminias Pfad der Weisheit</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js (r128) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&family=Cinzel:wght@500;700&display=swap');
+
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #080711;
+            color: #f1f5f9;
+        }
+
+        .font-cinzel {
+            font-family: 'Cinzel', serif;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Styling */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .glass-btn:hover, .glass-btn:active {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+
+        /* Touch Joystick styling */
+        .joystick-base {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 10;
+            touch-action: none;
+            display: none;
+        }
+
+        .joystick-thumb {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.8) 0%, rgba(217, 119, 6, 0.6) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+            pointer-events: none;
+        }
+
+        #touch-look-area {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            z-index: 5;
+            display: none;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        .pulse-light {
+            animation: pulse-glow 3s infinite ease-in-out;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 8;
+            pointer-events: none;
+        }
+
+        .onscreen-btn {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: #fef08a;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .onscreen-btn:active, .onscreen-btn.active {
+            background: rgba(245, 158, 11, 0.4);
+            border-color: rgba(251, 191, 36, 0.8);
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="select-none overflow-hidden bg-slate-950 text-slate-100">
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+    <div id="crosshair"></div>
+
+    <!-- Interaction Prompt -->
+    <div id="interaction-prompt" class="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 glass-card px-6 py-3 rounded-2xl border-amber-400/50 text-amber-200 text-sm font-bold shadow-2xl flex items-center gap-3 opacity-0 pointer-events-none transition-all duration-300 transform translate-y-2">
+        <span class="px-2.5 py-1 bg-amber-500 text-slate-950 rounded-lg text-xs font-black shadow">E</span>
+        <span id="prompt-text">Drücke E oder Klick [Interagieren], um Weisheit zu empfangen</span>
+    </div>
+
+    <!-- HUD Top Left -->
+    <div class="absolute top-4 left-4 z-10 flex flex-col gap-2 max-w-xs sm:max-w-md pointer-events-none">
+        <div class="glass-card p-4 rounded-2xl border-amber-500/20 pointer-events-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-xl font-bold shadow-lg shadow-amber-500/20">
+                    🌸
+                </div>
+                <div>
+                    <h1 class="font-cinzel text-base sm:text-lg font-bold text-amber-200 tracking-wide leading-tight">Shambala Luminia</h1>
+                    <p class="text-xs text-slate-300 font-medium">Zaminias Pfad der Weisheit</p>
+                </div>
+            </div>
+            
+            <div class="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
+                <span class="text-xs text-amber-300/80 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-gem text-cyan-400"></i> Weisheiten
+                </span>
+                <span id="wisdom-counter" class="text-sm font-bold text-cyan-300">0 / 4 Frei</span>
+            </div>
+
+            <div class="mt-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 flex items-start gap-2">
+                <i class="fa-solid fa-compass text-amber-400 mt-0.5 text-xs"></i>
+                <p id="current-objective" class="text-xs text-slate-200 leading-relaxed">Finde den 1. leuchtenden Kristall im Harfen-Labyrinth (Pfeiltasten oder Buttons nutzen).</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Right Controls -->
+    <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <button id="btn-save-game" class="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-amber-300 hover:text-white" title="Spielstand speichern">
+            <i class="fa-solid fa-floppy-disk text-lg"></i>
+        </button>
+        <button id="btn-load-game" class="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-cyan-300 hover:text-white" title="Spielstand laden">
+            <i class="fa-solid fa-cloud-arrow-down text-lg"></i>
+        </button>
+        <button id="btn-reset-game" class="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-rose-300 hover:text-white" title="Spiel zurücksetzen">
+            <i class="fa-solid fa-rotate-right text-lg"></i>
+        </button>
+        <button id="btn-camera" class="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-slate-200 hover:text-white" title="Kamera wechseln (C)">
+            <i class="fa-solid fa-camera text-lg"></i>
+        </button>
+        <button id="btn-fullscreen" class="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-slate-200 hover:text-white" title="Vollbild">
+            <i class="fa-solid fa-expand text-lg"></i>
+        </button>
+        <button id="btn-settings" class="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-slate-200 hover:text-white" title="Einstellungen">
+            <i class="fa-solid fa-gear text-lg"></i>
+        </button>
+    </div>
+
+    <!-- On-Screen Navigation Controls -->
+    <div class="absolute bottom-5 left-5 z-20 flex flex-col items-center gap-1">
+        <button id="btn-up" class="onscreen-btn w-12 h-12"><i class="fa-solid fa-arrow-up"></i></button>
+        <div class="flex gap-1">
+            <button id="btn-left" class="onscreen-btn w-12 h-12"><i class="fa-solid fa-arrow-left"></i></button>
+            <button id="btn-down" class="onscreen-btn w-12 h-12"><i class="fa-solid fa-arrow-down"></i></button>
+            <button id="btn-right" class="onscreen-btn w-12 h-12"><i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+    </div>
+
+    <!-- On-Screen Action & Magic Spell Buttons -->
+    <div class="absolute bottom-6 right-6 z-20 flex flex-col items-end gap-2">
+        <button id="btn-magic-spell" class="px-5 py-3 rounded-2xl bg-gradient-to-tr from-purple-600 to-cyan-500 text-white font-bold shadow-xl border border-purple-300/40 flex items-center gap-2 active:scale-95 transition-all">
+            <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+            <span class="text-sm font-extrabold tracking-wide">ZAUBER: HECKEN ENTHÜLLEN (Q)</span>
+        </button>
+        <button id="btn-action-interact" class="px-5 py-3.5 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 text-slate-950 font-bold shadow-xl border border-amber-300/40 flex items-center gap-2 active:scale-95 transition-all">
+            <i class="fa-solid fa-sparkles text-lg"></i>
+            <span class="text-sm font-extrabold tracking-wide">INTERAGIEREN (E)</span>
+        </button>
+    </div>
+
+    <div id="touch-look-area"></div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-card w-full max-w-md p-6 rounded-3xl border-amber-500/30 relative shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-cinzel text-xl font-bold text-amber-200 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-400"></i> Einstellungen
+                </h2>
+                <button id="btn-close-settings" class="text-slate-400 hover:text-white transition-colors w-8 h-8 rounded-full flex items-center justify-center bg-slate-800/50">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-5">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                    <div>
+                        <div class="text-sm font-semibold text-slate-100">Ambient Musik</div>
+                        <div class="text-xs text-slate-400">Pentatonischer Entspannungssound</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="setting-audio" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                </div>
+
+                <div class="pb-4 border-b border-slate-800">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-semibold text-slate-100">Kamera-Empfindlichkeit</span>
+                    </div>
+                    <input type="range" id="setting-sensitivity" min="1" max="5" value="3" class="w-full accent-amber-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-800 text-center">
+                <button id="btn-save-settings" class="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-amber-500/25 hover:brightness-110 active:scale-[0.98] transition-all">
+                    Übernehmen & Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riddle Modal -->
+    <div id="riddle-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-lg flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-card w-full max-w-lg p-6 sm:p-8 rounded-3xl border-amber-500/30 relative scale-95 transition-transform duration-300 shadow-2xl">
+            <div class="flex items-center gap-4 mb-4">
+                <div id="avatar-container" class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-rose-600 flex items-center justify-center text-3xl shadow-lg border border-amber-200/30 shrink-0">
+                    🐱
+                </div>
+                <div>
+                    <span id="dialog-speaker" class="text-xs font-bold uppercase tracking-widest text-amber-400">Zen-Meister Zenjio</span>
+                    <h3 id="riddle-title" class="font-cinzel text-xl font-bold text-white leading-snug">Der Kristall des Atems</h3>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800/80 mb-5">
+                <p id="riddle-text" class="text-sm sm:text-base text-slate-200 leading-relaxed italic">
+                    "Wenn die Welt draußen laut ist..."
+                </p>
+            </div>
+
+            <div id="riddle-options" class="space-y-3 mb-4"></div>
+            <div id="riddle-feedback" class="hidden p-3 rounded-xl text-xs font-semibold text-center mb-4"></div>
+
+            <div class="flex justify-end">
+                <button id="btn-close-riddle" class="hidden px-6 py-2.5 bg-amber-500 text-slate-950 font-bold rounded-xl hover:bg-amber-400 transition-all">
+                    Pfad fortsetzen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory Modal -->
+    <div id="victory-modal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="glass-card w-full max-w-xl p-8 rounded-3xl border-amber-400/40 text-center relative shadow-2xl">
+            <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-cyan-400 mx-auto flex items-center justify-center text-4xl mb-4 shadow-xl pulse-light">
+                ✨
+            </div>
+            <h2 class="font-cinzel text-3xl font-bold text-amber-200 mb-2">Der Kristallkreis Erstrahlt</h2>
+            <p class="text-sm text-cyan-300 uppercase tracking-widest font-semibold mb-4">Shambala Luminia erreicht</p>
+            
+            <p class="text-sm sm:text-base text-slate-300 leading-relaxed mb-6">
+                Zaminia hat mit Hilfe von Luna, Mia und Zenjio alle Kristalle entzündet. Der Bewusstseinsfluss glitzert in vollkommenem Licht.
+            </p>
+
+            <button onclick="location.reload()" class="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-amber-500/30 hover:brightness-110 transition-all">
+                Erneut Durchwandern
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Game Engine -->
+    <script>
+        const WISDOM_DATA = [
+            {
+                id: 1,
+                title: "Der Kristall des Atems",
+                speaker: "Zen-Meister Zenjio",
+                avatar: "🧘‍♂️",
+                quote: "„Wenn die Welt draußen laut ist und Gedanken wie stürmische Vögel kommen...“",
+                question: "Wie finden wir in lautstarken Momenten zurück in die innere Stille?",
+                options: [
+                    { text: "Indem wir länger ausatmen als ein und den Gedanken Raum ohne Käfig bieten.", correct: true },
+                    { text: "Indem wir versuchen, alle Gedanken sofort zu bekämpfen und zu verdrängen.", correct: false },
+                    { text: "Indem wir so schnell wie möglich weglaufen.", correct: false }
+                ],
+                explanation: "Richtig! Die Ausatmung macht Raum. In der Stille zwischen zwei Atemzügen wächst die Klarheit.",
+                position: { x: 12, z: -12 }
+            },
+            {
+                id: 2,
+                title: "Der Kristall der goldenen Risse",
+                speaker: "Mia (Restauratorin)",
+                avatar: "🏛️",
+                quote: "„Beim Restaurieren gab es einen Riss in der Ikone...“",
+                question: "Wie gehen wir mit eigenen Fehlern, Wunden und Makeln um?",
+                options: [
+                    { text: "Wir versuchen sie um jeden Preis zu verstecken.", correct: false },
+                    { text: "Wir weben goldene Fäden hinein – das Licht der Würdigung lässt Narben strahlen.", correct: true },
+                    { text: "Wir werfen das Werkstück sofort weg.", correct: false }
+                ],
+                explanation: "Wundervoll. Nicht alles glätten, sondern Licht in die Risse weben.",
+                position: { x: -14, z: -28 }
+            },
+            {
+                id: 3,
+                title: "Der Kristall des Herzens-Samens",
+                speaker: "Zaminia & Luna",
+                avatar: "🐈",
+                quote: "„Ich fühle einen kleinen warmen Samen in meinem Herzen...“",
+                question: "Womit sollten wir diesen Seelensamen im Fluss des Lebens gießen?",
+                options: [
+                    { text: "Mit Strenge und Perfektionszwang.", correct: false },
+                    { text: "Mit Mut, Achtsamkeit und einer Prise freudiger Unvollkommenheit.", correct: true },
+                    { text: "Mit ständiger Sorge vor dem Morgen.", correct: false }
+                ],
+                explanation: "Ganz genau! Luna schnurrt erfreut: 'Und vergiss nicht, zwischendurch zu spielen!'",
+                position: { x: 26, z: -38 }
+            },
+            {
+                id: 4,
+                title: "Der ZENTRALKRISTALL von Shambala",
+                speaker: "Die Gemeinschaft Shambalas",
+                avatar: "🔮",
+                quote: "„Du hast das Herz von Shambala Luminia erreicht.“",
+                question: "Was ist Shambala Luminia in deinem Wesen?",
+                options: [
+                    { text: "Ein entlegener Ort, den man nie wirklich betreten kann.", correct: false },
+                    { text: "Ein Bewusstseinszustand voller Liebe und Klarheit, den wir immer im Herzen tragen.", correct: true }
+                ],
+                explanation: "Willkommen zuhause. Der Kristall erstrahlt für dich!",
+                position: { x: 0, z: -55 }
+            }
+        ];
+
+        let unlockedWisdoms = 0;
+        let activeCrystalIndex = null;
+        let wallMeshes = [];
+        let spellActiveTimer = null;
+        let spellDurationLeft = 0;
+
+        // --- Audio Synthesizer ---
+        class AmbientAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.masterGain = null;
+                this.notes = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+            }
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.15;
+                this.masterGain.connect(this.ctx.destination);
+            }
+            start() {
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                this.isPlaying = true;
+                this.scheduleDrone();
+                this.scheduleMelody();
+            }
+            stop() {
+                this.isPlaying = false;
+            }
+            scheduleDrone() {
+                if (!this.isPlaying) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 130.81;
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.08, this.ctx.currentTime + 3);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 8);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 8.5);
+                setTimeout(() => this.scheduleDrone(), 7000);
+            }
+            scheduleMelody() {
+                if (!this.isPlaying) return;
+                const note = this.notes[Math.floor(Math.random() * this.notes.length)];
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = note;
+                const now = this.ctx.currentTime;
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.05, now + 1);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 4);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 4.1);
+                setTimeout(() => this.scheduleMelody(), 3000 + Math.random() * 3000);
+            }
+            playChime() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.08, now + i * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.1 + 1.5);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(now + i * 0.1);
+                    osc.stop(now + i * 0.1 + 1.6);
+                });
+            }
+        }
+        const audioSynth = new AmbientAudioEngine();
+
+        // --- Three.js Setup ---
+        let scene, camera, renderer;
+        let playerGroup;
+        let clock = new THREE.Clock();
+        const wallColliders = [];
+        const crystalObjects = [];
+        const barrierGates = [];
+
+        let yaw = 0;
+        let pitch = 0;
+        let cameraMode = 1; // 0=First Person, 1=Third Person, 2=Top Down
+
+        const keys = { forward: false, backward: false, left: false, right: false };
+
+        const MAZE_SIZE = 15;
+        const CELL_SIZE = 6;
+        const MAZE_GRID = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,3,1],
+            [1,0,1,1,1,0,1,1,1,0,1,1,1,0,1],
+            [1,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+            [1,0,1,0,1,2,1,0,1,1,1,0,1,0,1],
+            [1,0,0,0,1,0,1,0,0,0,1,0,1,0,1],
+            [1,1,1,0,1,0,1,1,1,0,1,0,1,0,1],
+            [1,3,0,0,0,0,0,0,0,0,0,0,0,3,1],
+            [1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+            [1,0,0,0,1,0,0,0,1,0,1,0,0,0,1],
+            [1,0,1,1,1,0,1,0,1,0,1,0,1,1,1],
+            [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+            [1,1,1,2,1,1,1,0,1,1,1,2,1,0,1],
+            [1,3,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        function init3DWorld() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x06050e);
+            scene.fog = new THREE.FogExp2(0x06050e, 0.022);
+
+            camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 200);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x3b3268, 1.4);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffedd5, 1.8);
+            sunLight.position.set(40, 70, 30);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+
+            // Ground with rich ethereal grid tone
+            const groundGeo = new THREE.PlaneGeometry(160, 160);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7, metalness: 0.1 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            buildLabyrinth();
+            createConsciousnessRiver();
+            createGoldenMountains();
+            createFloatingParticles();
+            createZaminiaPlayer();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            setupControls();
+            setupUI();
+            animate();
+        }
+
+        function buildLabyrinth() {
+            // Enhanced visual aesthetics for hedges/walls (magical purple-indigo crystalline plant hedges)
+            const wallGeo = new THREE.BoxGeometry(CELL_SIZE, 4.5, CELL_SIZE);
+            const wallMat = new THREE.MeshStandardMaterial({ 
+                color: 0x312e81, 
+                roughness: 0.4, 
+                metalness: 0.3,
+                emissive: 0x1e1b4b,
+                emissiveIntensity: 0.4
+            });
+            const startX = -((MAZE_SIZE * CELL_SIZE) / 2) + CELL_SIZE / 2;
+            const startZ = -((MAZE_SIZE * CELL_SIZE) / 2) + CELL_SIZE / 2;
+
+            let crystalCount = 0;
+
+            for (let r = 0; r < MAZE_SIZE; r++) {
+                for (let c = 0; c < MAZE_SIZE; c++) {
+                    const type = MAZE_GRID[r][c];
+                    const x = startX + c * CELL_SIZE;
+                    const z = startZ + r * CELL_SIZE;
+
+                    if (type === 1) {
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(x, 2.25, z);
+                        wall.castShadow = true;
+                        wall.receiveShadow = true;
+                        scene.add(wall);
+                        wallMeshes.push(wall);
+                        wallColliders.push(new THREE.Box3().setFromObject(wall));
+                    } else if (type === 2) {
+                        createBarrierGate(x, z);
+                    } else if (type === 3) {
+                        if (crystalCount < WISDOM_DATA.length) {
+                            createWisdomCrystal(x, z, WISDOM_DATA[crystalCount]);
+                            crystalCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        function createFloatingParticles() {
+            const particleCount = 200;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 100;
+                positions[i + 1] = Math.random() * 15;
+                positions[i + 2] = (Math.random() - 0.5) * 100;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({
+                color: 0x38bdf8,
+                size: 0.6,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+        }
+
+        function createBarrierGate(x, z) {
+            const group = new THREE.Group();
+            group.position.set(x, 2, z);
+            const mat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.7, emissive: 0xd97706, emissiveIntensity: 0.8 });
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(CELL_SIZE, 4.5, 0.4), mat);
+            group.add(bar);
+            scene.add(group);
+            barrierGates.push({ mesh: group, x, z });
+            wallColliders.push(new THREE.Box3().setFromObject(group));
+        }
+
+        function createWisdomCrystal(x, z, data) {
+            const group = new THREE.Group();
+            group.position.set(x, 2.5, z);
+            const crystalGeo = new THREE.OctahedronGeometry(1.4);
+            const crystalMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x0891b2, emissiveIntensity: 0.9, roughness: 0.1, metalness: 0.9 });
+            const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+            group.add(crystal);
+            
+            // Point light for glowing magic
+            const light = new THREE.PointLight(0x22d3ee, 2, 8);
+            group.add(light);
+
+            scene.add(group);
+            crystalObjects.push({ group, data, collected: false, x, z });
+        }
+
+        function createConsciousnessRiver() {
+            const riverGeo = new THREE.PlaneGeometry(180, 12);
+            const riverMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.05, emissive: 0x0891b2, emissiveIntensity: 0.5 });
+            const river = new THREE.Mesh(riverGeo, riverMat);
+            river.rotation.x = -Math.PI / 2;
+            river.position.set(0, 0.08, 48);
+            scene.add(river);
+        }
+
+        function createGoldenMountains() {
+            const mountainMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8, metalness: 0.2 });
+            for (let i = 0; i < 7; i++) {
+                const geo = new THREE.ConeGeometry(18 + Math.random() * 12, 35 + Math.random() * 25, 4);
+                const mesh = new THREE.Mesh(geo, mountainMat);
+                mesh.position.set((i - 3) * 38, 16, -75 - Math.random() * 25);
+                scene.add(mesh);
+            }
+        }
+
+        function createZaminiaPlayer() {
+            playerGroup = new THREE.Group();
+            const startX = -((MAZE_SIZE * CELL_SIZE) / 2) + CELL_SIZE / 2;
+            const startZ = -((MAZE_SIZE * CELL_SIZE) / 2) + CELL_SIZE / 2;
+            playerGroup.position.set(startX + 7 * CELL_SIZE, 0, startZ + 13 * CELL_SIZE);
+
+            // Zami Body & Red Hair marker
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3 });
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.4 });
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 1.6, 8), bodyMat);
+            body.position.y = 0.8;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), headMat);
+            head.position.y = 1.8;
+            
+            playerGroup.add(body);
+            playerGroup.add(head);
+            scene.add(playerGroup);
+        }
+
+        // --- Magic Spell Functionality ---
+        function castMagicSpell() {
+            if (spellActiveTimer) return; // Already active
+
+            showPrompt("✨ Zauber aktiv: Hecken enthüllt für 4 Sekunden!");
+            audioSynth.playChime();
+
+            // Make walls transparent
+            wallMeshes.forEach(wall => {
+                wall.material.transparent = true;
+                wall.material.opacity = 0.15;
+            });
+
+            spellDurationLeft = 4;
+            const spellInterval = setInterval(() => {
+                spellDurationLeft--;
+                if (spellDurationLeft <= 0) {
+                    clearInterval(spellInterval);
+                    // Restore walls
+                    wallMeshes.forEach(wall => {
+                        wall.material.transparent = false;
+                        wall.material.opacity = 1.0;
+                    });
+                    spellActiveTimer = null;
+                }
+            }, 1000);
+
+            spellActiveTimer = spellInterval;
+        }
+
+        // --- Save / Load / Reset Game State ---
+        function saveGame() {
+            const gameState = {
+                unlockedWisdoms,
+                collectedStatus: crystalObjects.map(c => c.collected),
+                playerPosition: { x: playerGroup.position.x, z: playerGroup.position.z },
+                yaw
+            };
+            localStorage.setItem('shambala_save', JSON.stringify(gameState));
+            showPrompt("💾 Spielstand erfolgreich gespeichert!");
+        }
+
+        function loadGame() {
+            const saved = localStorage.getItem('shambala_save');
+            if (!saved) {
+                showPrompt("⚠️ Kein gespeicherter Spielstand gefunden.");
+                return;
+            }
+            try {
+                const data = JSON.parse(saved);
+                unlockedWisdoms = data.unlockedWisdoms;
+                document.getElementById('wisdom-counter').innerText = `${unlockedWisdoms} / 4 Frei`;
+
+                data.collectedStatus.forEach((status, idx) => {
+                    if (status && crystalObjects[idx] && !crystalObjects[idx].collected) {
+                        crystalObjects[idx].collected = true;
+                        scene.remove(crystalObjects[idx].group);
+                    }
+                });
+
+                if (data.playerPosition) {
+                    playerGroup.position.x = data.playerPosition.x;
+                    playerGroup.position.z = data.playerPosition.z;
+                }
+                if (typeof data.yaw === 'number') yaw = data.yaw;
+
+                showPrompt("📂 Spielstand erfolgreich geladen!");
+            } catch (e) {
+                showPrompt("❌ Fehler beim Laden des Spielstands.");
+            }
+        }
+
+        function resetGame() {
+            if (confirm("Möchtest du das Spiel wirklich komplett zurücksetzen?")) {
+                localStorage.removeItem('shambala_save');
+                location.reload();
+            }
+        }
+
+        // --- Controls & Input ---
+        function setupControls() {
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'ArrowUp' || e.code === 'KeyW') { keys.forward = true; e.preventDefault(); }
+                if (e.code === 'ArrowDown' || e.code === 'KeyS') { keys.backward = true; e.preventDefault(); }
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') { keys.left = true; e.preventDefault(); }
+                if (e.code === 'ArrowRight' || e.code === 'KeyD') { keys.right = true; e.preventDefault(); }
+                if (e.code === 'KeyC') { switchCameraMode(); }
+                if (e.code === 'KeyQ') { castMagicSpell(); }
+                if (e.code === 'KeyE' || e.code === 'Space') { checkInteraction(); e.preventDefault(); }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.forward = false;
+                if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.backward = false;
+                if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+                if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            });
+
+            bindHoldButton('btn-up', 'forward');
+            bindHoldButton('btn-down', 'backward');
+            bindHoldButton('btn-left', 'left');
+            bindHoldButton('btn-right', 'right');
+
+            document.getElementById('btn-action-interact').addEventListener('click', checkInteraction);
+            document.getElementById('btn-magic-spell').addEventListener('click', castMagicSpell);
+            document.getElementById('btn-save-game').addEventListener('click', saveGame);
+            document.getElementById('btn-load-game').addEventListener('click', loadGame);
+            document.getElementById('btn-reset-game').addEventListener('click', resetGame);
+            document.getElementById('btn-camera').addEventListener('click', switchCameraMode);
+        }
+
+        function bindHoldButton(id, keyName) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('mousedown', () => keys[keyName] = true);
+            btn.addEventListener('mouseup', () => keys[keyName] = false);
+            btn.addEventListener('mouseleave', () => keys[keyName] = false);
+            btn.addEventListener('touchstart', (e) => { keys[keyName] = true; e.preventDefault(); });
+            btn.addEventListener('touchend', (e) => { keys[keyName] = false; e.preventDefault(); });
+        }
+
+        function switchCameraMode() {
+            cameraMode = (cameraMode + 1) % 3;
+            const titles = ["Ego-Perspektive (First Person)", "Schulter-Kamera (Third Person)", "Vogelperspektive (Top Down)"];
+            showPrompt(titles[cameraMode]);
+        }
+
+        function checkInteraction() {
+            if (activeCrystalIndex !== null) {
+                openRiddleModal(crystalObjects[activeCrystalIndex]);
+            }
+        }
+
+        function showPrompt(text) {
+            const prompt = document.getElementById('interaction-prompt');
+            document.getElementById('prompt-text').innerText = text;
+            prompt.style.opacity = '1';
+            prompt.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                prompt.style.opacity = '0';
+                prompt.style.transform = 'translate(-50%, 8px)';
+            }, 2500);
+        }
+
+        // --- UI & Modals ---
+        function setupUI() {
+            const settingsModal = document.getElementById('settings-modal');
+            document.getElementById('btn-settings').addEventListener('click', () => settingsModal.classList.remove('opacity-0', 'pointer-events-none'));
+            document.getElementById('btn-close-settings').addEventListener('click', () => settingsModal.classList.add('opacity-0', 'pointer-events-none'));
+            document.getElementById('btn-save-settings').addEventListener('click', () => {
+                const audioOn = document.getElementById('setting-audio').checked;
+                if (audioOn) audioSynth.start();
+                else audioSynth.stop();
+                settingsModal.classList.add('opacity-0', 'pointer-events-none');
+            });
+
+            document.getElementById('btn-fullscreen').addEventListener('click', () => {
+                if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+                else document.exitFullscreen();
+            });
+        }
+
+        function openRiddleModal(crystalObj) {
+            const data = crystalObj.data;
+            const modal = document.getElementById('riddle-modal');
+            document.getElementById('dialog-speaker').innerText = data.speaker;
+            document.getElementById('avatar-container').innerText = data.avatar;
+            document.getElementById('riddle-title').innerText = data.title;
+            document.getElementById('riddle-text').innerText = `${data.quote}\n\n${data.question}`;
+
+            const optionsContainer = document.getElementById('riddle-options');
+            optionsContainer.innerHTML = '';
+            const feedback = document.getElementById('riddle-feedback');
+            feedback.classList.add('hidden');
+            const btnClose = document.getElementById('btn-close-riddle');
+            btnClose.classList.add('hidden');
+
+            data.options.forEach(opt => {
+                const optBtn = document.createElement('button');
+                optBtn.className = 'w-full text-left p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-slate-200 hover:bg-amber-500/20 hover:border-amber-500/50 transition-all';
+                optBtn.innerText = opt.text;
+                optBtn.onclick = () => {
+                    if (opt.correct) {
+                        feedback.innerText = data.explanation;
+                        feedback.className = 'p-3 rounded-xl text-xs font-semibold text-center mb-4 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                        feedback.classList.remove('hidden');
+                        btnClose.classList.remove('hidden');
+                        audioSynth.playChime();
+
+                        crystalObj.collected = true;
+                        scene.remove(crystalObj.group);
+                        unlockedWisdoms++;
+                        document.getElementById('wisdom-counter').innerText = `${unlockedWisdoms} / 4 Frei`;
+
+                        if (unlockedWisdoms >= 4) {
+                            setTimeout(() => {
+                                modal.classList.add('opacity-0', 'pointer-events-none');
+                                document.getElementById('victory-modal').classList.remove('opacity-0', 'pointer-events-none');
+                            }, 1500);
+                        }
+                    } else {
+                        feedback.innerText = "Spüre noch einmal nach. Das ist noch nicht die volle Weisheit.";
+                        feedback.className = 'p-3 rounded-xl text-xs font-semibold text-center mb-4 bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                        feedback.classList.remove('hidden');
+                    }
+                };
+                optionsContainer.appendChild(optBtn);
+            });
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        document.getElementById('btn-close-riddle').addEventListener('click', () => {
+            document.getElementById('riddle-modal').classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        // --- Main Game Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Pulsing animation for active crystals
+            crystalObjects.forEach(cry => {
+                if (!cry.collected) {
+                    cry.group.rotation.y += delta * 1.5;
+                }
+            });
+
+            // Movement Calculation
+            const moveSpeed = 6 * delta;
+            const rotSpeed = 2.2 * delta;
+
+            if (keys.left) yaw += rotSpeed;
+            if (keys.right) yaw -= rotSpeed;
+
+            const dir = new THREE.Vector3(0, 0, 0);
+            if (keys.forward) dir.z -= 1;
+            if (keys.backward) dir.z += 1;
+            dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            dir.normalize().multiplyScalar(moveSpeed);
+
+            if (playerGroup) {
+                const nextPos = playerGroup.position.clone().add(dir);
+                
+                let collided = false;
+                const playerBox = new THREE.Box3().setFromCenterAndSize(nextPos, new THREE.Vector3(1, 2, 1));
+                for (const box of wallColliders) {
+                    if (playerBox.intersectsBox(box)) {
+                        collided = true;
+                        break;
+                    }
+                }
+
+                if (!collided) {
+                    playerGroup.position.copy(nextPos);
+                }
+                playerGroup.rotation.y = yaw;
+            }
+
+            // Check Crystal Proximity
+            activeCrystalIndex = null;
+            let nearestDist = 999;
+            crystalObjects.forEach((cry, idx) => {
+                if (!cry.collected && playerGroup) {
+                    const dist = playerGroup.position.distanceTo(cry.group.position);
+                    if (dist < 4.5 && dist < nearestDist) {
+                        nearestDist = dist;
+                        activeCrystalIndex = idx;
+                    }
+                }
+            });
+
+            const promptEl = document.getElementById('interaction-prompt');
+            if (activeCrystalIndex !== null) {
+                promptEl.style.opacity = '1';
+                promptEl.style.transform = 'translate(-50%, 0)';
+            } else {
+                promptEl.style.opacity = '0';
+                promptEl.style.transform = 'translate(-50%, 8px)';
+            }
+
+            // Camera Follow Modes
+            if (playerGroup) {
+                if (cameraMode === 0) {
+                    camera.position.copy(playerGroup.position).add(new THREE.Vector3(0, 1.6, 0));
+                    const lookTarget = camera.position.clone().add(new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)));
+                    camera.lookAt(lookTarget);
+                } else if (cameraMode === 1) {
+                    const offset = new THREE.Vector3(0, 4, 7).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                    camera.position.copy(playerGroup.position).add(offset);
+                    camera.lookAt(playerGroup.position.clone().add(new THREE.Vector3(0, 1, 0)));
+                } else {
+                    camera.position.set(playerGroup.position.x, 35, playerGroup.position.z + 12);
+                    camera.lookAt(playerGroup.position);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init3DWorld;
+    </script>
+</body>
+</html>
